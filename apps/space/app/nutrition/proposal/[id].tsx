@@ -21,18 +21,15 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   compareTarget,
-  goalFigure,
+  goalValue,
   NUTRIENTS,
-  NUTRIENT_NAMES,
+  unchangedTarget,
   type GoalTarget,
   type GoalVersion,
 } from '../../../src/client/nutrition'
 import { createSpaceNutritionFlow } from '../../../src/client/nutrition-transport'
 import { macroColor } from '../../../src/components/nutrition-ui'
-
-const READ_FAILED = 'No pudimos abrir la propuesta. Inténtalo otra vez.'
-const DECIDE_FAILED = 'No pudimos guardar tu decisión. Inténtalo otra vez.'
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+import { useLocale, useText } from '../../../src/i18n/use-text'
 
 const percent = (share: number): `${number}%` => `${share * 100}%`
 /** Where a target sits on its track, from the larger of the two values. */
@@ -44,6 +41,8 @@ function span(target: GoalTarget, top: number): { readonly left: number; readonl
 }
 
 export default function ProposalScreen() {
+  const locale = useLocale()
+  const { common, nutrition: text } = useText()
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const theme = useTheme()
@@ -61,13 +60,13 @@ export default function ProposalScreen() {
         if (!alive) return
         setProposal(goals.proposals.find((one) => one.id === id))
         setActive(goals.active)
-        if (!goals.proposals.some((one) => one.id === id)) setFailure(READ_FAILED)
+        if (!goals.proposals.some((one) => one.id === id)) setFailure(text.proposal.readFailed)
       })
-      .catch(() => alive && setFailure(READ_FAILED))
+      .catch(() => alive && setFailure(text.proposal.readFailed))
     return () => {
       alive = false
     }
-  }, [flow, id])
+  }, [flow, id, text])
 
   const decide = (decision: 'accepted' | 'rejected') => {
     if (!proposal) return
@@ -79,7 +78,7 @@ export default function ProposalScreen() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         router.back()
       })
-      .catch(() => setFailure(DECIDE_FAILED))
+      .catch(() => setFailure(text.proposal.decideFailed))
       .finally(() => setBusy(undefined))
   }
 
@@ -101,7 +100,7 @@ export default function ProposalScreen() {
     display_name?: string
     organization_name?: string | null
   }
-  const name = author.display_name ?? 'Tu profesional'
+  const name = author.display_name ?? text.food.yourProfessional
   const initials = name
     .split(' ')
     .map((part) => part[0] ?? '')
@@ -119,9 +118,9 @@ export default function ProposalScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton icon="back" accessibilityLabel={common.back} onPress={() => router.back()} />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          Tu meta de nutrición
+          {text.proposal.title}
         </Text>
       </View>
 
@@ -142,17 +141,19 @@ export default function ProposalScreen() {
               </Text>
             </View>
             <View style={styles.grow}>
-              <Text role="control" size="md">{`${name} te propone una meta`}</Text>
+              <Text role="control" size="md">
+                {text.food.proposes(name)}
+              </Text>
               {author.organization_name ? (
                 <Text role="body" size="xs" color="secondary">
-                  {`Desde ${author.organization_name}`}
+                  {text.proposal.from(author.organization_name)}
                 </Text>
               ) : null}
             </View>
           </View>
           {proposal.rationale ? (
             <Text role="body" size="md">
-              {`«${proposal.rationale}»`}
+              {text.quoted(proposal.rationale)}
             </Text>
           ) : null}
         </View>
@@ -161,13 +162,13 @@ export default function ProposalScreen() {
           <View style={styles.legendItem}>
             <View style={[styles.legendNow, { borderColor: theme.color.text.secondary }]} />
             <Text role="body" size="xs" color="secondary">
-              Ahora
+              {text.proposal.now}
             </Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendProposed, { backgroundColor: theme.color.icon.accent }]} />
             <Text role="body" size="xs" color="secondary">
-              Propuesta
+              {text.proposal.proposed}
             </Text>
           </View>
         </View>
@@ -177,17 +178,17 @@ export default function ProposalScreen() {
           const next = proposed(code)
           const top = Math.max(
             1,
-            ...[now, next].flatMap((target) => (target ? [goalFigure(target).value * 1.3] : [])),
+            ...[now, next].flatMap((target) => (target ? [goalValue(target) * 1.3] : [])),
           )
-          const unchanged = compareTarget(now, next).endsWith('sin cambio')
+          const unchanged = unchangedTarget(now, next)
           return (
             <View key={code} style={styles.nutrient}>
               <View style={styles.nutrientHead}>
                 <Text role="control" size="md">
-                  {NUTRIENT_NAMES[code]}
+                  {text.nutrients[code]}
                 </Text>
                 <Text role="control" size="sm" color={unchanged ? 'muted' : 'primary'}>
-                  {compareTarget(now, next)}
+                  {compareTarget(now, next, locale)}
                 </Text>
               </View>
               <View
@@ -228,16 +229,14 @@ export default function ProposalScreen() {
 
         {decided ? (
           <Text role="body" size="sm" color="muted" align="center">
-            {proposal.status === 'active'
-              ? 'La aceptaste: es tu meta actual.'
-              : 'Ya decidiste sobre esta propuesta.'}
+            {proposal.status === 'active' ? text.proposal.accepted : text.proposal.decided}
           </Text>
         ) : (
           <>
             <View style={styles.actions}>
               <View style={styles.reject}>
                 <Button
-                  label="Rechazar"
+                  label={text.proposal.reject}
                   variant="secondary"
                   loading={busy === 'rejected'}
                   disabled={busy !== undefined}
@@ -246,7 +245,7 @@ export default function ProposalScreen() {
               </View>
               <View style={styles.grow}>
                 <Button
-                  label="Aceptar esta meta"
+                  label={text.proposal.accept}
                   loading={busy === 'accepted'}
                   disabled={busy !== undefined}
                   onPress={() => decide('accepted')}
@@ -254,7 +253,7 @@ export default function ProposalScreen() {
               </View>
             </View>
             <Text role="body" size="xs" color="muted" align="center">
-              Si la aceptas, reemplaza tu meta actual. Si la rechazas, no cambia nada.
+              {text.proposal.note}
             </Text>
           </>
         )}
@@ -263,12 +262,12 @@ export default function ProposalScreen() {
           <ContentRow
             icon="history"
             iconTone="quiet"
-            name={
-              active.origin === 'self'
-                ? 'Tu meta actual es propia'
-                : 'Tu meta actual es una propuesta aceptada'
-            }
-            caption={`Vigente desde el ${String(since.getDate())} ${MONTHS[since.getMonth()] ?? ''} · versión ${String(active.version_number)}`}
+            name={active.origin === 'self' ? text.proposal.ownGoal : text.proposal.acceptedGoal}
+            caption={text.proposal.since(
+              since.getDate(),
+              common.months[since.getMonth()] ?? '',
+              active.version_number,
+            )}
           />
         ) : null}
       </ScrollView>

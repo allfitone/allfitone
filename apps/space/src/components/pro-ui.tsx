@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { StyleSheet, View } from 'react-native'
 
 import { featureIcon, featureSentence, type ProFeature } from '../client/pro'
+import { useText } from '../i18n/use-text'
 
 const PRO_CARD = ['#0E3B45', '#08141C', '#050A10'] as const
 const FREE_CARD = ['#13222B', '#0A131A'] as const
@@ -53,6 +54,7 @@ export function MembershipCard({
   readonly facts: readonly CardFact[]
 }) {
   const theme = useTheme()
+  const words = useText().plans.plan.card
   return (
     <View
       style={[
@@ -90,17 +92,17 @@ export function MembershipCard({
             decorative
           />
           <Text role="control" size="xs" color={pro ? 'accent' : 'muted'}>
-            {pro ? 'Allfit Pro' : 'Tu plan'}
+            {pro ? 'Allfit Pro' : words.yourPlan}
           </Text>
         </View>
         {pro ? (
-          <Badge label="Activo" tone="success" variant="outline" dot uppercase={false} />
+          <Badge label={words.active} tone="success" variant="outline" dot uppercase={false} />
         ) : null}
       </View>
 
       <View style={styles.cardMiddle}>
         <Text role="display" size="6xl" accessibilityRole="header">
-          {pro ? 'PRO' : 'GRATIS'}
+          {pro ? 'PRO' : words.free}
         </Text>
         <Text role="body" size="sm" color="secondary">
           {source}
@@ -136,6 +138,7 @@ export function FeatureList({
   readonly waiting: string
 }) {
   const theme = useTheme()
+  const text = useText().plans
   if (features.length === 0) {
     return (
       <Note icon="explore" size="md" tile>
@@ -144,7 +147,7 @@ export function FeatureList({
     )
   }
   const listed = features.flatMap((feature) => {
-    const sentence = featureSentence(feature)
+    const sentence = featureSentence(feature, text)
     return sentence ? [{ feature, sentence }] : []
   })
   return (

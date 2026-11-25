@@ -21,6 +21,8 @@ import { typography } from '@allfitone/react-native/tokens'
 import { useEffect, useId, useRef, useState } from 'react'
 import { InputAccessoryView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native'
 
+import { useText } from '../i18n/use-text'
+
 const digits = (value: number | null) => (value === null ? '' : String(Math.round(value)))
 // The width of one condensed digit at the field's size, a little generous.
 const DIGIT = typography.size['3xl'] * 0.52
@@ -50,6 +52,7 @@ export function GoalValueField({
   readonly onDone?: () => void
 }) {
   const theme = useTheme()
+  const words = useText().nutrition
   const input = useRef<TextInput>(null)
   const accessory = useId()
   const [focused, setFocused] = useState(false)
@@ -77,7 +80,7 @@ export function GoalValueField({
         icon="subtract"
         size="sm"
         variant="outline"
-        accessibilityLabel={`Menos, ${accessibilityLabel}`}
+        accessibilityLabel={words.goalForm.less(accessibilityLabel)}
         onPress={() => nudge(-step)}
       />
       {/* Not a control of its own: the field inside is what VoiceOver reaches. */}
@@ -129,7 +132,7 @@ export function GoalValueField({
         icon="add"
         size="sm"
         variant="outline"
-        accessibilityLabel={`Más, ${accessibilityLabel}`}
+        accessibilityLabel={words.goalForm.more(accessibilityLabel)}
         onPress={() => nudge(step)}
       />
 
@@ -145,7 +148,7 @@ export function GoalValueField({
               onPress={() => input.current?.blur()}
             >
               <Text role="control" size="md" color="accent">
-                Listo
+                {words.done}
               </Text>
             </Pressable>
           </View>

@@ -11,30 +11,22 @@
  *
  * Dates are parsed as parts, never through `Date.parse`: a bare `YYYY-MM-DD` is read as
  * UTC and lands on the previous day for anybody west of Greenwich.
+ *
+ * Words come in as `text.session`; volumes are canonical kilograms, read in her unit.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
 
 export type HistoryItem = AllfitV1Schemas['SpaceHistoryItem']
 export type HistoryPage = AllfitV1Schemas['SpaceHistoryPage']
 export type HistoryMonth = AllfitV1Schemas['SpaceHistoryMonth']
 export type HistoryWeek = AllfitV1Schemas['SpaceHistoryWeek']
 
-const MONTHS = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
-const WEEKDAYS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
+/** What the history says: `text.session`. */
+export type HistoryWords = Dictionary['session']
+
 const DAY = 86_400_000
 
 /** A local calendar date as UTC midnight, so adding days never meets a clock change. */
@@ -58,60 +50,87 @@ export interface WeekGroup {
   readonly items: readonly HistoryItem[]
 }
 
-const shortMonth = (date: Date) => (MONTHS[date.getUTCMonth()] ?? '').slice(0, 3).toUpperCase()
+const shortMonth = (date: Date, words: HistoryWords) =>
+  (words.calendar.months[date.getUTCMonth()] ?? '').slice(0, 3).toUpperCase()
 
 /** «ESTA SEMANA», «SEMANA PASADA», «HACE DOS SEMANAS», then «17 – 23 AGO». */
-function weekLabel(monday: string, today: string): string {
+function weekLabel(monday: string, today: string, words: HistoryWords): string {
+  const said = words.history
   const weeksAgo = Math.round(
     (dayOf(mondayOf(today)).getTime() - dayOf(monday).getTime()) / (7 * DAY),
   )
-  if (weeksAgo === 0) return 'ESTA SEMANA'
-  if (weeksAgo === 1) return 'SEMANA PASADA'
-  if (weeksAgo === 2) return 'HACE DOS SEMANAS'
+  if (weeksAgo === 0) return said.thisWeek
+  if (weeksAgo === 1) return said.lastWeek
+  if (weeksAgo === 2) return said.twoWeeksAgo
   const start = dayOf(monday)
   const end = new Date(start.getTime() + 6 * DAY)
   const sameMonth = start.getUTCMonth() === end.getUTCMonth()
   return sameMonth
-    ? `${start.getUTCDate()} – ${end.getUTCDate()} ${shortMonth(end)}`
-    : `${start.getUTCDate()} ${shortMonth(start)} – ${end.getUTCDate()} ${shortMonth(end)}`
+    ? said.weekIn(start.getUTCDate(), end.getUTCDate(), shortMonth(end, words))
+    : said.weekAcross(
+        start.getUTCDate(),
+        shortMonth(start, words),
+        end.getUTCDate(),
+        shortMonth(end, words),
+      )
 }
 
 /** Consecutive rows of one week, in the order the server answered: newest first. */
-export function weekGroups(items: readonly HistoryItem[], today: string): readonly WeekGroup[] {
+export function weekGroups(
+  items: readonly HistoryItem[],
+  today: string,
+  words: HistoryWords,
+): readonly WeekGroup[] {
   const groups: { weekStartsOn: string; label: string; items: HistoryItem[] }[] = []
   for (const row of items) {
     const monday = mondayOf(row.trained_on)
     const last = groups.at(-1)
     if (last && last.weekStartsOn === monday) last.items.push(row)
-    else groups.push({ weekStartsOn: monday, label: weekLabel(monday, today), items: [row] })
+    else groups.push({ weekStartsOn: monday, label: weekLabel(monday, today, words), items: [row] })
   }
   return groups
 }
 
-const kilos = (value: number) => value.toLocaleString('es-CO', { maximumFractionDigits: 0 })
-const plural = (count: number, one: string, many: string) =>
-  `${String(count)} ${count === 1 ? one : many}`
+/** «3.840», a volume in kilograms as a whole figure in her unit, grouped as the locale does. */
+export function volumeFigure(kilograms: number, unit: MassUnit, locale: Locale): string {
+  return massIn(kilograms, unit).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
+}
+
+/** «3.840 kg», «8,466 lb». */
+export const volumeLabel = (kilograms: number, unit: MassUnit, locale: Locale): string =>
+  `${volumeFigure(kilograms, unit, locale)} ${unit}`
 
 /** «48 min · 12 series · 3.840 kg», with only the parts there are. */
-export function historyDetail(row: HistoryItem): string {
+export function historyDetail(
+  row: HistoryItem,
+  locale: Locale,
+  unit: MassUnit,
+  words: HistoryWords,
+): string {
   const parts = [
-    row.is_free ? 'Entreno libre' : null,
+    row.is_free ? words.freeSession : null,
     `${String(Math.round(row.duration_seconds / 60))} min`,
-    row.work_sets > 0 ? plural(row.work_sets, 'serie', 'series') : null,
-    row.total_volume_kg === null ? null : `${kilos(row.total_volume_kg)} kg`,
+    row.work_sets > 0 ? words.history.setsCount(row.work_sets) : null,
+    row.total_volume_kg === null ? null : volumeLabel(row.total_volume_kg, unit, locale),
   ]
   return parts.filter((part): part is string => part !== null).join(' · ')
 }
 
 /** «2 récords nuevos», or nothing: no record is not news. */
-export function recordsLine(count: number): string | null {
-  return count === 0 ? null : plural(count, 'récord nuevo', 'récords nuevos')
+export function recordsLine(count: number, words: HistoryWords): string | null {
+  return count === 0 ? null : words.history.newRecords(count)
 }
 
 /** «MIÉ» over «26». */
-export function dayParts(iso: string): { readonly weekday: string; readonly day: string } {
+export function dayParts(
+  iso: string,
+  words: HistoryWords,
+): { readonly weekday: string; readonly day: string } {
   const date = dayOf(iso)
-  return { weekday: WEEKDAYS[date.getUTCDay()] ?? '', day: String(date.getUTCDate()) }
+  return {
+    weekday: (words.calendar.weekdays[date.getUTCDay()] ?? '').toUpperCase(),
+    day: String(date.getUTCDate()),
+  }
 }
 
 /**
@@ -119,16 +138,17 @@ export function dayParts(iso: string): { readonly weekday: string; readonly day:
  * repeat or a free session is training on top of it. With nothing planned the week just
  * says how many.
  */
-export function weekTally(week: HistoryWeek): string {
-  if (week.planned === 0) return plural(week.completed, 'entreno', 'entrenos')
-  const done = `${String(week.fulfilled)} de ${String(week.planned)}`
+export function weekTally(week: HistoryWeek, words: HistoryWords): string {
+  const said = words.history
+  if (week.planned === 0) return said.workoutsCount(week.completed)
+  const done = said.planned(week.fulfilled, week.planned)
   const extra = week.completed - week.fulfilled
-  return extra > 0 ? `${done} · +${String(extra)} extra` : done
+  return extra > 0 ? said.extra(done, extra) : done
 }
 
 /** «Agosto». */
-export function monthName(iso: string): string {
-  return MONTHS[dayOf(iso).getUTCMonth()] ?? ''
+export function monthName(iso: string, words: HistoryWords): string {
+  return words.calendar.months[dayOf(iso).getUTCMonth()] ?? ''
 }
 
 export interface HistoryFilters {
@@ -214,14 +234,15 @@ export function longestStreak(days: readonly HistoryDay[]): number {
 }
 
 /** Days and not sessions: two sessions on one day are one square on the calendar. */
-export function daysTrainedUnit(count: number): string {
-  return count === 1 ? 'Día entrenado' : 'Días entrenados'
+export function daysTrainedUnit(count: number, words: HistoryWords): string {
+  return words.history.daysTrained(count)
 }
 
 /** «MIÉ 30 SEP»: the day picked on the calendar, said as the rows say it. */
-export function dayLabel(iso: string): string {
-  const { weekday, day } = dayParts(iso)
-  return `${weekday} ${day} ${shortMonth(dayOf(iso))}`
+export function dayLabel(iso: string, words: HistoryWords): string {
+  const date = dayOf(iso)
+  const { weekday } = dayParts(iso, words)
+  return words.history.day(weekday, date.getUTCDate(), shortMonth(date, words))
 }
 
 export interface MonthChoice {
@@ -240,6 +261,7 @@ export function monthGrid(
   year: number,
   available: readonly string[],
   currentMonth: string,
+  words: HistoryWords,
 ): {
   readonly months: readonly MonthChoice[]
   readonly previous: number | null
@@ -249,7 +271,7 @@ export function monthGrid(
   const years = available.map((month) => Number(month.slice(0, 4)))
   const earliest = Math.min(...years, Number(currentMonth.slice(0, 4)))
   const latest = Math.max(...years, Number(currentMonth.slice(0, 4)))
-  const months = MONTHS.map((name, index) => {
+  const months = words.calendar.months.map((name, index) => {
     const month = `${String(year)}-${String(index + 1).padStart(2, '0')}-01`
     return {
       month,

@@ -61,13 +61,13 @@ import {
   staggerDelays,
 } from '../../src/client/motion'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import {
   canSubmitExperience,
-  EXPERIENCE_LEVELS,
-  PICK_A_LEVEL,
   readLevel,
+  TRAINING_EXPERIENCE,
   type TrainingExperience,
 } from '../../src/client/experience-form'
 import { ExperiencePicker } from '../../src/components/experience-picker'
@@ -75,25 +75,25 @@ import { ExperiencePicker } from '../../src/components/experience-picker'
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
-const READ_FAILED = 'No pudimos leer tus respuestas. Inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
+type Failure = 'expired' | 'readFailed' | 'saveFailed'
 
 export default function OnboardingExperience() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [level, setLevel] = useState<TrainingExperience | undefined>(undefined)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
   const [entering, setEntering] = useState(false)
   const reduceMotion = useReducedMotion()
 
   // Built outside the JSX: an inline chain rebuilds the builder on every render,
   // and a per-index delay cannot live at module scope.
   const entrances = useMemo(() => {
-    const delays = staggerDelays(EXPERIENCE_LEVELS.length + 2, reduceMotion)
+    const delays = staggerDelays(TRAINING_EXPERIENCE.length + 2, reduceMotion)
     return delays.map((delay) =>
       FadeInDown.duration(durationFor('fast', reduceMotion))
         .delay(delay)
@@ -125,10 +125,10 @@ export default function OnboardingExperience() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(READ_FAILED)
+        setFailure('readFailed')
       })
 
     return () => {
@@ -149,13 +149,19 @@ export default function OnboardingExperience() {
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(SAVE_FAILED)
+        setFailure('saveFailed')
       }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const failures: Record<Failure, string> = {
+    expired: words.expired,
+    readFailed: words.readFailed,
+    saveFailed: words.saveFailed,
   }
 
   return (
@@ -169,10 +175,10 @@ export default function OnboardingExperience() {
       >
         <Animated.View {...(entering && entrances[0] ? { entering: entrances[0] } : {})}>
           <Text role="display" size="4xl" uppercase accessibilityRole="header">
-            ¿Cuánto has{'\n'}entrenado?
+            {words.experience.title}
           </Text>
           <Text role="body" size="md" color="secondary" style={styles.lede}>
-            {PICK_A_LEVEL}
+            {text.fitness.experience.pickALevel}
           </Text>
         </Animated.View>
 
@@ -187,10 +193,10 @@ export default function OnboardingExperience() {
       {/* Outside the scroll so the button sits in the same place on every step of
           the onboarding, whatever the content above it does. */}
       <View style={styles.footer}>
-        {failure ? <InlineAlert message={failure} style={styles.alert} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} style={styles.alert} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!submittable}
           loading={submitting}
           onPress={submit}
@@ -199,7 +205,7 @@ export default function OnboardingExperience() {
 
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
             style={styles.signIn}

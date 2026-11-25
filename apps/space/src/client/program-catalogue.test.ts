@@ -16,6 +16,10 @@ import {
   type ProgramSummary,
   type TrainingProfile,
 } from './program-catalogue'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.catalogue
+const en = textFor('en').training.catalogue
 
 const EMPTY_PROFILE: TrainingProfile = {
   given_name: 'Ada',
@@ -210,48 +214,63 @@ describe('programCaption', () => {
     expect(
       programCaption(
         program({ id: 'a', days_per_week: 5, levels: ['some_practice', 'experienced'] }),
+        es,
       ),
     ).toBe('5 días · con práctica')
   })
 
   test('says the days alone when no level is declared', () => {
-    expect(programCaption(program({ id: 'a', days_per_week: 4, levels: [] }))).toBe('4 días')
+    expect(programCaption(program({ id: 'a', days_per_week: 4, levels: [] }), es)).toBe('4 días')
   })
 })
 
 describe('targetLabel', () => {
   test('reads strength as sets by reps, and as sets alone when there are none', () => {
-    expect(targetLabel({ family: 'strength', target_sets: 4, target_reps: 8 })).toBe('4 × 8')
+    expect(
+      targetLabel({ family: 'strength', target_sets: 4, target_reps: 8 }, es, 'km', 'es'),
+    ).toBe('4 × 8')
     // A plank is three sets of "as long as you can", and it has no rep count.
-    expect(targetLabel({ family: 'strength', target_sets: 3 })).toBe('3 series')
+    expect(targetLabel({ family: 'strength', target_sets: 3 }, es, 'km', 'es')).toBe('3 series')
   })
 
   test('prefers a distance over a duration when a run declares one', () => {
     expect(
-      targetLabel({
-        family: 'endurance',
-        target_distance_value: 5,
-        target_distance_unit_code: 'km',
-        target_duration_seconds: 1800,
-      }),
+      targetLabel(
+        {
+          family: 'endurance',
+          target_distance_value: 5,
+          target_distance_unit_code: 'km',
+          target_duration_seconds: 1800,
+        },
+        es,
+        'km',
+        'es',
+      ),
     ).toBe('5 km')
-    expect(targetLabel({ family: 'endurance', target_duration_seconds: 1800 })).toBe('30 min')
+    expect(
+      targetLabel({ family: 'endurance', target_duration_seconds: 1800 }, es, 'km', 'es'),
+    ).toBe('30 min')
   })
 
   test('reads intervals as rounds by work', () => {
     expect(
-      targetLabel({
-        family: 'interval',
-        rounds: 8,
-        work_duration_seconds: 40,
-        rest_duration_seconds: 20,
-      }),
+      targetLabel(
+        {
+          family: 'interval',
+          rounds: 8,
+          work_duration_seconds: 40,
+          rest_duration_seconds: 20,
+        },
+        es,
+        'km',
+        'es',
+      ),
     ).toBe('8 × 40s')
   })
 
   test('says nothing rather than something wrong for a shape it does not know', () => {
-    expect(targetLabel({ family: 'nonsense' })).toBe('')
-    expect(targetLabel({ family: 'strength' })).toBe('')
+    expect(targetLabel({ family: 'nonsense' }, es, 'km', 'es')).toBe('')
+    expect(targetLabel({ family: 'strength' }, es, 'km', 'es')).toBe('')
   })
 })
 
@@ -293,18 +312,20 @@ describe('estimatedMinutes', () => {
 
 describe('posterCaption', () => {
   test('says the days, the length and the level, which is what the card has to show', () => {
-    expect(posterCaption(program({ id: 'a', days_per_week: 3, weeks: 8 }))).toBe(
+    expect(posterCaption(program({ id: 'a', days_per_week: 3, weeks: 8 }), es)).toBe(
       '3 días · 8 semanas · con práctica',
     )
   })
 
   test('says «Sin fin» for a programme that repeats, instead of leaving the slot empty', () => {
     // Un hueco se lee como un dato que falta; «Sin fin» es la respuesta.
-    expect(posterCaption(program({ id: 'a', weeks: null }))).toBe('3 días · Sin fin · con práctica')
+    expect(posterCaption(program({ id: 'a', weeks: null }), es)).toBe(
+      '3 días · Sin fin · con práctica',
+    )
   })
 
   test('drops the level rather than inventing one when the version declares none', () => {
-    expect(posterCaption(program({ id: 'a', levels: [] }))).toBe('3 días · 8 semanas')
+    expect(posterCaption(program({ id: 'a', levels: [] }), es)).toBe('3 días · 8 semanas')
   })
 })
 
@@ -387,10 +408,32 @@ describe('totalExercises', () => {
 
 describe('dayFigures', () => {
   test('says the exercises and the estimate', () => {
-    expect(dayFigures(aDay([{ family: 'strength', target_sets: 10 }]))).toBe('1 ej · ~30 min')
+    expect(dayFigures(aDay([{ family: 'strength', target_sets: 10 }]), es)).toBe('1 ej · ~30 min')
   })
 
   test('drops the estimate rather than writing a zero nobody can use', () => {
-    expect(dayFigures(aDay([{ family: 'nonsense' }]))).toBe('1 ej')
+    expect(dayFigures(aDay([{ family: 'nonsense' }]), es)).toBe('1 ej')
+  })
+})
+
+describe('the catalogue in English and in miles (TECH-44)', () => {
+  test('T-SP-CAT-24 captions say the days, the length and the level in English', () => {
+    expect(posterCaption(program({ id: 'a', days_per_week: 3, weeks: 8 }), en)).toBe(
+      '3 days · 8 weeks · some practice',
+    )
+    expect(dayFigures(aDay([{ family: 'strength', target_sets: 10 }]), en)).toBe('1 ex · ~30 min')
+    expect(targetLabel({ family: 'strength', target_sets: 3 }, en, 'km', 'en')).toBe('3 sets')
+  })
+
+  test('T-SP-CAT-25 a distance target follows the unit she reads', () => {
+    const run = (value: number, code: string) => ({
+      family: 'endurance',
+      target_distance_value: value,
+      target_distance_unit_code: code,
+    })
+    expect(targetLabel(run(5, 'km'), en, 'mi', 'en')).toBe('3.11 mi')
+    expect(targetLabel(run(10.5, 'km'), es, 'km', 'es')).toBe('10,5 km')
+    expect(targetLabel(run(400, 'm'), es, 'km', 'es')).toBe('400 m')
+    expect(targetLabel(run(1609.344, 'm'), en, 'mi', 'en')).toBe('1 mi')
   })
 })

@@ -29,10 +29,6 @@ import { storyRoute } from '../client/share-cards'
 
 export type Notice = { readonly tone: 'done' | 'failed'; readonly text: string }
 
-export const SAVE_FAILED = 'No pudimos guardar la imagen. Inténtalo de nuevo.'
-export const SHARE_FAILED = 'No pudimos preparar la imagen. Inténtalo de nuevo.'
-const NO_PERMISSION = 'Para guardarla, permite a Allfit añadir fotos en Ajustes.'
-
 export type ShareMode = 'image' | 'sticker'
 
 const MODE_KEY = 'share-mode'
@@ -85,9 +81,10 @@ export async function shareFile(uri: string, dialogTitle: string): Promise<undef
   return undefined
 }
 
-export async function saveFile(uri: string, done: string): Promise<Notice> {
+/** Into Photos; `denied` is what the toast says when the phone refuses. */
+export async function saveFile(uri: string, done: string, denied: string): Promise<Notice> {
   const permission = await MediaLibrary.requestPermissionsAsync(true)
-  if (!permission.granted) return { tone: 'failed', text: NO_PERMISSION }
+  if (!permission.granted) return { tone: 'failed', text: denied }
   await MediaLibrary.Asset.create(uri)
   return { tone: 'done', text: done }
 }

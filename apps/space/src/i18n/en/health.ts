@@ -1,0 +1,106 @@
+import type { Dictionary } from '../es'
+
+export const health: Dictionary['health'] = {
+  title: 'Pain and limitations',
+  add: 'Add',
+  correct: 'Correct',
+  unreadable: "We couldn't load your entries. Check your connection and try again.",
+  privacy: 'Only a gym you train with and have given health permission to can see this.',
+  types: {
+    pain: { label: 'Pain', caption: 'Something hurts' },
+    limitation: { label: 'Limitation', caption: "Something you can't do" },
+    recovery: { label: 'Recovery', caption: "You're coming back from an injury" },
+  },
+  areas: {
+    neck: 'Neck',
+    shoulder: 'Shoulder',
+    chest: 'Chest',
+    upper_back: 'Upper back',
+    arm: 'Arm',
+    elbow: 'Elbow',
+    wrist_hand: 'Wrist and hand',
+    abdomen: 'Abdomen',
+    lower_back: 'Lower back',
+    hip: 'Hip',
+    thigh: 'Thigh',
+    knee: 'Knee',
+    lower_leg: 'Lower leg',
+    ankle_foot: 'Ankle and foot',
+  },
+  areaGroups: { upper: 'Upper body', trunk: 'Core', lower: 'Lower body' },
+  dayMonth: (day, month) => `${month} ${String(day)}`,
+  caption: {
+    ended: (type, day) => `${type} · ended ${day}`,
+    since: (day, words) => `Since ${day} · ${words}`,
+  },
+  since: { today: 'Today', week: 'This week', month: 'This month', other: 'Another date' },
+  relative: {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    tomorrow: 'Tomorrow',
+    ago: (days) => `${String(days)} days ago`,
+    ahead: (days) => `In ${String(days)} days`,
+  },
+  failure: {
+    held: "This can't be changed right now: a legal hold keeps your health data as it is.",
+    gone: 'That entry is no longer there. Go back to your list.',
+    offline: "We couldn't connect. Check your connection and try again.",
+  },
+  deletion: {
+    held: (day) =>
+      `A legal hold keeps your health data until ${day}. We'll delete it as soon as it ends.`,
+    soon: "We'll delete it in a few minutes.",
+  },
+  list: {
+    protectedTitle: 'The most protected part of your profile',
+    protectedBody:
+      "Only those with health permission can see it. It isn't a medical record: we don't ask for diagnoses or documents.",
+    emptyTitle: 'Nothing for now',
+    emptyBody:
+      'If something hurts or limits you, add it here and your training will take it into account. You can do it whenever you like.',
+    active: 'Active',
+    healing: 'Recovering',
+    ended: 'Ended',
+  },
+  form: {
+    correctSubtitle:
+      "Change what you need to. This corrects this entry; if it's something new, add it separately.",
+    addSubtitle:
+      "Describe it in your own words. It isn't a medical record: we don't ask for diagnoses or documents.",
+    saveCorrection: 'Save correction',
+    what: 'What it is',
+    area: 'Area',
+    ifAny: '· if any',
+    noArea: 'None in particular',
+    words: 'In your own words',
+    wordsPlaceholder: 'For example: the right one, it hurts when I go down in a squat.',
+    wordsHint: 'Where, when it shows up and what makes it worse. That is enough.',
+    since: 'Since when',
+    knowsEnd: 'I know when it ends',
+    until: 'Until',
+    untilDay: (day) => `Until ${day}`,
+    pickUntil: 'Choose an end date',
+  },
+  areaScreen: { subtitle: 'Where you feel it. Right or left goes in your own words.' },
+  dateScreen: {
+    since: 'Since when',
+    until: 'Until when',
+    sinceSubtitle: "Scroll to the day it started. It doesn't have to be exact.",
+    untilSubtitle: 'Scroll to the day you expect it to end. You can change it later.',
+    done: 'Done',
+  },
+  detail: {
+    gone: 'That entry is no longer there.',
+    since: 'Since',
+    until: 'Until',
+    declared: 'Declared by you',
+    observed: 'Observed',
+    origin: (who, day) => `${who} · ${day}`,
+    correcting: (privacy) => `Correcting it changes this entry. ${privacy}`,
+    remove: 'Delete this entry',
+    askTitle: 'Delete this entry?',
+    askBody:
+      "It's deleted for good. All that remains is a record that you deleted a health detail, never what it said.",
+    confirm: 'Delete',
+  },
+}

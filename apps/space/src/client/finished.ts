@@ -2,8 +2,11 @@
  * A finished session as its detail shows it, and as its edit changes it (FIN-18, ADR-038).
  *
  * **Dates are said in the zone the person trains in**, worked out here rather than with
- * `Intl`'s Spanish month names, whose abbreviations vary by engine («sept.», «sep»): the
- * row on the phone has to read the same as the one in the test.
+ * `Intl`'s month names, whose abbreviations vary by engine («sept.», «sep»): the row on
+ * the phone has to read the same as the one in the test. The names are the dictionary's.
+ *
+ * **Loads read in the person's unit.** A set keeps the unit it was logged in; it is shown
+ * as is when that is her unit, and converted to one decimal when it is not.
  *
  * **Editing is the session screen itself** (`session-form.ts`), so a corrected set is
  * written exactly as a logged one. Two things differ. A past session opens with only what
@@ -14,11 +17,23 @@
 
 import type { Execution, FinishedExecution, FinishedSet, InvalidationPreview } from './execution'
 import { workingStateFrom, type WorkingExercise } from './session-form'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { isMassUnit, kilogramsFrom, massIn, type MassUnit } from '../units/units'
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+/** What a finished session says: `text.session`. */
+export type SessionWords = Dictionary['session']
 
-const figure = (value: number) => value.toLocaleString('es-CO', { maximumFractionDigits: 2 })
+/** The half of the day: `text.session.time`. */
+type Periods = SessionWords['time']
+
+const figure = (value: number, locale: Locale) =>
+  value.toLocaleString(intlLocale(locale), { maximumFractionDigits: 2 })
+
+/** A load logged in `from`, as a figure in `unit`: exact when they match, else one decimal. */
+function loadFigure(value: number, from: MassUnit, unit: MassUnit, locale: Locale): string {
+  if (from === unit) return figure(value, locale)
+  return figure(Math.round(massIn(kilogramsFrom(value, from), unit) * 10) / 10, locale)
+}
 
 /** The local calendar day and clock of an instant, in the person's zone. */
 function localParts(iso: string, timeZone: string) {
@@ -33,8 +48,8 @@ function localParts(iso: string, timeZone: string) {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(at)
-  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? ''
-  return { day, month: MONTHS[month - 1] ?? '', weekday, clock }
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+  return { day, month: month - 1, weekday, clock }
 }
 
 /** «18:02», the clock an instant shows in the person's zone. */
@@ -49,26 +64,32 @@ export function toTwelve(hour: number): { readonly hour: number; readonly pm: bo
 
 export const fromTwelve = (hour: number, pm: boolean): number => (hour % 12) + (pm ? 12 : 0)
 
-/** «18:02» as people read it: «6:02» and «p. m.». */
-export function twelveHour(clock: string): { readonly time: string; readonly period: string } {
+/** «18:02» as people read it: «6:02» and «p. m.», or «PM». */
+export function twelveHour(
+  clock: string,
+  periods: Periods,
+): { readonly time: string; readonly period: string } {
   const [hour = 0, minute = '00'] = clock.split(':')
   const twelve = toTwelve(Number(hour))
-  return { time: `${String(twelve.hour)}:${minute}`, period: twelve.pm ? 'p. m.' : 'a. m.' }
+  return { time: `${String(twelve.hour)}:${minute}`, period: twelve.pm ? periods.pm : periods.am }
 }
 
-const label = (clock: string) => {
-  const { time, period } = twelveHour(clock)
+const label = (clock: string, periods: Periods) => {
+  const { time, period } = twelveHour(clock, periods)
   return `${time} ${period}`
 }
 
 /** «6:02 p. m.», the clock an instant shows in the person's zone. */
-export const clockLabel = (iso: string, timeZone: string): string => label(clockOf(iso, timeZone))
+export const clockLabel = (iso: string, timeZone: string, periods: Periods): string =>
+  label(clockOf(iso, timeZone), periods)
 
 /** «6:02–6:50 p. m.», or «11:40 a. m.–12:20 p. m.» when the range crosses noon. */
-export function rangeLabel(start: string, end: string): string {
-  const from = twelveHour(start)
-  const to = twelveHour(end)
-  return from.period === to.period ? `${from.time}–${label(end)}` : `${label(start)}–${label(end)}`
+export function rangeLabel(start: string, end: string, periods: Periods): string {
+  const from = twelveHour(start, periods)
+  const to = twelveHour(end, periods)
+  return from.period === to.period
+    ? `${from.time}–${label(end, periods)}`
+    : `${label(start, periods)}–${label(end, periods)}`
 }
 
 /**
@@ -109,68 +130,94 @@ export function withClock(iso: string, clock: string, timeZone: string): string 
   return new Date(wall - offset).toISOString()
 }
 
-/** «70 kg × 8», «10 reps», «70 kg», or «—» for a set with neither. */
-export function setLine(set: FinishedSet): string {
-  const unit = set.load_unit_code ?? 'kg'
-  const load = set.load_value === null ? null : `${figure(set.load_value)} ${unit}`
-  if (load && set.achieved_reps !== null) return `${load} × ${set.achieved_reps}`
+/** «70 kg × 8», «10 reps», «70 kg», or «—» for a set with neither; the load in her unit. */
+export function setLine(
+  set: FinishedSet,
+  locale: Locale,
+  unit: MassUnit,
+  words: SessionWords,
+): string {
+  const from = isMassUnit(set.load_unit_code) ? set.load_unit_code : 'kg'
+  const load =
+    set.load_value === null ? null : `${loadFigure(set.load_value, from, unit, locale)} ${unit}`
+  if (load && set.achieved_reps !== null) return words.finished.loadTimes(load, set.achieved_reps)
   if (load) return load
-  if (set.achieved_reps !== null) return `${set.achieved_reps} reps`
+  if (set.achieved_reps !== null) return words.finished.reps(set.achieved_reps)
   return '—'
 }
 
 /** «Mejor serie 70 kg × 8», or nothing when no work set was weighed. */
 export function bestSetLine(
   best: FinishedExecution['exercises'][number]['best_set'],
+  locale: Locale,
+  unit: MassUnit,
+  words: SessionWords,
 ): string | null {
-  return best ? `Mejor serie ${figure(best.load_kg)} kg × ${best.reps}` : null
+  if (!best) return null
+  const load = `${loadFigure(best.load_kg, 'kg', unit, locale)} ${unit}`
+  return words.finished.bestSet(words.finished.loadTimes(load, best.reps))
 }
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
-
 /** «4 ejercicios · 12 series». A warmup is not a work set. */
-export function exercisesLine(detail: FinishedExecution): string {
+export function exercisesLine(detail: FinishedExecution, words: SessionWords): string {
   const work = detail.exercises.reduce(
     (total, exercise) => total + exercise.sets.filter((one) => one.kind !== 'warmup').length,
     0,
   )
-  return `${plural(detail.exercises.length, 'ejercicio', 'ejercicios')} · ${plural(work, 'serie', 'series')}`
+  return words.finished.exercisesLine(detail.exercises.length, work)
 }
 
 /** «+4 % de carga frente al 17 sep», against the last time the same routine was done. */
 export function comparisonLine(
   previous: FinishedExecution['previous'],
   timeZone: string,
+  words: SessionWords,
 ): string | null {
   if (!previous || previous.change_percent === null) return null
   const { day, month } = localParts(previous.started_at, timeZone)
-  const when = `${day} ${month}`
+  const when = words.finished.dayMonth(day, words.calendar.monthsShort[month] ?? '')
   const change = Math.round(previous.change_percent)
-  if (change === 0) return `La misma carga que el ${when}`
+  if (change === 0) return words.finished.sameLoad(when)
   const sign = change > 0 ? '+' : '−'
-  return `${sign}${Math.abs(change)} % de carga frente al ${when}`
+  return words.finished.loadChange(`${sign}${String(Math.abs(change))}`, when)
 }
 
 /** «mar 29 sep · 6:02–6:50 p. m.». */
-export function whenRange(detail: FinishedExecution, timeZone: string): string {
+export function whenRange(
+  detail: FinishedExecution,
+  timeZone: string,
+  words: SessionWords,
+): string {
   const start = localParts(detail.started_at, timeZone)
   const end = localParts(detail.ended_at, timeZone)
-  return `${start.weekday} ${start.day} ${start.month} · ${rangeLabel(start.clock, end.clock)}`
+  return words.finished.when(
+    words.calendar.weekdays[start.weekday] ?? '',
+    start.day,
+    words.calendar.monthsShort[start.month] ?? '',
+    rangeLabel(start.clock, end.clock, words.time),
+  )
 }
 
 /** «Tirón · mar 29», the title of the session's menu. */
-export function menuTitle(name: string, startedAt: string, timeZone: string): string {
+export function menuTitle(
+  name: string,
+  startedAt: string,
+  timeZone: string,
+  words: SessionWords,
+): string {
   const { weekday, day } = localParts(startedAt, timeZone)
-  return `${name} · ${weekday} ${day}`
+  return words.finished.menuTitle(name, words.calendar.weekdays[weekday] ?? '', day)
 }
 
-const WEEKDAYS_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
-
 /** «Tirón del martes 29 sale de tu historial…»: what «Eliminar» is about to do. */
-export function deletionLine(name: string, startedAt: string, timeZone: string): string {
+export function deletionLine(
+  name: string,
+  startedAt: string,
+  timeZone: string,
+  words: SessionWords,
+): string {
   const { weekday, day } = localParts(startedAt, timeZone)
-  const long = WEEKDAYS_LONG[WEEKDAYS.indexOf(weekday)] ?? weekday
-  return `${name} del ${long} ${day} sale de tu historial y no se puede recuperar.`
+  return words.finished.deletion(name, words.calendar.weekdaysLong[weekday] ?? '', day)
 }
 
 export interface Consequence {
@@ -179,23 +226,24 @@ export interface Consequence {
 }
 
 /** What annulling takes with it, said before it is confirmed (FIN-18c). */
-export function annulConsequences(preview: InvalidationPreview): readonly Consequence[] {
+export function annulConsequences(
+  preview: InvalidationPreview,
+  words: SessionWords,
+): readonly Consequence[] {
+  const said = words.finished
   const lines: Consequence[] = []
-  if (preview.records === 1) lines.push({ icon: 'record', text: 'Se pierde su récord' })
+  if (preview.records === 1) lines.push({ icon: 'record', text: said.loseRecord })
   else if (preview.records > 1) {
-    lines.push({ icon: 'record', text: `Se pierden sus ${preview.records} récords` })
+    lines.push({ icon: 'record', text: said.loseRecords(preview.records) })
   }
   const { streak_weeks: now, streak_weeks_after: after } = preview
   if (after < now) {
     lines.push({
       icon: 'energy',
-      text:
-        after === 0
-          ? `Tu racha de ${plural(now, 'semana', 'semanas')} se pierde`
-          : `Tu racha baja de ${now} a ${plural(after, 'semana', 'semanas')}`,
+      text: after === 0 ? said.loseStreak(now) : said.streakDrops(now, after),
     })
   }
-  lines.push({ icon: 'weight', text: 'Tus totales se recalculan' })
+  lines.push({ icon: 'weight', text: said.totalsRecalculate })
   return lines
 }
 
@@ -203,17 +251,18 @@ export function annulConsequences(preview: InvalidationPreview): readonly Conseq
 
 const originOf = (position: number, order: number) => `${position}:${order}`
 
-/** «65 × 8», as the session writes last time's set. */
-const recordedLine = (load: string, reps: string) =>
-  load && reps ? `${load} × ${reps}` : load ? `${load} kg` : reps ? `× ${reps}` : '—'
+/** «65 × 8», as the session writes last time's set; a load alone carries its unit. */
+const recordedLine = (load: string, reps: string, unit: MassUnit) =>
+  load && reps ? `${load} × ${reps}` : load ? `${load} ${unit}` : reps ? `× ${reps}` : '—'
 
 /** What was recorded, and nothing the routine proposed that nobody did. */
 export function editStateFrom(
   execution: Execution,
-  names?: ReadonlyMap<string, string>,
+  extra: Parameters<typeof workingStateFrom>[1] = {},
 ): readonly WorkingExercise[] {
+  const unit = extra.unit ?? 'kg'
   let order = 0
-  return workingStateFrom(execution, names ? { names } : {}).map((exercise) => ({
+  return workingStateFrom(execution, extra).map((exercise) => ({
     ...exercise,
     key: exercise.key ?? `edit-${exercise.position}`,
     sets: exercise.sets
@@ -223,7 +272,7 @@ export function editStateFrom(
         order: (order += 1),
         origin: originOf(exercise.position, one.order),
         // «Antes» is the column the session calls «anterior»: here it is the set as recorded.
-        previous: recordedLine(one.loadKg, one.reps),
+        previous: recordedLine(one.load, one.reps, unit),
       })),
   }))
 }
@@ -236,7 +285,7 @@ const numeric = (text: string) => {
 type Set = WorkingExercise['sets'][number]
 
 const sameSet = (one: Set, other: Set) =>
-  numeric(one.loadKg) === numeric(other.loadKg) &&
+  numeric(one.load) === numeric(other.load) &&
   numeric(one.reps) === numeric(other.reps) &&
   one.kind === other.kind &&
   one.rpe === other.rpe &&

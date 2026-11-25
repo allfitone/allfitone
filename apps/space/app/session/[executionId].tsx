@@ -85,7 +85,6 @@ import {
 import { readExerciseLibrary } from '../../src/client/exercise-library'
 import type { FinishedExecution } from '../../src/client/execution'
 import { createSpaceExecutionFlow } from '../../src/client/execution-transport'
-import { FREE_SESSION_TITLE, sessionHeading } from '../../src/client/free-training'
 import {
   changesBetween,
   clockOf,
@@ -121,13 +120,12 @@ import {
 } from '../../src/client/session-form'
 import { rpeCopy, rpeShown } from '../../src/client/rpe-scale'
 import {
-  SET_KIND_DETAILS,
-  SET_KIND_NAMES,
   SET_KIND_TONES,
   REST_OPENING_SECONDS,
   restPresetLabel,
   type SetKind,
 } from '../../src/client/set-scheme'
+import { volumeLabel } from '../../src/client/history'
 import { announceRestEnd, cancelRestEnd } from '../../src/client/rest-alert'
 import { adjusted, rememberRest, restFor, started, type Rest } from '../../src/client/rest-timer'
 import { chainLetters } from '../../src/client/chain-order'
@@ -138,15 +136,9 @@ import { RestSheetBody } from '../../src/components/rest-sheet'
 import { RpeSheetBody } from '../../src/components/rpe-sheet'
 import { SheetChoice } from '../../src/components/sheet-choice'
 import { clockFrom, clockText, TimeWheels, type Clock } from '../../src/components/time-wheels'
-
-const READ_FAILED = 'No pudimos abrir la sesión. Inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardar. Lo intentamos otra vez en un momento.'
-const STALE = 'Otra pantalla cambió esta sesión. Vuelve a abrirla para seguir.'
-const CLOSE_FAILED = 'No pudimos cerrar la sesión. Inténtalo otra vez.'
-const LEAVE_FAILED = 'No pudimos dejar la sesión. Inténtalo otra vez.'
-const REVISE_FAILED = 'No pudimos guardar los cambios. Inténtalo otra vez.'
-const REVISE_STALE = 'Este entreno cambió en otro lado. Vuelve a abrirlo para editarlo.'
-const BAD_TIME = 'El entreno tiene que terminar después de empezar.'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import type { MassUnit } from '../../src/units/units'
+import { useUnits } from '../../src/units/use-units'
 
 /** Long enough to stop writing on every keystroke, short enough to never lose a set. */
 const SAVE_DELAY_MS = 1_200
@@ -232,6 +224,12 @@ const OPEN_PADDING = 16
 const CARD_INSET = 8
 
 export default function Session() {
+  const locale = useLocale()
+  const dictionary = useText()
+  const text = dictionary.session
+  const sets = dictionary.training.sets
+  const said = text.live
+  const { mass } = useUnits()
   const router = useRouter()
   const theme = useTheme()
   const { executionId, mode } = useLocalSearchParams<{ executionId: string; mode?: string }>()
@@ -250,6 +248,11 @@ export default function Session() {
   /** By key, not place: a move renumbers every place, and the open one has to stay open. */
   const [openKey, setOpenKey] = useState<string | undefined>(undefined)
   const [title, setTitle] = useState('')
+  /** The unit the loads are typed and sent in: hers when the session opened. */
+  const [unit, setUnit] = useState<MassUnit>(mass)
+  /** How the session opens, read by the effect without reopening it on every change. */
+  const opening = useRef({ mass, locale, unnamed: text.exercise, readFailed: said.readFailed })
+  opening.current = { mass, locale, unnamed: text.exercise, readFailed: said.readFailed }
   // No title is what a free session is: a planned one always carries its routine's.
   const [free, setFree] = useState(false)
   const [startedAt, setStartedAt] = useState<number | undefined>(undefined)
@@ -305,11 +308,14 @@ export default function Session() {
         setPreviews(new Map(movements.map((one) => [one.id, one.demo_url])))
         setCatalogue({ movements, muscles: library?.muscles ?? [] })
         revision.current = current.revision_number
-        setTitle(current.title ?? FREE_SESSION_TITLE)
+        setTitle(current.title ?? '')
         setFree(current.title === null)
         const names = new Map(movements.map((one) => [one.id, one.name]))
+        const { mass: opensIn, locale: readIn, unnamed } = opening.current
+        setUnit(opensIn)
+        const options = { names, unit: opensIn, locale: readIn, unnamed }
         // A past session opens with what it recorded; there is no clock to run.
-        const opened = read ? editStateFrom(current, names) : workingStateFrom(current, { names })
+        const opened = read ? editStateFrom(current, options) : workingStateFrom(current, options)
         if (read) {
           setFinished(read)
           setBefore(opened)
@@ -319,7 +325,7 @@ export default function Session() {
         setOpenKey(opened[0] ? keyOf(opened[0]) : undefined)
       })
       .catch(() => {
-        if (active) setFailure(READ_FAILED)
+        if (active) setFailure(opening.current.readFailed)
       })
 
     return () => {
@@ -334,19 +340,21 @@ export default function Session() {
       if (pending.current) clearTimeout(pending.current)
       pending.current = setTimeout(() => {
         flow
-          .save(executionId, revision.current, resultsFrom(next))
+          .save(executionId, revision.current, resultsFrom(next, unit))
           .then((revised) => {
             revision.current = revised
             setFailure(undefined)
           })
           .catch((cause: unknown) => {
             setFailure(
-              cause instanceof ApiError && cause.failure === 'conflict' ? STALE : SAVE_FAILED,
+              cause instanceof ApiError && cause.failure === 'conflict'
+                ? said.stale
+                : said.saveFailed,
             )
           })
       }, SAVE_DELAY_MS)
     },
-    [flow, executionId, editing],
+    [flow, executionId, editing, unit, said],
   )
 
   // The picker hands its selection back through the same mailbox the routine editor
@@ -374,7 +382,7 @@ export default function Session() {
   const edit = (
     position: number,
     order: number,
-    change: Partial<{ loadKg: string; reps: string; done: boolean }>,
+    change: Partial<{ load: string; reps: string; done: boolean }>,
   ) => {
     setExercises((current) => {
       const next = current.map((exercise) =>
@@ -469,7 +477,7 @@ export default function Session() {
     setRest(next)
     setAside(undefined)
     rememberRest(executionId, next)
-    if (next) void announceRestEnd(next.endsAt, after.movement)
+    if (next) void announceRestEnd(next.endsAt, after.movement, text.rest)
     else void cancelRestEnd()
   }
 
@@ -556,7 +564,7 @@ export default function Session() {
     setDeciding(false)
     setClosing(true)
     flow
-      .save(executionId, revision.current, resultsFrom(exercises))
+      .save(executionId, revision.current, resultsFrom(exercises, unit))
       .then((revised) => {
         revision.current = revised
         return flow.finish(executionId)
@@ -567,7 +575,7 @@ export default function Session() {
       )
       .catch(() => {
         setClosing(false)
-        setFailure(CLOSE_FAILED)
+        setFailure(said.closeFailed)
       })
   }
 
@@ -581,7 +589,7 @@ export default function Session() {
       .then(() => router.replace('/today'))
       .catch(() => {
         setClosing(false)
-        setFailure(LEAVE_FAILED)
+        setFailure(said.leaveFailed)
       })
   }
 
@@ -600,7 +608,7 @@ export default function Session() {
 
   const revise = () => {
     if (!times) return
-    const results = resultsFrom(exercises)
+    const results = resultsFrom(exercises, unit)
     setRevising(true)
     setFailure(undefined)
     flow
@@ -614,7 +622,9 @@ export default function Session() {
       .catch((cause: unknown) => {
         setRevising(false)
         setFailure(
-          cause instanceof ApiError && cause.failure === 'conflict' ? REVISE_STALE : REVISE_FAILED,
+          cause instanceof ApiError && cause.failure === 'conflict'
+            ? said.reviseStale
+            : said.reviseFailed,
         )
       })
   }
@@ -630,7 +640,7 @@ export default function Session() {
     // Each on its own day: a session can end after midnight, or days later.
     const end = kept(times?.end ?? finished.ended_at, finished.ended_at, turning.end)
     if (!start || !end || Date.parse(end) <= Date.parse(start)) {
-      setFailure(BAD_TIME)
+      setFailure(said.badTime)
       return
     }
     setFailure(undefined)
@@ -646,8 +656,10 @@ export default function Session() {
 
   const progress = setsProgress(exercises)
   const trains = musclesLine(exercises, catalogue.movements, catalogue.muscles)
-  const line = sessionHeading(free ? null : title, trains).line
-  const volume = totalVolumeKg(exercises)
+  const heading = free ? text.freeSession : title
+  // A free session with nothing in it yet says why there is no routine to read.
+  const line = free ? trains || text.noRoutine : trains
+  const volume = totalVolumeKg(exercises, unit)
   const recorded = canFinish(exercises)
 
   return (
@@ -655,17 +667,21 @@ export default function Session() {
       <View style={styles.header}>
         {/* Down, not back: the session is set aside, still open, and Hoy carries it. */}
         {editing ? (
-          <IconButton icon="close" accessibilityLabel="Cerrar sin guardar" onPress={minimize} />
+          <IconButton
+            icon="close"
+            accessibilityLabel={said.closeWithoutSaving}
+            onPress={minimize}
+          />
         ) : (
-          <IconButton icon="expand" accessibilityLabel="Minimizar la sesión" onPress={minimize} />
+          <IconButton icon="expand" accessibilityLabel={said.minimize} onPress={minimize} />
         )}
         <View style={styles.heading}>
           <Text role="control" size="lg" numberOfLines={1} accessibilityRole="header">
-            {editing ? 'Editar entreno' : title}
+            {editing ? said.editTitle : heading}
           </Text>
           {editing && finished ? (
             <Text role="body" size="sm" color="muted" numberOfLines={1}>
-              {menuTitle(title, finished.started_at, timeZone)}
+              {menuTitle(heading, finished.started_at, timeZone, text)}
             </Text>
           ) : null}
           {/* Recomputed from the list, so it follows an exercise added, moved or taken out. */}
@@ -682,7 +698,7 @@ export default function Session() {
             drops the accent, because there is nothing to save yet. */}
         {editing ? null : (
           <Button
-            label="Terminar"
+            label={said.finish}
             variant={recorded ? 'primary' : 'secondary'}
             onPress={() => setDeciding(true)}
             loading={closing}
@@ -694,7 +710,7 @@ export default function Session() {
       {editing ? (
         <View style={styles.past}>
           <Note size="md" boxed>
-            Es un entreno pasado. Al guardar se recalculan tus récords, tu racha y tus totales.
+            {said.pastNote}
           </Note>
           {times ? (
             <View
@@ -708,7 +724,7 @@ export default function Session() {
             >
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Cambiar el horario"
+                accessibilityLabel={said.changeTime}
                 style={styles.pastFigure}
                 onPress={() =>
                   setTurning({
@@ -718,11 +734,15 @@ export default function Session() {
                 }
               >
                 <Text role="eyebrow" size="2xs" color="muted" uppercase>
-                  Horario
+                  {said.time}
                 </Text>
                 <View style={styles.inline}>
                   <Text role="poster" size="xl">
-                    {rangeLabel(clockOf(times.start, timeZone), clockOf(times.end, timeZone))}
+                    {rangeLabel(
+                      clockOf(times.start, timeZone),
+                      clockOf(times.end, timeZone),
+                      text.time,
+                    )}
                   </Text>
                   <FoundationIcon
                     name="edit"
@@ -735,10 +755,10 @@ export default function Session() {
               {(
                 [
                   [
-                    'Duración',
+                    said.duration,
                     trainedLabel((Date.parse(times.end) - Date.parse(times.start)) / 1000),
                   ],
-                  ['Volumen', `${volume.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg`],
+                  [said.volume, volumeLabel(volume, mass, locale)],
                 ] as const
               ).map(([label, value]) => (
                 <View
@@ -826,7 +846,8 @@ export default function Session() {
               }
               onExplain={explainer(exercise.movementId)}
               onRest={() => setAsking({ about: 'rest', position: exercise.position })}
-              pastLabel={editing ? 'ANTES' : 'ANTERIOR'}
+              pastLabel={editing ? said.pastBefore : said.pastPrevious}
+              unit={unit}
             />
           </DraggableRow>
         ))}
@@ -837,7 +858,7 @@ export default function Session() {
           <FirstExercise free={free} onAdd={addExercise} />
         ) : (
           <View style={styles.addExercise}>
-            <Button label="Añadir ejercicio" icon="add" variant="secondary" onPress={addExercise} />
+            <Button label={said.addExercise} icon="add" variant="secondary" onPress={addExercise} />
           </View>
         )}
       </ScrollView>
@@ -849,16 +870,19 @@ export default function Session() {
               <View style={[styles.changeDot, { backgroundColor: theme.color.icon.accent }]} />
             ) : null}
             <Text role="body" size="sm" color={changes > 0 ? 'secondary' : 'muted'}>
-              {changes === 0
-                ? 'Sin cambios todavía'
-                : `${String(changes)} ${changes === 1 ? 'cambio' : 'cambios'} · tus récords se recalculan al guardar`}
+              {changes === 0 ? said.noChanges : said.changes(changes)}
             </Text>
           </View>
           <View style={styles.editActions}>
-            <Button label="Descartar" variant="secondary" onPress={minimize} disabled={revising} />
+            <Button
+              label={said.discard}
+              variant="secondary"
+              onPress={minimize}
+              disabled={revising}
+            />
             <View style={styles.noticeText}>
               <Button
-                label="Guardar cambios"
+                label={said.saveChanges}
                 loading={revising}
                 disabled={changes === 0 || !recorded}
                 onPress={revise}
@@ -871,12 +895,12 @@ export default function Session() {
       <Sheet
         visible={turning !== undefined}
         onDismiss={() => setTurning(undefined)}
-        title="Horario del entreno"
+        title={said.timeSheet}
       >
         {turning ? (
           <View style={styles.decisions}>
             <TimeWheels start={turning.start} end={turning.end} onChange={setTurning} />
-            <Button label="Listo" onPress={turnedTimes} />
+            <Button label={said.done} onPress={turnedTimes} />
           </View>
         ) : null}
       </Sheet>
@@ -893,37 +917,31 @@ export default function Session() {
         />
       ) : null}
 
-      <Sheet
-        visible={deciding}
-        onDismiss={() => setDeciding(false)}
-        title="¿Qué hacemos con esta sesión?"
-      >
+      <Sheet visible={deciding} onDismiss={() => setDeciding(false)} title={said.decide}>
         <View style={styles.decisions}>
-          <Button label="Guardar entrenamiento" onPress={finish} disabled={!recorded} />
+          <Button label={said.saveWorkout} onPress={finish} disabled={!recorded} />
           <Text role="body" size="xs" color="muted">
-            {recorded
-              ? 'Se guarda como terminado y cuenta en tu semana.'
-              : 'Todavía no has marcado ninguna serie, así que no hay nada que guardar.'}
+            {recorded ? said.savesAsDone : said.nothingToSave}
           </Text>
 
-          <Button label="Descartar entrenamiento" variant="secondary" onPress={leave} />
+          <Button label={said.discardWorkout} variant="secondary" onPress={leave} />
 
-          <Button label="Regresar" variant="ghost" onPress={() => setDeciding(false)} />
+          <Button label={said.goBack} variant="ghost" onPress={() => setDeciding(false)} />
         </View>
       </Sheet>
 
       <Sheet
         visible={asking?.about === 'kind'}
         onDismiss={() => setAsking(undefined)}
-        title="Tipo de serie"
+        title={dictionary.training.routine.sheets['set-kind']}
       >
         <View style={styles.decisions}>
           {(['normal', 'warmup', 'to_failure', 'drop'] as const).map((kind: SetKind) => (
             <SheetChoice
               key={kind}
-              name={SET_KIND_NAMES[kind]}
+              name={sets.kinds[kind]}
               tone={SET_KIND_TONES[kind]}
-              detail={SET_KIND_DETAILS[kind]}
+              detail={sets.details[kind]}
               selected={askedSet?.kind === kind}
               onPress={() => {
                 if (asking?.about === 'kind') {
@@ -943,7 +961,7 @@ export default function Session() {
       <Sheet
         visible={asking?.about === 'effort'}
         onDismiss={() => setAsking(undefined)}
-        title="Esfuerzo de la serie"
+        title={said.setEffort}
       >
         <RpeSheetBody
           value={askedSet?.rpe}
@@ -964,7 +982,7 @@ export default function Session() {
       <Sheet
         visible={asking?.about === 'rest'}
         onDismiss={() => setAsking(undefined)}
-        title="Descanso entre series"
+        title={dictionary.training.routine.sheets.rest}
       >
         <RestSheetBody
           value={asked?.restSeconds ?? REST_OPENING_SECONDS}
@@ -978,14 +996,14 @@ export default function Session() {
       <Sheet
         visible={asking?.about === 'menu' || asking?.about === 'chain'}
         onDismiss={() => setAsking(undefined)}
-        title={asking?.about === 'chain' ? 'Superserie' : (asked?.movement ?? 'Ejercicio')}
+        title={asking?.about === 'chain' ? said.superset : (asked?.movement ?? text.exercise)}
       >
         {asking?.about === 'menu' ? (
           <View style={styles.decisions}>
             {asked?.supersetGroup !== undefined ? (
               <SheetChoice
-                name="Quitar de la superserie"
-                detail="Deja de encadenarse con su vecino"
+                name={said.unchain}
+                detail={said.unchainDetail}
                 onPress={() => {
                   if (asked) restructure(unchainedExercise(exercises, asked.position))
                   setAsking(undefined)
@@ -993,12 +1011,8 @@ export default function Session() {
               />
             ) : (
               <SheetChoice
-                name="Hacer superserie"
-                detail={
-                  exercises.length < 2
-                    ? 'Necesitas otro ejercicio en la sesión'
-                    : 'Encadenarlo con otro ejercicio'
-                }
+                name={said.chain}
+                detail={exercises.length < 2 ? said.chainNeedsAnother : said.chainDetail}
                 disabled={exercises.length < 2}
                 onPress={() => {
                   if (asked) setAsking({ about: 'chain', position: asked.position })
@@ -1008,8 +1022,8 @@ export default function Session() {
             {/* No confirmation: it is one exercise, and the add button brings it back. */}
             <SheetChoice
               destructive
-              name="Eliminar ejercicio"
-              detail="Se quita de esta sesión con sus series"
+              name={said.removeExercise}
+              detail={said.removeExerciseDetail}
               onPress={() => {
                 if (asked) removeExercise(asked.position)
               }}
@@ -1018,7 +1032,7 @@ export default function Session() {
         ) : (
           <View style={styles.decisions}>
             <Text role="body" size="sm" color="muted">
-              Se hacen seguidos, sin descanso entre medias. El que elijas queda al lado de este.
+              {said.chainExplainer}
             </Text>
             {exercises
               .filter((mate) => mate.position !== asked?.position)
@@ -1072,6 +1086,7 @@ function Exercise({
   onExplain,
   onRest,
   pastLabel,
+  unit,
 }: {
   readonly exercise: WorkingExercise
   readonly picture: string | null
@@ -1083,7 +1098,7 @@ function Exercise({
   readonly onMenu: () => void
   readonly onEdit: (
     order: number,
-    change: Partial<{ loadKg: string; reps: string; done: boolean }>,
+    change: Partial<{ load: string; reps: string; done: boolean }>,
   ) => void
   readonly onAddSet: (button: View | null) => void
   readonly onRemoveSet: (order: number) => void
@@ -1095,7 +1110,13 @@ function Exercise({
   readonly onRest: () => void
   /** «ANTERIOR» while training; «ANTES» when correcting, over the set as recorded. */
   readonly pastLabel: string
+  /** The unit the loads are typed in. */
+  readonly unit: MassUnit
 }) {
+  const words = useText()
+  const text = words.session
+  const sets = words.training.sets
+  const said = text.live
   const theme = useTheme()
   const progress = useSharedValue(0)
   const drawerHeight = useSharedValue(0)
@@ -1161,7 +1182,7 @@ function Exercise({
       {/* A quiet pill, not a cyan line: it is a setting, and the rows below are the work. */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Descanso entre series: ${restPresetLabel(effectiveRest)}. Cambiar`}
+        accessibilityLabel={said.restPill(restPresetLabel(effectiveRest, sets))}
         onPress={onRest}
         hitSlop={8}
         style={({ pressed }) => [
@@ -1175,10 +1196,10 @@ function Exercise({
       >
         <FoundationIcon name="rest" customSize={14} color={theme.color.icon.secondary} decorative />
         <Text role="control" size="xs" color="muted">
-          Descanso
+          {said.rest}
         </Text>
         <Text role="control" size="xs">
-          {restPresetLabel(effectiveRest)}
+          {restPresetLabel(effectiveRest, sets)}
         </Text>
         <FoundationIcon
           name="expand"
@@ -1190,19 +1211,19 @@ function Exercise({
 
       <View style={styles.columns}>
         <Text role="eyebrow" size="xs" color="muted" align="center" style={styles.colSet}>
-          SERIE
+          {said.columnSet}
         </Text>
         <Text role="eyebrow" size="xs" color="muted" numberOfLines={1} style={styles.colPrevious}>
           {pastLabel}
         </Text>
         <Text role="eyebrow" size="xs" color="muted" align="center" style={styles.colInput}>
-          KG
+          {unit.toUpperCase()}
         </Text>
         <Text role="eyebrow" size="xs" color="muted" align="center" style={styles.colInput}>
-          REPS
+          {said.columnReps}
         </Text>
         <Text role="eyebrow" size="xs" color="muted" align="center" style={styles.colRpe}>
-          RPE
+          {said.columnRpe}
         </Text>
         <View style={styles.colTick} />
       </View>
@@ -1222,6 +1243,7 @@ function Exercise({
             onTick={() => onTick(set.order)}
             onEdit={(change) => onEdit(set.order, change)}
             onRemove={() => onRemoveSet(set.order)}
+            unit={unit}
           />
         ))}
       </LayoutAnimationConfig>
@@ -1230,7 +1252,7 @@ function Exercise({
       <Pressable
         ref={addButton}
         accessibilityRole="button"
-        accessibilityLabel={`Añadir una serie a ${exercise.movement}`}
+        accessibilityLabel={said.addSetTo(exercise.movement)}
         onPress={() => onAddSet(addButton.current)}
         style={({ pressed }) => [
           styles.addSet,
@@ -1239,7 +1261,7 @@ function Exercise({
       >
         <FoundationIcon name="add" customSize={12} color={theme.color.icon.accent} decorative />
         <Text role="control" size="sm" color="accent">
-          Añadir serie
+          {said.addSet}
         </Text>
       </Pressable>
     </>
@@ -1255,7 +1277,7 @@ function Exercise({
         <Pressable
           onPress={onExplain ?? onToggle}
           accessibilityRole={onExplain ? 'button' : undefined}
-          accessibilityLabel={onExplain ? `Cómo se hace ${exercise.movement}` : undefined}
+          accessibilityLabel={onExplain ? said.howTo(exercise.movement) : undefined}
           accessible={onExplain !== undefined}
           hitSlop={4}
         >
@@ -1282,7 +1304,7 @@ function Exercise({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           accessibilityLabel={
-            chain ? `${exercise.movement}, superserie ${chain.letter}` : exercise.movement
+            chain ? said.inSuperset(exercise.movement, chain.letter) : exercise.movement
           }
           onPress={onToggle}
           style={styles.headerToggle}
@@ -1299,7 +1321,7 @@ function Exercise({
               <View style={styles.chainMark}>
                 <View style={[styles.chainDot, { backgroundColor: chain.color }]} />
                 <Text role="body" size="xs" color="muted">
-                  {`Superserie ${chain.letter}`}
+                  {said.supersetLetter(chain.letter)}
                 </Text>
               </View>
             ) : null}
@@ -1316,7 +1338,7 @@ function Exercise({
               />
             ) : null}
             <Text role="control" size="xs" color={complete ? 'success' : 'muted'}>
-              {`${done} de ${working.length}`}
+              {said.progress(done, working.length)}
             </Text>
           </Animated.View>
           <Animated.View style={chevron}>
@@ -1328,7 +1350,7 @@ function Exercise({
           icon="more"
           size="sm"
           variant="plain"
-          accessibilityLabel={`Opciones de ${exercise.movement}`}
+          accessibilityLabel={said.options(exercise.movement)}
           onPress={onMenu}
         />
       </View>
@@ -1375,6 +1397,7 @@ function SetRow({
   onTick,
   onEdit,
   onRemove,
+  unit,
 }: {
   readonly set: WorkingSet
   readonly index: number
@@ -1383,9 +1406,14 @@ function SetRow({
   readonly onKind: () => void
   readonly onEffort: () => void
   readonly onTick: () => void
-  readonly onEdit: (change: Partial<{ loadKg: string; reps: string }>) => void
+  readonly onEdit: (change: Partial<{ load: string; reps: string }>) => void
   readonly onRemove: () => void
+  readonly unit: MassUnit
 }) {
+  const dictionary = useText()
+  const text = dictionary.session
+  const sets = dictionary.training.sets
+  const said = text.live
   const theme = useTheme()
   const offset = useSharedValue(0)
   const [open, setOpen] = useState(false)
@@ -1457,7 +1485,7 @@ function SetRow({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Eliminar la serie ${index + 1}`}
+          accessibilityLabel={said.removeSet(index + 1)}
           onPress={() => {
             // The same exit as the long throw: the row leaves the way it was pushed.
             offset.value = withTiming(-ROW_EXIT, { duration: 220 }, (finished) => {
@@ -1468,7 +1496,7 @@ function SetRow({
         >
           <FoundationIcon name="remove" size="xs" color={theme.color.text.primary} decorative />
           <Text role="control" size="sm" style={{ color: theme.color.text.primary }}>
-            Eliminar
+            {said.remove}
           </Text>
         </Pressable>
       </Animated.View>
@@ -1494,7 +1522,7 @@ function SetRow({
               looked like a label, and nobody guessed it opened the kinds. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Serie ${index + 1}: ${SET_KIND_NAMES[set.kind]}. Cambiar el tipo`}
+            accessibilityLabel={said.setKindOf(index + 1, sets.kinds[set.kind])}
             onPress={open ? close : onKind}
             hitSlop={4}
             style={[
@@ -1536,22 +1564,22 @@ function SetRow({
           </Text>
           {/* A done set steps back so the ones still to do lead; it stays editable. */}
           <Field
-            value={set.loadKg}
-            label={`Kilos de la serie ${index + 1}`}
+            value={set.load}
+            label={said.loadOf(index + 1, unit)}
             dimmed={done}
-            onChange={(loadKg) => onEdit({ loadKg })}
+            onChange={(load) => onEdit({ load })}
           />
           <Field
             value={set.reps}
-            label={`Repeticiones de la serie ${index + 1}`}
+            label={said.repsOf(index + 1)}
             dimmed={done}
             onChange={(reps) => onEdit({ reps })}
           />
           {/* Optional, and a button rather than a field: the scale opens explained. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Esfuerzo de la serie ${index + 1}`}
-            accessibilityHint={rpeCopy(set.rpe)}
+            accessibilityLabel={said.effortOf(index + 1)}
+            accessibilityHint={rpeCopy(set.rpe, text.rpe)}
             onPress={onEffort}
             hitSlop={4}
             style={[
@@ -1574,7 +1602,7 @@ function SetRow({
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: done }}
-            accessibilityLabel={`Marcar la serie ${index + 1}`}
+            accessibilityLabel={said.tickOf(index + 1)}
             onPress={() => {
               if (open) return close()
               // The set is over; the keyboard would sit over the ones still to come.
@@ -1655,6 +1683,7 @@ function Field({
  * button under a list that does not exist yet.
  */
 function FirstExercise({ free, onAdd }: { readonly free: boolean; readonly onAdd: () => void }) {
+  const said = useText().session.live
   const theme = useTheme()
   return (
     <View style={styles.first}>
@@ -1679,19 +1708,18 @@ function FirstExercise({ free, onAdd }: { readonly free: boolean; readonly onAdd
           <FoundationIcon name="freestyle" size="md" color={theme.color.icon.accent} decorative />
         </View>
         <Text role="control" size="lg" align="center">
-          Agrega tu primer ejercicio
+          {said.firstTitle}
         </Text>
         <Text role="body" size="sm" color="secondary" align="center">
-          Búscalo en la biblioteca y registra cada serie. Puedes sumar más ejercicios cuando
-          quieras.
+          {said.firstBody}
         </Text>
-        <Button label="Añadir ejercicio" icon="add" onPress={onAdd} style={styles.firstAdd} />
+        <Button label={said.addExercise} icon="add" onPress={onAdd} style={styles.firstAdd} />
       </View>
       {free ? (
         <View style={styles.firstNote}>
           <FoundationIcon name="locked" size="xs" color={theme.color.icon.secondary} decorative />
           <Text role="body" size="xs" color="muted" style={styles.firstNoteText}>
-            Es tuyo: ningún gimnasio lo ve si no lo compartes.
+            {said.firstPrivate}
           </Text>
         </View>
       ) : null}

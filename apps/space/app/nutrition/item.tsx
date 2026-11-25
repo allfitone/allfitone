@@ -21,12 +21,13 @@ import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { keepItem, openedItem, settleItem } from '../../src/client/item-handover'
-import { addToMeal } from '../../src/client/nutrition'
 import type { CaptureItem } from '../../src/client/capture'
 import { ItemEditor } from '../../src/components/capture-sheets'
+import { useText } from '../../src/i18n/use-text'
 
 export default function ItemScreen() {
   const router = useRouter()
+  const text = useText().nutrition
   const [opened] = useState(openedItem)
   const [item, setItem] = useState<CaptureItem | undefined>(opened?.item)
 
@@ -51,7 +52,7 @@ export default function ItemScreen() {
       <View style={styles.header}>
         <IconButton
           icon={editing ? 'back' : 'close'}
-          accessibilityLabel={editing ? 'Volver a la comida' : 'Cerrar sin añadir'}
+          accessibilityLabel={editing ? text.item.backToMeal : text.item.closeWithoutAdding}
           onPress={() => router.back()}
         />
         <View style={styles.grow}>
@@ -61,7 +62,7 @@ export default function ItemScreen() {
           {editing ? (
             // Only the words answer: the space beside them is not a button.
             <Button
-              label={item.food ? 'Cambiar alimento' : 'Elegir alimento'}
+              label={item.food ? text.item.changeFood : text.item.chooseFood}
               variant="ghost"
               size="sm"
               onPress={() => leave({ kind: 'change-food', item })}
@@ -85,7 +86,7 @@ export default function ItemScreen() {
         <ItemEditor item={item} targets={opened.targets} onChange={change} />
         {item.food?.kind === 'product' ? (
           <Text role="body" size="xs" color="muted">
-            Datos de Open Food Facts (ODbL)
+            {text.item.openFoodFacts}
           </Text>
         ) : null}
       </ScrollView>
@@ -93,16 +94,16 @@ export default function ItemScreen() {
       <View style={styles.foot}>
         {editing ? (
           <>
-            <Button label="Listo" onPress={() => router.back()} />
+            <Button label={text.done} onPress={() => router.back()} />
             <Button
-              label="Quitar de la comida"
+              label={text.item.remove}
               variant="ghost"
               onPress={() => leave({ kind: 'removed', key: item.key })}
             />
           </>
         ) : (
           <Button
-            label={addToMeal(opened.mealType)}
+            label={text.addToMeal(opened.mealType)}
             disabled={item.grams <= 0}
             onPress={() => leave({ kind: 'added', item })}
           />

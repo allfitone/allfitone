@@ -7,14 +7,14 @@
  * de texto que hay que poder afirmar en una prueba en vez de juzgarla en una captura.
  */
 
+import type { Dictionary } from '../i18n'
 import type { MyProgram } from './programs'
 import type { MyRoutine } from './content'
 
+type LibraryWords = Dictionary['training']['library']
+
 /** Las tres solapas de la biblioteca de rutinas. */
 export type RoutineFilter = 'all' | 'in-program' | 'standalone'
-
-/** Indexado por `program_day`: 1 es lunes, 7 domingo, y el 0 no existe. */
-const DAYS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const
 
 /**
  * El día que el programa le puso a una sesión, en tres letras.
@@ -25,8 +25,8 @@ const DAYS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const
  * sesión que la persona puso en lunes. `program_day` es la ranura, que es lo que la
  * pantalla nombra.
  */
-export function dayName(programDay: number): string {
-  return DAYS[programDay] ?? ''
+export function dayName(programDay: number, text: LibraryWords): string {
+  return text.days[programDay - 1] ?? ''
 }
 
 /**
@@ -36,21 +36,17 @@ export function dayName(programDay: number): string {
  * recibió borrador, así que no se puede abrir, y decir «Tuyo» de algo que no se puede
  * editar sería mentir sobre lo que se puede hacer con él.
  */
-export function programCaption(program: MyProgram, week?: number): string {
-  const origin = program.editable ? 'Tuyo' : 'De Allfit'
+export function programCaption(program: MyProgram, text: LibraryWords, week?: number): string {
+  const origin = program.editable ? text.yours : text.allfits
   const parts = [
     origin,
-    program.weeks === null ? 'sin fecha de fin' : `${String(program.weeks)} semanas`,
-    `${String(program.days_per_week)} días`,
+    program.weeks === null ? text.noEnd : text.weeks(program.weeks),
+    text.dayCount(program.days_per_week),
   ]
   // Sin fin se dice en qué semana vas y se calla el «de»: un programa que no termina no
   // tiene una semana final contra la que medirse, y «semana 3 de null» es lo que salía.
   if (week !== undefined) {
-    parts.push(
-      program.weeks === null
-        ? `semana ${String(week)}`
-        : `semana ${String(week)} de ${String(program.weeks)}`,
-    )
+    parts.push(program.weeks === null ? text.week(week) : text.weekOf(week, program.weeks))
   }
   return parts.join(' · ')
 }
@@ -65,12 +61,16 @@ export function programCaption(program: MyProgram, week?: number): string {
  * entrenarla cuando toque, y callarlo dejaría la fila con un hueco donde las demás
  * tienen una frase.
  */
-export function whereUsed(routine: MyRoutine): { text: string; loose: boolean } {
+export function whereUsed(
+  routine: MyRoutine,
+  text: LibraryWords,
+): { text: string; loose: boolean } {
   const titles = routine.programs.map((program) => program.title)
-  if (titles.length === 0) return { text: 'Sin programa', loose: true }
-  if (titles.length === 1) return { text: `En ${titles[0] ?? ''}`, loose: false }
-  const last = titles[titles.length - 1] ?? ''
-  return { text: `En ${titles.slice(0, -1).join(', ')} y ${last}`, loose: false }
+  if (titles.length === 0) return { text: text.noProgram, loose: true }
+  return {
+    text: text.inPrograms(titles.slice(0, -1), titles[titles.length - 1] ?? ''),
+    loose: false,
+  }
 }
 
 /**
@@ -80,15 +80,13 @@ export function whereUsed(routine: MyRoutine): { text: string; loose: boolean } 
  * sería ruido que además parece un error. Toma la forma mínima porque la semana y la
  * biblioteca cuentan lo mismo con dos tipos distintos.
  */
-export function routineFigures(routine: {
-  readonly exercise_count: number
-  readonly set_count: number
-}): string {
-  const exercises =
-    routine.exercise_count === 1 ? '1 ejercicio' : `${String(routine.exercise_count)} ejercicios`
+export function routineFigures(
+  routine: { readonly exercise_count: number; readonly set_count: number },
+  text: LibraryWords,
+): string {
+  const exercises = text.exercises(routine.exercise_count)
   if (routine.set_count === 0) return exercises
-  const sets = routine.set_count === 1 ? '1 serie' : `${String(routine.set_count)} series`
-  return `${exercises} · ${sets}`
+  return `${exercises} · ${text.sets(routine.set_count)}`
 }
 
 /** La solapa elegida, aplicada. `todas` no filtra: es la lista entera y no una vista. */
@@ -119,10 +117,8 @@ export function routineCounts(routines: readonly MyRoutine[]): Record<RoutineFil
  * ve que está vacía— y además sonaba a que algo había fallado. Lo que hace falta es
  * nombrar lo que falta, que en las tres solapas es lo mismo con un matiz distinto.
  */
-export function emptyReason(filter: RoutineFilter): string {
-  if (filter === 'in-program') return 'No hay rutinas en programas aún'
-  if (filter === 'standalone') return 'No hay rutinas sueltas'
-  return 'No hay rutinas aún'
+export function emptyReason(filter: RoutineFilter, text: LibraryWords): string {
+  return text.empty[filter]
 }
 
 /**
@@ -136,12 +132,10 @@ export function emptyReason(filter: RoutineFilter): string {
  * lo que haya en cada uno —, así que esa la responde el servidor y la pantalla la
  * traduce. Ver `discardFailure`.
  */
-export function discardWarning(routine: MyRoutine): string {
-  if (routine.programs.length === 0) return 'Se va de tu biblioteca. Lo ya entrenado se conserva.'
-  if (routine.programs.length === 1) {
-    return `Se va de tu biblioteca y de ${routine.programs[0]?.title ?? ''}, que se republica sin ella.`
-  }
-  return `Se va de tu biblioteca y de ${String(routine.programs.length)} programas, que se republican sin ella.`
+export function discardWarning(routine: MyRoutine, text: LibraryWords): string {
+  if (routine.programs.length === 0) return text.discard.loose
+  if (routine.programs.length === 1) return text.discard.inOne(routine.programs[0]?.title ?? '')
+  return text.discard.inMany(routine.programs.length)
 }
 
 /**
@@ -196,10 +190,14 @@ export function routinesLostWith(
  * sesiones que ya hizo alguien son su historia y no se tocan. Prometer menos de lo que se
  * cumple asusta; prometer más miente.
  */
-export function removalWarning(program: MyProgram, routines: readonly MyRoutine[]): string {
+export function removalWarning(
+  program: MyProgram,
+  routines: readonly MyRoutine[],
+  text: LibraryWords,
+): string {
   const { going, staying } = routinesLostWith(program, routines)
-  const kept = 'Lo que ya entrenaste se conserva.'
-  const leaves = 'Se va de tu biblioteca y de tu agenda.'
+  const kept = text.removal.kept
+  const leaves = text.removal.leaves
 
   if (going.length === 0 && staying.length === 0) return `${leaves} ${kept}`
 
@@ -207,8 +205,8 @@ export function removalWarning(program: MyProgram, routines: readonly MyRoutine[
     going.length === 0
       ? ''
       : going.length === 1
-        ? `Se elimina también «${going[0]?.title ?? ''}».`
-        : `Se eliminan también sus ${String(going.length)} rutinas.`
+        ? text.removal.goingOne(going[0]?.title ?? '')
+        : text.removal.goingMany(going.length)
 
   // Nombrar la que se queda, y por qué. Callarlo dejaría a alguien contando rutinas
   // después de borrar, que es cuando ya no se puede preguntar.
@@ -216,8 +214,8 @@ export function removalWarning(program: MyProgram, routines: readonly MyRoutine[
     staying.length === 0
       ? ''
       : staying.length === 1
-        ? `«${staying[0]?.title ?? ''}» se queda, porque está en otro programa.`
-        : `${String(staying.length)} se quedan, porque están en otros programas.`
+        ? text.removal.stayingOne(staying[0]?.title ?? '')
+        : text.removal.stayingMany(staying.length)
 
   return [leaves, alsoGoing, alsoStaying, kept].filter((part) => part !== '').join(' ')
 }

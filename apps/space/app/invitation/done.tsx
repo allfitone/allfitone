@@ -16,10 +16,12 @@ import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { GymMark, RowCard } from '../../src/components/gym-ui'
+import { useText } from '../../src/i18n/use-text'
 
 export default function InvitationDone() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const words = useText().invitation.done
   const {
     gym = '',
     shared = '0',
@@ -39,19 +41,19 @@ export default function InvitationDone() {
       <View style={styles.content}>
         <GymMark name={gym} size={64} />
         <Text role="control" size="2xl" align="center" accessibilityRole="header">
-          Ya entrenas con {gym}
+          {words.title(gym)}
         </Text>
         <Text role="body" size="sm" color="secondary" align="center">
-          Tu gimnasio te asignará un coach.
+          {words.coach}
         </Text>
         <View style={styles.rows}>
           <RowCard>
-            <ContentRow icon="favourite" name="Allfit Pro activo" caption={`Incluido por ${gym}`} />
+            <ContentRow icon="favourite" name={words.pro} caption={words.includedBy(gym)} />
             <ContentRow
               icon="permissions"
               iconTone="quiet"
-              name={`Compartes ${shared} de ${asked} categorías`}
-              caption="Las cambias cuando quieras en Perfil"
+              name={words.shared(Number(shared), Number(asked))}
+              caption={words.changeLater}
             />
             {program && programLine ? (
               <ContentRow icon="calendar" name={program} caption={programLine} />
@@ -60,7 +62,7 @@ export default function InvitationDone() {
         </View>
       </View>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <Button label="Ir a Hoy" onPress={() => router.replace('/today')} />
+        <Button label={words.today} onPress={() => router.replace('/today')} />
       </View>
     </Screen>
   )

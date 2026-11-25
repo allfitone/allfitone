@@ -49,12 +49,8 @@ import { deviceStore, loadOffer, type StoreOffer } from '../../src/client/pro-st
 import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { ComparisonTable, UnlockCarousel } from '../../src/components/plan-comparison'
 import { useProPurchase } from '../../src/components/use-pro-purchase'
+import { useText } from '../../src/i18n/use-text'
 
-const UNAVAILABLE = 'No pudimos cargar los planes. Revisa tu conexión e inténtalo de nuevo.'
-const NOT_ON_SALE = 'Pro todavía no está a la venta en esta tienda.'
-const PER: Record<string, string> = { month: '/mes', year: '/año' }
-const RENEWS: Record<string, string> = { month: 'cada mes', year: 'cada año' }
-const STORE: Record<string, string> = { app_store: 'la App Store', google_play: 'Google Play' }
 const HERO_HEIGHT = 430
 const FOOTER_HEIGHT = 176
 const COVERS = [cover0, cover1, cover2, cover3]
@@ -75,10 +71,12 @@ export function ProPlans({
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
+  const text = useText()
+  const words = text.plans.compare
   const [status, setStatus] = useState<ProStatus | undefined>(undefined)
   const [catalogue, setCatalogue] = useState<ProPlanCatalogue | undefined>(undefined)
   const [offer, setOffer] = useState<StoreOffer | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'unavailable' | 'notOnSale' | undefined>(undefined)
   const [footer, setFooter] = useState(0)
   const purchase = useProPurchase(flow, () => router.replace('/pro'))
 
@@ -95,9 +93,9 @@ export function ProPlans({
           const found = product ? await offerFor(product).catch(() => undefined) : undefined
           if (!active) return
           setOffer(found)
-          setFailure(found ? undefined : NOT_ON_SALE)
+          setFailure(found ? undefined : 'notOnSale')
         })
-        .catch(() => active && setFailure(UNAVAILABLE))
+        .catch(() => active && setFailure('unavailable'))
       return () => {
         active = false
       }
@@ -106,23 +104,26 @@ export function ProPlans({
 
   const pro = catalogue ? proPlanOf(catalogue) : undefined
   const free = catalogue ? freePlanOf(catalogue) : undefined
-  const rows = comparisonRows(free?.features ?? [], pro?.features ?? [])
+  const rows = comparisonRows(free?.features ?? [], pro?.features ?? [], text.plans)
   const period = pro?.billing_period ?? null
   const paying = status ? subscriptionOf(status) : undefined
   const [gym] = status && status.effective_source === 'organization' ? gymsOf(status) : []
   const canBuy = Boolean(offer && status && !paying && !gym)
   const label = paying
-    ? 'Ya eres Pro · Gestionar'
+    ? words.alreadyPro
     : gym
-      ? `Ya tienes Pro con ${gym.organization_name}`
+      ? words.proWithGym(gym.organization_name)
       : offer
-        ? `Hazte Pro · ${offer.displayPrice}${period ? (PER[period] ?? '') : ''}`
-        : 'Hazte Pro'
+        ? words.becomeProAt(`${offer.displayPrice}${period ? (words.per[period] ?? '') : ''}`)
+        : words.becomePro
   const note = paying
-    ? 'Tu plan se renueva solo. Lo cancelas cuando quieras desde la tienda.'
+    ? words.renewsAlone
     : gym
-      ? 'Mientras sigas con ellos no pagas nada más. Si terminas con el gimnasio, aquí podrás suscribirte.'
-      : `Se renueva ${period ? (RENEWS[period] ?? '') : ''} hasta que lo canceles en ${STORE[deviceStore] ?? 'la tienda'}.`
+      ? words.whileWithGym
+      : words.renewsUntil(
+          period ? (words.renews[period] ?? '') : '',
+          words.store[deviceStore] ?? words.theStore,
+        )
 
   return (
     <Screen edges={[]} padded={false} ambient={false}>
@@ -140,9 +141,9 @@ export function ProPlans({
           <Scrim height={HERO_HEIGHT + insets.top} coverage={1} onset={0.25} />
           <View style={styles.heroCopy}>
             {/* Solid, not tonal: a tonal seal disappears into the photo behind it. */}
-            <Badge label="Gratis y Pro" tone="accent" style={styles.seal} />
-            <View accessible accessibilityRole="header" accessibilityLabel="Tu progreso, sin techo">
-              {(['TU PROGRESO,', 'SIN', 'TECHO.'] as const).map((line, index) => (
+            <Badge label={words.seal} tone="accent" style={styles.seal} />
+            <View accessible accessibilityRole="header" accessibilityLabel={words.headline}>
+              {words.headlineLines.map((line, index) => (
                 <Animated.View
                   key={line}
                   entering={FadeInDown.delay(120 + index * 120)
@@ -161,15 +162,17 @@ export function ProPlans({
               ))}
             </View>
             <Text role="body" size="md" color="secondary">
-              Entrenar es gratis, siempre. Pro abre tu historial completo, el análisis de tu
-              progreso y la nutrición con IA.
+              {words.lede}
             </Text>
           </View>
         </View>
 
         {failure ? (
           <View style={styles.padded}>
-            <InlineAlert message={failure} tone={failure === NOT_ON_SALE ? 'info' : 'danger'} />
+            <InlineAlert
+              message={words[failure]}
+              tone={failure === 'notOnSale' ? 'info' : 'danger'}
+            />
           </View>
         ) : null}
         {purchase.failure ? (
@@ -187,13 +190,13 @@ export function ProPlans({
             tone="success"
             icon="permissions"
             iconSize="md"
-            title="Tus datos nunca se cobran"
-            message="Decidir qué compartes, verlo, descargarlo y borrarlo es gratis en los dos planes. Si bajas a Gratis no pierdes nada: solo dejas de verlo."
+            title={words.dataFreeTitle}
+            message={words.dataFreeBody}
           />
 
           {gym ? null : (
             <Note size="md" icon="organization" boxed>
-              ¿Tu gimnasio usa Allfit? Pro te sale incluido mientras sigas con ellos.
+              {words.gymIncludes}
             </Note>
           )}
         </View>
@@ -201,7 +204,7 @@ export function ProPlans({
 
       <IconButton
         icon="close"
-        accessibilityLabel="Cerrar"
+        accessibilityLabel={words.close}
         onPress={() => router.back()}
         style={[styles.close, { top: insets.top + 6 }]}
       />
@@ -228,20 +231,20 @@ export function ProPlans({
         </Text>
         <View style={styles.links}>
           <Button
-            label="Restaurar compras"
+            label={words.restore}
             variant="ghost"
             size="sm"
             disabled={purchase.busy}
             onPress={() => void purchase.restore()}
           />
           <Button
-            label="Términos"
+            label={words.terms}
             variant="ghost"
             size="sm"
             onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
           />
           <Button
-            label="Privacidad"
+            label={words.privacy}
             variant="ghost"
             size="sm"
             onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}

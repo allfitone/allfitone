@@ -24,14 +24,14 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   canChangePassword,
-  passwordChecks,
   passwordFailure,
-  PASSWORD_RULES,
+  passwordRequirements,
   type PasswordFailure,
 } from '../client/password-form'
 import { changePassword } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { Ring } from './email-change-progress'
+import { useText } from '../i18n/use-text'
 import { Note } from '@allfitone/react-native/note'
 
 export interface PasswordSources {
@@ -42,12 +42,12 @@ export const LIVE_PASSWORD: PasswordSources = { changePassword }
 
 export function PasswordEditScreen({ sources }: { readonly sources: PasswordSources }) {
   const router = useRouter()
+  const t = useText().password
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<PasswordFailure | undefined>(undefined)
   const [done, setDone] = useState(false)
-  const checks = passwordChecks(current, next)
 
   const change = async () => {
     setSaving(true)
@@ -56,7 +56,7 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
       await sources.changePassword(current, next)
       setDone(true)
     } catch (cause) {
-      setFailure(passwordFailure(cause))
+      setFailure(passwordFailure(cause, t))
     } finally {
       setSaving(false)
     }
@@ -65,22 +65,21 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
   if (done) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <EditHeader title="Contraseña" />
+        <EditHeader title={t.title} />
         <View style={styles.grow}>
           <ScrollView contentContainerStyle={styles.done} showsVerticalScrollIndicator={false}>
             <Ring done />
             <View style={styles.words} accessibilityLiveRegion="polite">
               <Text role="display" size="3xl" align="center" accessibilityRole="header">
-                TU CONTRASEÑA CAMBIÓ
+                {t.changed}
               </Text>
               <Text role="body" size="sm" color="secondary" align="center">
-                La próxima vez que entres, usa la nueva. Cerramos tus sesiones en otros teléfonos y
-                te avisamos por correo.
+                {t.changedBody}
               </Text>
             </View>
           </ScrollView>
           <View style={styles.footer}>
-            <Button label="Listo" onPress={() => router.back()} />
+            <Button label={t.done} onPress={() => router.back()} />
           </View>
         </View>
       </Screen>
@@ -89,16 +88,16 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
 
   return (
     <EditScreen
-      title="Contraseña"
-      subtitle="Para cambiarla necesitamos la actual. Así nadie más puede hacerlo desde tu teléfono."
+      title={t.title}
+      subtitle={t.subtitle}
       failure={failure && !failure.field ? failure.message : undefined}
       saving={saving}
-      saveLabel="Cambiar contraseña"
+      saveLabel={t.submit}
       canSave={canChangePassword(current, next)}
       onSave={() => void change()}
     >
       <PasswordField
-        label="Contraseña actual"
+        label={t.current}
         value={current}
         onChange={(typed) => {
           setCurrent(typed)
@@ -108,7 +107,7 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
         error={failure?.field === 'current' ? failure.message : undefined}
       />
       <PasswordField
-        label="Contraseña nueva"
+        label={t.next}
         value={next}
         onChange={(typed) => {
           setNext(typed)
@@ -117,13 +116,8 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
         autoComplete="new-password"
         error={failure?.field === 'next' ? failure.message : undefined}
       />
-      <RequirementList
-        requirements={PASSWORD_RULES.map(({ rule, label }) => ({ label, met: checks[rule] }))}
-      />
-      <Note>
-        Al cambiarla cerramos tus sesiones en otros teléfonos. En este sigues dentro, y te avisamos
-        por correo.
-      </Note>
+      <RequirementList requirements={passwordRequirements(current, next, t.rules)} />
+      <Note>{t.note}</Note>
     </EditScreen>
   )
 }
@@ -142,6 +136,7 @@ function PasswordField({
   readonly error: string | undefined
 }) {
   const [shown, setShown] = useState(false)
+  const t = useText().password
   return (
     <TextField
       label={label}
@@ -154,8 +149,8 @@ function PasswordField({
       textContentType={autoComplete === 'new-password' ? 'newPassword' : 'password'}
       {...(error === undefined ? {} : { error })}
       trailing={{
-        label: shown ? 'Ocultar' : 'Mostrar',
-        accessibilityLabel: `${shown ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`,
+        label: shown ? t.hide : t.show,
+        accessibilityLabel: t.toggleLabel(shown, label),
         onPress: () => setShown((was) => !was),
       }}
     />

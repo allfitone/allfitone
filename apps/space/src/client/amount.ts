@@ -13,6 +13,8 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { intlLocale, type Locale } from '../i18n'
+
 type Food = AllfitV1Schemas['NutritionFood']
 
 export type AmountMode = 'number' | 'fraction'
@@ -64,15 +66,26 @@ export function parseAmount(text: string): number | null {
   return value !== null && Number.isFinite(value) && value > 0 && value <= MAX_AMOUNT ? value : null
 }
 
-const asNumber = (value: number) => String(roundTo(value, 2)).replace('.', ',')
+const asNumber = (value: number, locale: Locale) =>
+  roundTo(value, 2).toLocaleString(intlLocale(locale), {
+    useGrouping: false,
+    maximumFractionDigits: 2,
+  })
 
-/** An amount as a decimal, or as the common fraction it nearly is («1 ½»). */
-export function formatAmount(value: number, mode: AmountMode): string {
-  if (mode === 'number' || Number.isInteger(value)) return asNumber(value)
+// What is stored never depends on the language: the decimal comma it was always sent with.
+const storedNumber = (value: number) => String(roundTo(value, 2)).replace('.', ',')
+
+function amountWith(value: number, mode: AmountMode, decimal: (value: number) => string): string {
+  if (mode === 'number' || Number.isInteger(value)) return decimal(value)
   const whole = Math.floor(value)
   const part = FRACTIONS.find(([share]) => Math.abs(value - whole - share) < 0.02)
-  if (!part) return asNumber(value)
+  if (!part) return decimal(value)
   return whole > 0 ? `${String(whole)} ${part[1]}` : part[1]
+}
+
+/** An amount as a decimal, or as the common fraction it nearly is («1 ½»). */
+export function formatAmount(value: number, mode: AmountMode, locale: Locale): string {
+  return amountWith(value, mode, (one) => asNumber(one, locale))
 }
 
 const GRAM: UnitChoice = { label: 'g', grams: 1, countable: false }
@@ -122,6 +135,7 @@ export const switchUnit = (grams: number, next: UnitChoice): number =>
 export const toGrams = (amount: number, unit: UnitChoice) => roundTo(amount * unit.grams, 1)
 
 // Spanish plurals of a measure, word by word up to «de»: «unidad mediana» → «unidades medianas».
+// The measures are catalogue data, written in Spanish whatever the app speaks.
 function plural(label: string): string {
   const words = label.split(' ')
   const stop = words.indexOf('de')
@@ -136,10 +150,22 @@ function plural(label: string): string {
 }
 
 /** How the person said it: «1 ½ tazas», «210 ml». */
-export function servingText(amount: number, unit: UnitChoice, mode: AmountMode): string {
-  const label = unit.countable && amount > 1 ? plural(unit.label) : unit.label
-  return `${formatAmount(amount, mode)} ${label}`
+export function servingText(
+  amount: number,
+  unit: UnitChoice,
+  mode: AmountMode,
+  locale: Locale,
+): string {
+  return `${formatAmount(amount, mode, locale)} ${unitWord(amount, unit)}`
 }
+
+/** The serving as the meal sends and stores it: the same text whatever the app speaks. */
+export function storedServing(amount: number, unit: UnitChoice, mode: AmountMode): string {
+  return `${amountWith(amount, mode, storedNumber)} ${unitWord(amount, unit)}`
+}
+
+const unitWord = (amount: number, unit: UnitChoice) =>
+  unit.countable && amount > 1 ? plural(unit.label) : unit.label
 
 /** Grams already known, in the food's measure when they make a quarter of one, else grams. */
 export function choiceFor(

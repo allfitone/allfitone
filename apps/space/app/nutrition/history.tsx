@@ -26,7 +26,8 @@ import {
   eatenFor,
   emptyDaysNote,
   goalFigure,
-  NUTRIENT_SHORT_NAMES,
+  goalValue,
+  goalLine,
   type DailySummary,
   type GoalTarget,
   type NutritionMeal,
@@ -34,11 +35,10 @@ import {
 import { createSpaceNutritionFlow } from '../../src/client/nutrition-transport'
 import { deviceTimezone } from '../../src/client/timezone'
 import { FIGURE_TRACKING, macroColor, MealThumb } from '../../src/components/nutrition-ui'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
-const READ_FAILED = 'No pudimos cargar tu historial. Inténtalo otra vez.'
 const SPANS = [7, 14, 31] as const
-const LETTERS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
-const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const BAR_HEIGHT = 110
 
 const localDay = (timeZone: string) =>
@@ -51,6 +51,8 @@ const minusDays = (iso: string, days: number) => {
 const weekdayOf = (iso: string) => new Date(`${iso}T12:00:00Z`).getUTCDay()
 
 export default function NutritionHistoryScreen() {
+  const locale = useLocale()
+  const { common, nutrition: text } = useText()
   const router = useRouter()
   const theme = useTheme()
   const timeZone = useMemo(() => deviceTimezone(), [])
@@ -79,11 +81,11 @@ export default function NutritionHistoryScreen() {
           setGoal(goals.active?.targets ?? [])
           setFailure(undefined)
         })
-        .catch(() => active && setFailure(READ_FAILED))
+        .catch(() => active && setFailure(text.history.readFailed))
       return () => {
         active = false
       }
-    }, [flow, span, today, timeZone]),
+    }, [flow, span, today, timeZone, text]),
   )
 
   const energyGoal = goal.find((one) => one.nutrient_code === 'energy')
@@ -91,23 +93,23 @@ export default function NutritionHistoryScreen() {
   const tallest = Math.max(
     1,
     ...days.map((one) => eatenFor(one, 'energy')),
-    energyGoal ? goalFigure(energyGoal).value : 0,
+    energyGoal ? goalValue(energyGoal) : 0,
   )
-  const emptyNote = emptyDaysNote(days, today)
+  const emptyNote = emptyDaysNote(days, today, locale)
   const newestFirst = [...days].reverse()
 
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton icon="back" accessibilityLabel={common.back} onPress={() => router.back()} />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          Historial
+          {text.history.title}
         </Text>
       </View>
       <View style={styles.spans}>
         <SegmentedControl
-          accessibilityLabel="Cuántos días"
-          items={SPANS.map((value) => ({ value: String(value), label: `${String(value)} días` }))}
+          accessibilityLabel={text.history.span}
+          items={SPANS.map((value) => ({ value: String(value), label: text.history.days(value) }))}
           value={String(span)}
           onChange={(value) => setSpan(Number(value) as (typeof SPANS)[number])}
         />
@@ -126,7 +128,7 @@ export default function NutritionHistoryScreen() {
           ]}
         >
           <Text role="eyebrow" size="2xs" color="muted" uppercase>
-            Promedio diario
+            {text.history.average}
           </Text>
           <View style={styles.averageRow}>
             <View style={styles.averageFigure}>
@@ -136,14 +138,14 @@ export default function NutritionHistoryScreen() {
                 size="4xl"
                 style={styles.averageNumber}
               >
-                {average.value === null ? '—' : average.value.toLocaleString('es-CO')}
+                {average.value === null ? '—' : average.value.toLocaleString(intlLocale(locale))}
               </Text>
               <Text role="control" size="sm" color="secondary" style={styles.averageUnit}>
                 kcal
               </Text>
             </View>
             <Text role="body" size="sm" color="muted">
-              {`En ${String(average.days)} ${average.days === 1 ? 'día' : 'días'} con registro`}
+              {text.history.loggedDays(average.days)}
             </Text>
           </View>
 
@@ -153,13 +155,13 @@ export default function NutritionHistoryScreen() {
                 style={[
                   styles.goalLine,
                   {
-                    bottom: 22 + (goalFigure(energyGoal).value / tallest) * BAR_HEIGHT,
+                    bottom: 22 + (goalValue(energyGoal) / tallest) * BAR_HEIGHT,
                     borderTopColor: theme.color.border.default,
                   },
                 ]}
               >
                 <Text role="body" size="sm" color="muted" style={styles.goalLabel}>
-                  {`Meta ${goalFigure(energyGoal).label}`}
+                  {text.goal(goalFigure(energyGoal, locale).label)}
                 </Text>
               </View>
             ) : null}
@@ -191,7 +193,7 @@ export default function NutritionHistoryScreen() {
                     </View>
                     {span <= 14 ? (
                       <Text role="control" size="xs" color={isToday ? 'accent' : 'muted'}>
-                        {LETTERS[weekdayOf(one.local_date)]}
+                        {text.weekdayLetters[weekdayOf(one.local_date)]}
                       </Text>
                     ) : null}
                   </View>
@@ -224,14 +226,14 @@ export default function NutritionHistoryScreen() {
                 <View style={styles.macroHead}>
                   <View style={[styles.swatch, { backgroundColor: macroColor(theme, code) }]} />
                   <Text role="eyebrow" size="2xs" color="muted" uppercase>
-                    {NUTRIENT_SHORT_NAMES[code]}
+                    {text.nutrientsShort[code]}
                   </Text>
                 </View>
                 <Text role="poster" tracking={FIGURE_TRACKING} size="2xl">
                   {mean.value === null ? '—' : `${String(mean.value)} g`}
                 </Text>
                 <Text role="body" size="xs" color="muted">
-                  {target ? `De ${goalFigure(target).label} g` : 'Sin meta'}
+                  {goalLine(target, 'g', locale)}
                 </Text>
               </View>
             )
@@ -239,14 +241,17 @@ export default function NutritionHistoryScreen() {
         </View>
 
         <Text role="control" size="lg">
-          Día a día
+          {text.history.dayByDay}
         </Text>
         {newestFirst.map((one) => {
           const dayMeals = meals.filter((meal) => meal.local_date === one.local_date)
-          const title = dayTitle(one.local_date, today)
+          const title = dayTitle(one.local_date, today, locale)
           // «Hoy» and «Ayer» name the day without its date, so the line below adds it.
           const relative = [0, 1].includes(daysBefore(one.local_date, today))
-          const plain = `${WEEKDAYS[weekdayOf(one.local_date)] ?? ''} ${String(Number(one.local_date.slice(8)))}`
+          const plain = text.dayTitle(
+            text.weekdays[weekdayOf(one.local_date)] ?? '',
+            Number(one.local_date.slice(8)),
+          )
           return (
             <View
               key={one.local_date}
@@ -293,15 +298,15 @@ export default function NutritionHistoryScreen() {
                 </Text>
                 <Text role="body" size="sm" color="muted">
                   {one.hidden
-                    ? 'Guardado: lo vuelves a ver con Pro'
+                    ? text.history.hidden
                     : one.meal_count === 0
-                      ? 'Sin registro'
-                      : `${relative ? `${plain} · ` : ''}${String(one.meal_count)} ${one.meal_count === 1 ? 'comida' : 'comidas'}`}
+                      ? text.history.nothing
+                      : `${relative ? `${plain} · ` : ''}${text.history.meals(one.meal_count ?? 0)}`}
                 </Text>
               </View>
               {(one.meal_count ?? 0) > 0 ? (
                 <Text role="poster" tracking={FIGURE_TRACKING} size="xl">
-                  {Math.round(eatenFor(one, 'energy')).toLocaleString('es-CO')}
+                  {Math.round(eatenFor(one, 'energy')).toLocaleString(intlLocale(locale))}
                   <Text role="body" size="xs" color="muted">
                     {' kcal'}
                   </Text>

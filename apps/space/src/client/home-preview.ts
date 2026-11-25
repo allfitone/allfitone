@@ -12,6 +12,7 @@
  * el número deja de ser el trabajo que hiciste y pasa a ser un recuento de menciones.
  */
 
+import type { Dictionary } from '../i18n'
 import type { Movement, MuscleTerm } from './content'
 import type { WorkingStep } from './routine-draft'
 
@@ -61,17 +62,21 @@ export function setsPerMuscle(
  * Una rutina recién abierta no tiene ninguna de las dos cosas, y «0 ejercicios · 0
  * series» es una tarjeta que dice que está vacía dos veces.
  */
-export function previewFigures(steps: readonly WorkingStep[]): string {
-  if (steps.length === 0) return 'Todavía sin ejercicios'
+export function previewFigures(
+  steps: readonly WorkingStep[],
+  text: Dictionary['training']['library'],
+  empty: string,
+): string {
+  if (steps.length === 0) return empty
   const sets = steps.reduce((total, step) => total + step.sets.length, 0)
-  const exercises = `${steps.length} ${steps.length === 1 ? 'ejercicio' : 'ejercicios'}`
+  const exercises = text.exercises(steps.length)
   if (sets === 0) return exercises
-  return `${exercises} · ${sets} ${sets === 1 ? 'serie' : 'series'}`
+  return `${exercises} · ${text.sets(sets)}`
 }
 
-/** Cómo se llama una rutina que todavía no se llama de ninguna manera. */
-export function previewTitle(title: string): string {
-  return title.trim() === '' ? 'Sin nombre' : title.trim()
+/** What a routine is called before it is called anything. */
+export function previewTitle(title: string, unnamed: string): string {
+  return title.trim() === '' ? unnamed : title.trim()
 }
 
 /**
@@ -98,14 +103,7 @@ export function dominantRegion(
   return lower > upper ? 'lower' : 'upper'
 }
 
-/**
- * Las cifras de la última vez, que esta pantalla no tiene.
- *
- * **Son un ejemplo y se dicen como tal.** La pantalla edita un borrador que puede no
- * haberse entrenado nunca, así que no hay tonelaje ni minutos que enseñar; pero dejar el
- * hueco vacío enseñaba una tarjeta que Hoy no dibuja, y el punto de una previa es ver la
- * tarjeta entera. La nota de debajo dice que las cifras son de muestra.
- */
+/** A figure on the back of the card: the number, its unit, and the change when it has one. */
 export interface PreviewFigure {
   readonly value: string
   readonly unit: string
@@ -118,44 +116,4 @@ export interface PreviewHistory {
   readonly when: string
   readonly session: string
   readonly figures: readonly PreviewFigure[]
-}
-
-export const EXAMPLE_HISTORY: {
-  readonly when: string
-  readonly session: string
-  readonly figures: readonly PreviewFigure[]
-} = {
-  when: 'LA ÚLTIMA VEZ, HACE 5 DÍAS',
-  session: '14',
-  figures: [
-    { value: '4,2', unit: 'TONELADAS', delta: '+6%' },
-    { value: '52', unit: 'MINUTOS' },
-    { value: '13', unit: 'SERIES' },
-  ],
-}
-
-/**
- * La rutina de muestra, para cuando no hay ninguna que enseñar.
- *
- * **Un programa recién creado no tiene rutinas, y eso dejaba la previa sin nada**: sin
- * músculos que encender, sin cifras y sin fotografía, las tres pestañas enseñaban lo
- * mismo. Elegir entre tres maneras de verse exige ver las tres.
- *
- * Son los mismos números del lienzo, y la nota de la hoja ya dice que las cifras son de
- * muestra. Lo que no se inventa es el nombre del programa: eso sí es suyo.
- */
-export const SAMPLE_ROUTINE: {
-  readonly title: string
-  readonly figures: string
-  readonly worked: readonly string[]
-  readonly load: readonly MuscleLoad[]
-} = {
-  title: 'Empuje',
-  figures: '3 ejercicios · 13 series',
-  worked: ['chest', 'deltoids', 'shoulders', 'triceps'],
-  load: [
-    { code: 'chest', name: 'Pecho', sets: 6 },
-    { code: 'deltoids', name: 'Hombros', sets: 4 },
-    { code: 'triceps', name: 'Tríceps', sets: 3 },
-  ],
 }

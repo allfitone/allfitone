@@ -37,7 +37,6 @@ import {
   sourceLine,
   storeName,
   subscriptionOf,
-  WAITING_FOR_FEATURES,
   type ProFlow,
   type ProPayments,
   type ProPlanCatalogue,
@@ -46,6 +45,7 @@ import {
 } from '../../src/client/pro'
 import { manageSubscription } from '../../src/client/pro-store'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
+import { useLocale, useText } from '../../src/i18n/use-text'
 import {
   FeatureList,
   LinkPanel,
@@ -55,7 +55,6 @@ import {
   type PanelLink,
 } from '../../src/components/pro-ui'
 
-const UNAVAILABLE = 'No pudimos cargar tu plan. Revisa tu conexión e inténtalo de nuevo.'
 // Dark under the words, clear by three quarters, where the athlete stands.
 const INVITE_VEIL = ['#05090FF7', '#05090FB8', '#05090F00'] as const
 const INVITE_VEIL_STOPS = [0, 0.42, 0.78] as const
@@ -68,11 +67,14 @@ export default function ProPlanRoute() {
 /** The screen itself, given its flow: the route passes the real one. */
 export function ProPlan({ flow }: { readonly flow: ProFlow }) {
   const router = useRouter()
+  const text = useText()
+  const locale = useLocale()
+  const words = text.plans.plan
   const insets = useSafeAreaInsets()
   const [status, setStatus] = useState<ProStatus | undefined>(undefined)
   const [payments, setPayments] = useState<ProPayments | undefined>(undefined)
   const [catalogue, setCatalogue] = useState<ProPlanCatalogue | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
   useFocusEffect(
@@ -84,9 +86,9 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
           setStatus(read)
           setPayments(paid)
           setCatalogue(plans)
-          setFailure(undefined)
+          setFailure(false)
         })
-        .catch(() => active && setFailure(UNAVAILABLE))
+        .catch(() => active && setFailure(true))
       return () => {
         active = false
       }
@@ -101,43 +103,43 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
   const facts: CardFact[] = []
   if (status?.effective_source === 'subscription' && subscription) {
     facts.push({
-      label: subscription.auto_renews ? 'Renovación' : 'Vencimiento',
-      value: shortDate(subscription.current_period_end),
+      label: subscription.auto_renews ? words.renewal : words.expiry,
+      value: shortDate(subscription.current_period_end, locale),
     })
-    const amount = paid ? money(paid.amount_minor, paid.currency_code) : undefined
+    const amount = paid ? money(paid.amount_minor, paid.currency_code, locale) : undefined
     if (amount) {
-      const billing = billingOf(catalogue, subscription.version_id)
+      const billing = billingOf(catalogue, subscription.version_id, text.plans)
       facts.push({ label: billing.fee, value: `${amount}${billing.per}` })
     }
   } else if (status?.effective_source === 'organization' && gym) {
     facts.push(
-      { label: 'Gimnasio', value: gym.organization_name },
-      { label: 'En la app', value: 'No pagas nada' },
+      { label: words.gym, value: gym.organization_name },
+      { label: words.inApp, value: words.payNothing },
     )
   }
 
   const links: PanelLink[] = []
   links.push({
     icon: 'overview',
-    title: 'Qué incluye cada plan',
-    caption: 'Gratis y Pro, lado a lado',
+    title: words.eachPlan,
+    caption: words.sideBySide,
     onPress: () => router.push('/pro/plans'),
   })
   if (subscription || charges.length > 0) {
     links.push({
       icon: 'history',
-      title: 'Tus pagos',
+      title: words.payments,
       caption: paid
-        ? `${charges.length} cobros · el último el ${shortDate(paid.occurred_at)}`
-        : `${charges.length} cobros`,
+        ? words.chargesLast(charges.length, shortDate(paid.occurred_at, locale))
+        : words.charges(charges.length),
       onPress: () => router.push('/pro/payments'),
     })
   }
   if (subscription) {
     links.push({
       icon: 'external',
-      title: `Gestionar en ${subscription.store === 'google_play' ? 'Google Play' : 'App Store'}`,
-      caption: 'Cambiar o cancelar la suscripción',
+      title: words.manageIn(subscription.store === 'google_play' ? 'Google Play' : 'App Store'),
+      caption: words.changeOrCancel,
       onPress: () => void manageSubscription(undefined),
     })
   }
@@ -145,9 +147,13 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Tu plan
+          {words.title}
         </Text>
       </View>
 
@@ -155,31 +161,34 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={words.unavailable} /> : null}
 
         {status ? (
           <>
-            <MembershipCard pro={status.is_pro} source={sourceLine(status)} facts={facts} />
+            <MembershipCard
+              pro={status.is_pro}
+              source={sourceLine(status, text.pro)}
+              facts={facts}
+            />
 
             {status.effective_source === 'organization' && gym ? (
               <Note size="md" icon="info">
-                Lo tienes mientras sigas en {gym.organization_name} y el gimnasio esté activo. Si
-                eso cambia, pasas al plan gratis sin perder nada.
+                {words.whileAtGym(gym.organization_name)}
               </Note>
             ) : null}
 
             {subscription && subscription.status !== 'active' ? (
-              <InlineAlert message={renewalLine(subscription)} tone="warning" />
+              <InlineAlert message={renewalLine(subscription, text.plans, locale)} tone="warning" />
             ) : null}
 
             {!status.is_pro ? <ProInvitation onPress={() => router.push('/pro/plans')} /> : null}
 
             <View style={styles.section}>
-              <SectionLabel>Lo que incluye</SectionLabel>
+              <SectionLabel>{words.includes}</SectionLabel>
               <FeatureList
                 features={status.features}
                 pro={status.is_pro}
-                waiting={WAITING_FOR_FEATURES}
+                waiting={text.plans.waitingForFeatures}
               />
             </View>
 
@@ -187,13 +196,13 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
 
             {!status.is_pro ? (
               <Note size="md" icon="organization">
-                Si un gimnasio te invita, entras con Pro sin pagar.
+                {words.gymInvites}
               </Note>
             ) : null}
 
             {subscription ? (
               <Button
-                label="Cancelar Pro"
+                label={words.cancel}
                 variant="quietDanger"
                 onPress={() => setCancelling(true)}
               />
@@ -216,12 +225,13 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
 /** `PRO-A3`'s invitation: the paywall's athlete, cropped wide and mirrored to the light side. */
 function ProInvitation({ onPress }: { readonly onPress: () => void }) {
   const theme = useTheme()
+  const words = useText().plans.plan
   // Measured, because an absolutely filled image is drawn at its own size on iOS.
   const [size, setSize] = useState({ width: 0, height: 0 })
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Conoce Allfit Pro"
+      accessibilityLabel={words.meetPro}
       onPress={onPress}
       onLayout={(event) =>
         setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })
@@ -249,21 +259,15 @@ function ProInvitation({ onPress }: { readonly onPress: () => void }) {
           </Text>
         </View>
         <Text role="display" size="2xl" uppercase>
-          {'Todo Allfit, sin depender\nde un gimnasio'}
+          {words.inviteTitle}
         </Text>
       </View>
       <View style={styles.inviteButton}>
-        <Button label="Conoce Pro" size="sm" onPress={onPress} />
+        <Button label={words.meet} size="sm" onPress={onPress} />
       </View>
     </Pressable>
   )
 }
-
-const KEEPS = [
-  ['history', 'No se borra ningún dato. Pasas al plan gratis y sigues viendo todo tu historial.'],
-  ['people', 'Tus permisos y tus gimnasios no cambian.'],
-  ['organization', 'Si un gimnasio activo te afilia, recuperas Pro sin pagar.'],
-] as const
 
 function CancelSheet({
   visible,
@@ -275,9 +279,16 @@ function CancelSheet({
   readonly onDismiss: () => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const words = useText().plans.cancelSheet
   const store = storeName(subscription.store)
+  const keeps = [
+    ['history', words.keepsHistory],
+    ['people', words.keepsPermissions],
+    ['organization', words.keepsGym],
+  ] as const
   return (
-    <Sheet visible={visible} onDismiss={onDismiss} title="¿Cancelar Allfit Pro?">
+    <Sheet visible={visible} onDismiss={onDismiss} title={words.title}>
       <View style={styles.sheet}>
         <View
           style={[
@@ -290,20 +301,20 @@ function CancelSheet({
         >
           <FoundationIcon name="calendar" size="sm" color={theme.color.icon.accent} decorative />
           <Text role="control" size="xs" color="accent">
-            Sigues con Pro hasta el {shortDate(subscription.current_period_end)}
+            {words.until(shortDate(subscription.current_period_end, locale))}
           </Text>
         </View>
-        {KEEPS.map(([icon, line]) => (
+        {keeps.map(([icon, line]) => (
           <Note key={line} size="md" icon={icon}>
             {line}
           </Note>
         ))}
         <Text role="body" size="xs" color="muted">
-          Lo pagas con {store}, así que se cancela en tu cuenta de {store}.
+          {words.paidWith(store)}
         </Text>
-        <Button label="Mantener Pro" onPress={onDismiss} />
+        <Button label={words.keep} onPress={onDismiss} />
         <Button
-          label={`Cancelar en ${subscription.store === 'google_play' ? 'Google Play' : 'App Store'}`}
+          label={words.cancelIn(subscription.store === 'google_play' ? 'Google Play' : 'App Store')}
           variant="secondary"
           onPress={() => {
             onDismiss()

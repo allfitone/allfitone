@@ -14,11 +14,13 @@ import {
   spaceTelemetrySnapshot,
   subscribeSpaceTelemetry,
 } from '../client/telemetry'
+import { useText } from '../i18n/use-text'
 
 const APP_STARTED_AT = Date.now()
 
 export function AnalyticsControls() {
   const theme = useTheme()
+  const text = useText().access.analytics
   const state = useSyncExternalStore(
     subscribeSpaceTelemetry,
     spaceTelemetrySnapshot,
@@ -70,14 +72,13 @@ export function AnalyticsControls() {
           ]}
         >
           <Text role="control" size="md">
-            Analítica opcional
+            {text.title}
           </Text>
           <Text role="body" size="sm" color="secondary">
-            Mide rendimiento y uso con un seudónimo. Nunca capturamos contenido, nombres, correos ni
-            datos de salud.
+            {text.body}
           </Text>
           <Button
-            label="Leer el aviso completo"
+            label={text.notice}
             variant="secondary"
             onPress={() => {
               void Linking.openURL(ANALYTICS_PRIVACY_NOTICE_URL)
@@ -85,14 +86,14 @@ export function AnalyticsControls() {
           />
           <View style={styles.actions}>
             <Button
-              label="Permitir analítica"
+              label={text.allow}
               onPress={() => {
                 void setSpaceAnalyticsConsent('granted')
                 setExpanded(false)
               }}
             />
             <Button
-              label="No permitir"
+              label={text.deny}
               variant="secondary"
               onPress={() => {
                 void setSpaceAnalyticsConsent('denied')
@@ -102,7 +103,7 @@ export function AnalyticsControls() {
           </View>
         </View>
       ) : (
-        <Button label="Privacidad" variant="secondary" onPress={() => setExpanded(true)} />
+        <Button label={text.privacy} variant="secondary" onPress={() => setExpanded(true)} />
       )}
     </View>
   )

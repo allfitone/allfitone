@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import { textFor } from '../i18n'
+
 import {
   cancelRefusalMessage,
   cancellationExplanation,
@@ -19,6 +21,8 @@ import {
   type SubscriptionTransport,
 } from './subscriptions'
 
+const es = textFor('es').plans.gym
+const en = textFor('en').plans.gym
 const GYM_ONE = '019c8000-0000-7000-8000-000000000101'
 const GYM_TWO = '019c8000-0000-7000-8000-000000000102'
 const VERSION_ONE = '019c8000-0000-7000-8000-000000000501'
@@ -244,19 +248,25 @@ describe('what the screen says', () => {
    * where somebody agrees to pay it.
    */
   test('a price comes from the minor unit, not from the integer', () => {
-    expect(formatPrice(12000000, 'COP')).toContain('120.000')
-    expect(formatPrice(12000000, 'COP')).not.toContain('12.000.000')
+    expect(formatPrice(12000000, 'COP', 'es')).toContain('120.000')
+    expect(formatPrice(12000000, 'COP', 'es')).not.toContain('12.000.000')
+  })
+
+  test('T-SPC-UNIT-358 in English the price is written the way English writes money', () => {
+    expect(formatPrice(12000000, 'COP', 'en')).toMatch(/^COP\s120,000\.00$/)
   })
 
   test('a period reads as a person would say it', () => {
-    expect(periodLabel('month')).toBe('al mes')
-    expect(periodLabel('year')).toBe('al año')
+    expect(periodLabel('month', es)).toBe('al mes')
+    expect(periodLabel('year', es)).toBe('al año')
+    expect(periodLabel('month', en)).toBe('per month')
   })
 
   test('each state has a word', () => {
-    expect(statusLabel('active')).toBe('Al día')
-    expect(statusLabel('suspended')).toBe('En pausa')
-    expect(statusLabel('ended')).toBe('Terminada')
+    expect(statusLabel('active', es)).toBe('Al día')
+    expect(statusLabel('suspended', es)).toBe('En pausa')
+    expect(statusLabel('ended', es)).toBe('Terminada')
+    expect(statusLabel('suspended', en)).toBe('Paused')
   })
 
   /*
@@ -264,44 +274,50 @@ describe('what the screen says', () => {
    * to say what did not happen, which is the part nobody would guess.
    */
   test('a pause says the history and the permissions are intact', () => {
-    const text = pausedExplanation('Gimnasio Uno')
+    const text = pausedExplanation('Gimnasio Uno', es)
     expect(text).toContain('no se borró nada')
     expect(text).toContain('los permisos que diste siguen en pie')
     expect(text).toContain('sin que tengas que aceptar nada otra vez')
   })
 
   test('cancelling says it ends the money and nothing else', () => {
-    const text = cancellationExplanation('Gimnasio Uno')
+    const text = cancellationExplanation('Gimnasio Uno', es)
     expect(text).toContain('siguen siendo tuyos')
     expect(text).toContain('no termina tu vínculo')
     expect(text).toContain('ni le retira los permisos')
+    expect(cancellationExplanation('Gimnasio Uno', en)).toContain(
+      "doesn't end your relationship with the gym",
+    )
   })
 })
 
 describe('what she is told when it is refused', () => {
   test('a gym with nowhere to be paid is not something she can fix', () => {
     expect(subscribeRefusalFor('conflict')).toBe('cannot-charge')
-    const text = subscribeRefusalMessage('cannot-charge', 'Gimnasio Uno')
+    const text = subscribeRefusalMessage('cannot-charge', 'Gimnasio Uno', es)
     expect(text).toContain('Habla con el gimnasio')
     expect(text).toContain('no es algo que puedas resolver desde aquí')
   })
 
   test('a plan that is gone sends her back to the list', () => {
     expect(subscribeRefusalFor('not-found')).toBe('not-offered')
-    expect(subscribeRefusalMessage('not-offered', 'Gimnasio Uno')).toContain(
+    expect(subscribeRefusalMessage('not-offered', 'Gimnasio Uno', es)).toContain(
       'Vuelve a cargar los planes',
     )
   })
 
   test('only the temporary failure says nothing was charged and offers a retry', () => {
     expect(subscribeRefusalFor('unavailable')).toBe('unavailable')
-    const text = subscribeRefusalMessage('unavailable', 'Gimnasio Uno')
+    const text = subscribeRefusalMessage('unavailable', 'Gimnasio Uno', es)
     expect(text).toContain('No se te cobró nada')
     expect(text).toContain('otra vez')
   })
 
   test('a cancellation that cannot find the plan says to reload rather than retry', () => {
-    expect(cancelRefusalMessage('not-found')).toContain('Vuelve a cargar')
-    expect(cancelRefusalMessage('unavailable')).toContain('No se cambió nada')
+    expect(cancelRefusalMessage('not-found', es)).toContain('Vuelve a cargar')
+    expect(cancelRefusalMessage('unavailable', es)).toContain('No se cambió nada')
+    expect(cancelRefusalMessage('unavailable', en)).toBe(
+      "We couldn't cancel the plan. Nothing changed, so you can try again.",
+    )
   })
 })

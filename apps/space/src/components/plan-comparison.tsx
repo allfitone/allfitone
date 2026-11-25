@@ -39,6 +39,10 @@ import { scheduleOnRN } from 'react-native-worklets'
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg'
 
 import type { ComparisonRow } from '../client/plan'
+import { intlLocale, type Locale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
+import { massIn, massLabel, type MassUnit } from '../units/units'
+import { useUnits } from '../units/use-units'
 
 export type PlanChoice = 'free' | 'pro'
 
@@ -47,51 +51,8 @@ const CARD_GAP = 12
 
 // ———————————————————————————————————————— the cards
 
-interface CardContent {
-  readonly label: string
-  readonly title: string
-  readonly pro: string
-  readonly free: string
-}
-
-const CARDS: readonly CardContent[] = [
-  {
-    label: 'Historial',
-    title: 'TODO LO QUE\nHAS ENTRENADO.',
-    pro: 'Cada sesión desde el primer día, a un toque.',
-    free: 'Con Gratis ves el último mes. Lo anterior no se borra: sigue guardado y con Pro lo vuelves a ver.',
-  },
-  {
-    label: 'Análisis',
-    title: 'MIRA CUÁNTO\nHAS SUBIDO.',
-    pro: 'Tus cargas, tu volumen y tu constancia, semana a semana o mes a mes.',
-    free: 'Con Gratis tienes el resumen de cada sesión. Con Pro ves cómo suben tus cargas mes a mes.',
-  },
-  {
-    label: 'Nutrición',
-    title: 'UNA FOTO\nY LISTO.',
-    pro: 'Tomas una foto de tu plato y la app reconoce lo que comes.',
-    free: 'Con Gratis registras buscando tus alimentos y fijas tu meta.',
-  },
-  {
-    label: 'Cuerpo',
-    title: 'MÍRATE\nCAMBIAR.',
-    pro: 'Medidas y fotos de tu progreso, solo para ti.',
-    free: 'Con Gratis registras tu peso y tu estatura.',
-  },
-  {
-    label: 'Programas',
-    title: 'TODO EL\nCATÁLOGO.',
-    pro: 'Todos los programas de Allfit, según tu objetivo y tu nivel.',
-    free: 'Con Gratis tienes una selección para empezar.',
-  },
-  {
-    label: 'Tus programas',
-    title: 'CREA TODO\nLO QUE QUIERAS.',
-    pro: 'Rutinas y programas propios sin límite, y duplicar rutinas.',
-    free: 'Con Gratis, un programa propio a la vez y hasta tres rutinas.',
-  },
-]
+/** The cards, one per visual below; their words live in `plans.carousel.cards`. */
+const CARD_COUNT = 6
 
 /** The six cards of what Pro opens; each one animates when it is the one in view. */
 export function UnlockCarousel({
@@ -104,6 +65,8 @@ export function UnlockCarousel({
   readonly covers: readonly ImageSourcePropType[]
 }) {
   const theme = useTheme()
+  const text = useText().plans.carousel
+  const cards = text.cards.slice(0, CARD_COUNT)
   const [active, setActive] = useState(0)
   // As on Hoy: the dots follow the finger on the UI thread, and the card in front
   // changes when the scroll crosses half way, not when the momentum ends.
@@ -112,7 +75,7 @@ export function UnlockCarousel({
     at.set(event.contentOffset.x / (CARD_WIDTH + CARD_GAP))
   })
   useAnimatedReaction(
-    () => Math.min(CARDS.length - 1, Math.max(0, Math.round(at.get()))),
+    () => Math.min(CARD_COUNT - 1, Math.max(0, Math.round(at.get()))),
     (now, before) => {
       if (now !== before) scheduleOnRN(setActive, now)
     },
@@ -131,10 +94,10 @@ export function UnlockCarousel({
     <View style={styles.carousel}>
       <View style={styles.carouselHead}>
         <Text role="display" size="2xl" uppercase accessibilityRole="header">
-          Lo que abres con Pro
+          {text.title}
         </Text>
         <Text role="control" size="xs" color="muted">
-          {`${String(active + 1)} / ${String(CARDS.length)}`}
+          {`${String(active + 1)} / ${String(cards.length)}`}
         </Text>
       </View>
       <Animated.ScrollView
@@ -146,7 +109,7 @@ export function UnlockCarousel({
         onScroll={follow}
         scrollEventThrottle={16}
       >
-        {CARDS.map((card, index) => (
+        {cards.map((card, index) => (
           <View
             key={card.label}
             accessible
@@ -171,11 +134,11 @@ export function UnlockCarousel({
         ))}
       </Animated.ScrollView>
       <PageDots
-        count={CARDS.length}
+        count={cards.length}
         active={active}
         at={at}
         color={theme.color.icon.accent}
-        accessibilityLabel={`Tarjeta ${String(active + 1)} de ${String(CARDS.length)}`}
+        accessibilityLabel={text.card(active + 1, cards.length)}
         style={styles.dots}
       />
     </View>
@@ -217,10 +180,15 @@ const heat = (theme: ReturnType<typeof useTheme>, level: number) =>
     withAlpha(theme.color.icon.accent, 0.6),
     theme.color.icon.accent,
   ][level] ?? theme.color.border.subtle
-const MONTH_LABELS = ['JUN', 'JUL', 'AGO', 'SEP', 'OCT'] as const
+/** The short month names from `first` to October, in capitals: the card's own axis. */
+const monthLabels = (months: readonly string[], first: number) =>
+  months.slice(first, 10).map((month) => month.toUpperCase())
 
 function HistoryVisual({ on, free }: { readonly on: boolean; readonly free: boolean }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.plans.carousel
+  const labels = monthLabels(text.common.months, 5)
   const lit = useEntrance(on, 1100)
   return (
     <View style={styles.historyVisual}>
@@ -229,7 +197,7 @@ function HistoryVisual({ on, free }: { readonly on: boolean; readonly free: bool
           {free ? '12' : '86'}
         </Text>
         <Text role="control" size="xs" color="secondary" style={styles.historyUnit}>
-          {free ? 'de 86 sesiones a la vista' : 'sesiones, todas a la vista'}
+          {free ? words.sessionsOf : words.sessionsAll}
         </Text>
       </View>
       <View style={styles.heatmap}>
@@ -254,15 +222,20 @@ function HistoryVisual({ on, free }: { readonly on: boolean; readonly free: bool
               ]}
             />
             <Text role="control" size="2xs" color="accent" uppercase style={styles.lastMonth}>
-              Último mes
+              {words.lastMonth}
             </Text>
-            <Badge label="Guardado · con Pro" variant="quiet" style={styles.kept} />
+            <Badge label={words.kept} variant="quiet" style={styles.kept} />
           </>
         ) : null}
       </View>
       <View style={styles.heatMonths}>
-        {MONTH_LABELS.map((month) => (
-          <Text key={month} role="control" size="2xs" color={month === 'OCT' ? 'accent' : 'muted'}>
+        {labels.map((month, index) => (
+          <Text
+            key={month}
+            role="control"
+            size="2xs"
+            color={index === labels.length - 1 ? 'accent' : 'muted'}
+          >
             {month}
           </Text>
         ))}
@@ -342,6 +315,11 @@ const CURVE_LENGTH = 340
 
 function AnalysisVisual({ on, free }: { readonly on: boolean; readonly free: boolean }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.plans.carousel
+  const locale = useLocale()
+  const { mass } = useUnits()
+  const labels = monthLabels(text.common.months, 4)
   const draw = useEntrance(on, 1300)
   const stroke = useAnimatedProps(() => ({ strokeDashoffset: CURVE_LENGTH * (1 - draw.get()) }))
   const september = CURVE[4] ?? [0, 0]
@@ -406,28 +384,23 @@ function AnalysisVisual({ on, free }: { readonly on: boolean; readonly free: boo
           />
         </Svg>
         {free ? (
-          <Badge
-            label="Comparar periodos es Pro"
-            tone="accent"
-            variant="quiet"
-            style={styles.locked}
-          />
+          <Badge label={words.comparePro} tone="accent" variant="quiet" style={styles.locked} />
         ) : (
           <>
             <View style={styles.rise}>
               <Text role="poster" size="3xl" color="accent">
-                +12,5 kg
+                {`+${massLabel(12.5, mass, locale)}`}
               </Text>
               <Text role="control" size="2xs" color="secondary">
-                Sentadilla · en un mes
+                {words.squatMonth}
               </Text>
             </View>
             <Badge
-              label="80 kg"
+              label={massLabel(80, mass, locale)}
               style={[styles.loadTag, { left: september[0] - 26, top: september[1] + 10 }]}
             />
             <Badge
-              label="92,5 kg"
+              label={massLabel(92.5, mass, locale)}
               tone="accent"
               style={[styles.loadTag, { left: october[0] - 92, top: october[1] - 12 }]}
             />
@@ -435,12 +408,12 @@ function AnalysisVisual({ on, free }: { readonly on: boolean; readonly free: boo
         )}
       </View>
       <View style={styles.heatMonths}>
-        {['MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT'].map((month) => (
+        {labels.map((month, index) => (
           <Text
             key={month}
             role="control"
             size="2xs"
-            color={month === 'OCT' && !free ? 'accent' : 'muted'}
+            color={index === labels.length - 1 && !free ? 'accent' : 'muted'}
           >
             {month}
           </Text>
@@ -476,6 +449,7 @@ function NutritionVisual({
     )
   }, [on, reduced, scan])
   const line = useAnimatedStyle(() => ({ transform: [{ translateY: 8 + scan.get() * 104 }] }))
+  const words = useText().plans.carousel
   return (
     <View style={styles.mealVisual}>
       <Image source={meal} style={styles.mealPhoto} resizeMode="cover" accessible={false} />
@@ -488,18 +462,33 @@ function NutritionVisual({
       />
       <View style={styles.chips}>
         <Badge label="520 kcal" tone="accent" variant="quiet" />
-        <Badge label="38 g proteína" variant="quiet" />
+        <Badge label={words.protein(38)} variant="quiet" />
       </View>
     </View>
   )
 }
 
+/** A sample weight in her unit, as a bare figure: one decimal at most. */
+const sampleMass = (kilograms: number, unit: MassUnit, locale: Locale) =>
+  (Math.round(massIn(kilograms, unit) * 10) / 10).toLocaleString(intlLocale(locale), {
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
+
 function BodyVisual({ on, free }: { readonly on: boolean; readonly free: boolean }) {
   const theme = useTheme()
+  const words = useText().plans.carousel
+  const locale = useLocale()
+  const { mass } = useUnits()
   const rows = [
-    { code: 'waist', name: 'Cintura', change: '82 → 78 cm', delta: '−4' },
-    { code: 'arm', name: 'Brazo', change: '31 → 33 cm', delta: '+2' },
-    { code: 'weight', name: 'Peso', change: '64 → 62 kg', delta: '−2' },
+    { code: 'waist', name: words.waist, change: '82 → 78 cm', delta: '−4' },
+    { code: 'arm', name: words.arm, change: '31 → 33 cm', delta: '+2' },
+    {
+      code: 'weight',
+      name: words.weight,
+      change: `${sampleMass(64, mass, locale)} → ${massLabel(62, mass, locale)}`,
+      delta: `−${sampleMass(2, mass, locale)}`,
+    },
   ] as const
   return (
     <View style={styles.bodyVisual}>
@@ -579,6 +568,7 @@ function CatalogueVisual({
 
 function LimitsVisual({ on, free }: { readonly on: boolean; readonly free: boolean }) {
   const theme = useTheme()
+  const words = useText().plans.carousel
   const pop = useEntrance(on, 600, 350)
   const infinity = useAnimatedStyle(() => ({
     opacity: pop.get(),
@@ -588,8 +578,8 @@ function LimitsVisual({ on, free }: { readonly on: boolean; readonly free: boole
     <View style={styles.limits}>
       {(
         [
-          ['Programas activos', '1'],
-          ['Rutinas propias', '3'],
+          [words.activePrograms, '1'],
+          [words.ownRoutines, '3'],
         ] as const
       ).map(([name, count]) => (
         <View key={name} style={styles.limitRow}>
@@ -629,6 +619,7 @@ export function ComparisonTable({
   readonly selected: PlanChoice
 }) {
   const theme = useTheme()
+  const text = useText().plans
   const lit = (plan: PlanChoice) =>
     selected === plan
       ? {
@@ -640,7 +631,7 @@ export function ComparisonTable({
   return (
     <View style={styles.table}>
       <Text role="display" size="2xl" uppercase accessibilityRole="header">
-        Lado a lado
+        {text.carousel.sideBySide}
       </Text>
       <View>
         <View style={[styles.column, styles.freeColumn, lit('free')]} />
@@ -648,7 +639,7 @@ export function ComparisonTable({
         <View style={styles.headerRow}>
           <View style={styles.labelCell} />
           <Text role="control" size="sm" color="secondary" align="center" style={styles.valueCell}>
-            Gratis
+            {text.free}
           </Text>
           <View style={[styles.valueCell, styles.proHead]}>
             <FoundationIcon name="favourite" size="xs" color={theme.color.icon.accent} decorative />
@@ -665,7 +656,11 @@ export function ComparisonTable({
               .reduceMotion(ReduceMotion.System)}
             style={[styles.row, index > 0 ? { borderTopColor: theme.color.border.subtle } : null]}
             accessible
-            accessibilityLabel={`${row.label}. Gratis: ${row.free === true ? 'incluido' : row.free}. Pro: ${row.pro === true ? 'incluido' : row.pro}.`}
+            accessibilityLabel={text.carousel.rowLabel(
+              row.label,
+              row.free === true ? text.included : row.free,
+              row.pro === true ? text.included : row.pro,
+            )}
           >
             <Text role="control" size="sm" style={styles.labelCell}>
               {row.label}

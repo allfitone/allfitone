@@ -50,7 +50,6 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 import {
   addDays,
   AREA_GROUPS,
-  AREA_LABEL,
   asksForEnd,
   canSaveDraft,
   chooseArea,
@@ -91,6 +90,7 @@ import {
   listHealthContext,
 } from '../client/profile-transport'
 import { selectionTick } from '../client/selection-tick'
+import { useText } from '../i18n/use-text'
 import { EditHeader, EditScreen } from './edit-screen'
 import { Note } from '@allfitone/react-native/note'
 
@@ -107,10 +107,6 @@ export const LIVE_HEALTH: HealthSources = {
   correct: correctHealthContext,
   remove: deleteHealthContext,
 }
-
-const UNREADABLE = 'No pudimos leer tus registros. Revisa tu conexión e inténtalo otra vez.'
-const PRIVACY_NOTE =
-  'Solo lo ve un gimnasio con el que entrenes y al que le diste el permiso de salud.'
 
 const TYPE_ICON: Record<HealthType, IconName> = {
   pain: 'burn',
@@ -154,6 +150,8 @@ function useClaims(sources: HealthSources) {
 export function HealthListScreen({ sources }: { readonly sources: HealthSources }) {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const t = text.health
   const { claims, unreadable } = useClaims(sources)
   const now = new Date()
   const sections = claims ? healthSections(claims, now) : undefined
@@ -161,13 +159,17 @@ export function HealthListScreen({ sources }: { readonly sources: HealthSources 
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.listHeader}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          Dolor y limitaciones
+          {t.title}
         </Text>
         <IconButton
           icon="add"
-          accessibilityLabel="Agregar"
+          accessibilityLabel={t.add}
           variant="solid"
           onPress={() => router.push('/me/health/new')}
         />
@@ -176,31 +178,30 @@ export function HealthListScreen({ sources }: { readonly sources: HealthSources 
         <InlineAlert
           tone="danger"
           icon="locked"
-          title="Lo más protegido de tu perfil"
-          message="Solo lo ve quien tenga el permiso de salud. No es historia clínica: no pedimos diagnósticos ni documentos."
+          title={t.list.protectedTitle}
+          message={t.list.protectedBody}
         />
 
-        {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
+        {unreadable ? <InlineAlert message={t.unreadable} /> : null}
 
         {sections && claims?.length === 0 ? (
           <View style={[styles.empty, { borderColor: theme.color.border.subtle }]}>
             <FoundationIcon name="heart" size="md" color={theme.color.icon.secondary} decorative />
             <Text role="control" size="md">
-              Nada por ahora
+              {t.list.emptyTitle}
             </Text>
             <Text role="body" size="sm" color="secondary" align="center">
-              Si algo te duele o te limita, cuéntalo aquí y tu entrenamiento lo tendrá en cuenta.
-              Puedes hacerlo cuando quieras.
+              {t.list.emptyBody}
             </Text>
-            <Button label="Agregar" onPress={() => router.push('/me/health/new')} />
+            <Button label={t.add} onPress={() => router.push('/me/health/new')} />
           </View>
         ) : null}
 
         {sections ? (
           <>
-            <ClaimSection title="Activo" claims={sections.active} now={now} />
-            <ClaimSection title="En recuperación" claims={sections.healing} now={now} />
-            <ClaimSection title="Ya terminó" claims={sections.ended} now={now} ended />
+            <ClaimSection title={t.list.active} claims={sections.active} now={now} />
+            <ClaimSection title={t.list.healing} claims={sections.healing} now={now} />
+            <ClaimSection title={t.list.ended} claims={sections.ended} now={now} ended />
           </>
         ) : null}
       </ScrollView>
@@ -220,6 +221,7 @@ function ClaimSection({
   readonly ended?: boolean
 }) {
   const router = useRouter()
+  const text = useText()
   if (claims.length === 0) return null
   return (
     <View style={styles.section}>
@@ -230,12 +232,14 @@ function ClaimSection({
         {claims.map((claim) => (
           <ContentRow
             key={claim.id}
-            name={claimTitle(claim)}
-            caption={claimCaption(claim, now)}
+            name={claimTitle(claim, text.health)}
+            caption={claimCaption(claim, now, text)}
             icon={ended ? 'success' : TYPE_ICON[claim.context_type]}
             iconTone={ended ? 'neutral' : TYPE_TONE[claim.context_type]}
             tagTone={TYPE_TONE[claim.context_type]}
-            {...(ended || !claim.body_area ? {} : { tag: typeLabel(claim.context_type) })}
+            {...(ended || !claim.body_area
+              ? {}
+              : { tag: typeLabel(claim.context_type, text.health) })}
             tone="plain"
             onPress={() => router.push(`/me/health/${claim.id}`)}
           />
@@ -255,6 +259,8 @@ export function HealthFormScreen({
   readonly claimId?: string
 }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.health
   const [draft, setDraft] = useState<HealthDraft | undefined>(claimId ? undefined : EMPTY_DRAFT)
   const [knowsEnd, setKnowsEnd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -313,7 +319,7 @@ export function HealthFormScreen({
       else await sources.declare(input)
       router.back()
     } catch (cause) {
-      setFailure(saveFailure(cause))
+      setFailure(saveFailure(cause, text))
     } finally {
       setSaving(false)
     }
@@ -335,25 +341,21 @@ export function HealthFormScreen({
 
   return (
     <EditScreen
-      title={claimId ? 'Corregir' : 'Agregar'}
-      subtitle={
-        claimId
-          ? 'Cambia lo que haga falta. Corrige este registro; si es algo nuevo, mejor agrégalo aparte.'
-          : 'Cuéntalo con tus palabras. No es historia clínica: no pedimos diagnósticos ni documentos.'
-      }
-      failure={unreadable ? UNREADABLE : failure}
+      title={claimId ? t.correct : t.add}
+      subtitle={claimId ? t.form.correctSubtitle : t.form.addSubtitle}
+      failure={unreadable ? t.unreadable : failure}
       saving={saving}
-      saveLabel={claimId ? 'Guardar corrección' : 'Guardar'}
+      saveLabel={claimId ? t.form.saveCorrection : text.common.save}
       canSave={draft !== undefined && canSaveDraft(effective, now)}
       onSave={() => void save()}
     >
-      <Field label="Qué es">
+      <Field label={t.form.what}>
         <View style={styles.row}>
-          {HEALTH_TYPES.map(({ type, label, caption }) => (
+          {HEALTH_TYPES.map((type) => (
             <SelectableTile
               key={type}
-              name={label}
-              caption={caption}
+              name={t.types[type].label}
+              caption={t.types[type].caption}
               icon={TYPE_ICON[type]}
               choice="single"
               selected={shown.type === type}
@@ -363,46 +365,46 @@ export function HealthFormScreen({
         </View>
       </Field>
 
-      <Field label="Zona" hint="· si aplica">
+      <Field label={t.form.area} hint={t.form.ifAny}>
         <DisclosureButton
           variant="field"
-          label="Zona"
-          value={shown.area ? AREA_LABEL[shown.area] : 'Ninguna en particular'}
+          label={t.form.area}
+          value={shown.area ? t.areas[shown.area] : t.form.noArea}
           icon="person"
           active={shown.area !== null}
-          actionLabel="Cambiar"
+          actionLabel={text.common.change}
           onPress={() =>
             router.push({ pathname: '/me/health/zone', params: { current: shown.area ?? '' } })
           }
         />
       </Field>
 
-      <Field label="Con tus palabras">
+      <Field label={t.form.words}>
         <TextField
-          label="Con tus palabras"
+          label={t.form.words}
           hideLabel
           value={shown.description}
           onChangeText={(typed) => update({ description: typed })}
           multiline
           maxLength={MAX_DESCRIPTION}
-          placeholder="Por ejemplo: la derecha, me duele al bajar en sentadilla."
+          placeholder={t.form.wordsPlaceholder}
         />
         <Text role="body" size="xs" color="muted">
-          Dónde, cuándo aparece y qué lo empeora. Con eso basta.
+          {t.form.wordsHint}
         </Text>
       </Field>
 
-      <Field label="Desde cuándo">
+      <Field label={t.form.since}>
         <View style={styles.row}>
-          {SINCE_CHOICES.map(({ choice, label }) => (
+          {SINCE_CHOICES.map((choice) => (
             <Chip
               key={choice}
               size="sm"
               grow
               label={
                 choice === 'other' && shown.since === 'other' && shown.sinceDay
-                  ? dayLine(shown.sinceDay, now)
-                  : label
+                  ? dayLine(shown.sinceDay, now, text)
+                  : t.since[choice]
               }
               selected={shown.since === choice}
               onPress={() => pickSince(choice)}
@@ -413,15 +415,17 @@ export function HealthFormScreen({
 
       {asksForEnd(shown) ? (
         <>
-          <Switch label="Sé cuándo termina" value={knowsEnd} onChange={setKnowsEnd} />
+          <Switch label={t.form.knowsEnd} value={knowsEnd} onChange={setKnowsEnd} />
           {knowsEnd ? (
             <DisclosureButton
               variant="field"
-              label="Hasta"
-              value={shown.until ? `Hasta el ${fullDayLine(shown.until)}` : 'Elige hasta cuándo'}
+              label={t.form.until}
+              value={
+                shown.until ? t.form.untilDay(fullDayLine(shown.until, text)) : t.form.pickUntil
+              }
               icon="calendar"
               active={shown.until !== null}
-              actionLabel="Cambiar"
+              actionLabel={text.common.change}
               onPress={() =>
                 router.push({
                   pathname: '/me/health/date',
@@ -436,7 +440,7 @@ export function HealthFormScreen({
         </>
       ) : null}
 
-      <Note>{PRIVACY_NOTE}</Note>
+      <Note>{t.privacy}</Note>
     </EditScreen>
   )
 }
@@ -472,28 +476,29 @@ function Field({
 
 export function HealthAreaScreen({ current }: { readonly current: HealthArea | null }) {
   const router = useRouter()
+  const t = useText().health
   const pick = (area: HealthArea | null) => {
     chooseArea(area)
     router.back()
   }
   return (
     <EditScreen
-      title="Zona"
-      subtitle="Dónde lo sientes. Derecha o izquierda va en tus palabras."
+      title={t.form.area}
+      subtitle={t.areaScreen.subtitle}
       failure={undefined}
       saving={false}
       onSave={undefined}
     >
       {AREA_GROUPS.map((group) => (
-        <View key={group.title} style={styles.section}>
+        <View key={group.group} style={styles.section}>
           <Text role="label" size="xs" color="secondary" uppercase>
-            {group.title}
+            {t.areaGroups[group.group]}
           </Text>
           <View>
             {group.areas.map((area) => (
               <SelectableRow
                 key={area}
-                name={AREA_LABEL[area]}
+                name={t.areas[area]}
                 selected={current === area}
                 onPress={() => pick(area)}
               />
@@ -501,7 +506,7 @@ export function HealthAreaScreen({ current }: { readonly current: HealthArea | n
           </View>
         </View>
       ))}
-      <Button label="Ninguna en particular" variant="ghost" onPress={() => pick(null)} />
+      <Button label={t.form.noArea} variant="ghost" onPress={() => pick(null)} />
     </EditScreen>
   )
 }
@@ -516,6 +521,8 @@ export function HealthDateScreen({
   readonly offset: number
 }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.health.dateScreen
   const values = wheelOffsets(kind)
   const first = values[0] ?? 0
   const last = values.at(-1) ?? 0
@@ -524,15 +531,11 @@ export function HealthDateScreen({
 
   return (
     <EditScreen
-      title={kind === 'since' ? 'Desde cuándo' : 'Hasta cuándo'}
-      subtitle={
-        kind === 'since'
-          ? 'Desliza hasta el día en que empezó. No hace falta que sea exacto.'
-          : 'Desliza hasta el día en que esperas terminar. Puedes cambiarlo después.'
-      }
+      title={kind === 'since' ? t.since : t.until}
+      subtitle={kind === 'since' ? t.sinceSubtitle : t.untilSubtitle}
       failure={undefined}
       saving={false}
-      saveLabel="Listo"
+      saveLabel={t.done}
       onSave={() => {
         chooseDay(kind, addDays(today, chosen))
         router.back()
@@ -546,12 +549,12 @@ export function HealthDateScreen({
             setChosen(value)
             selectionTick()
           }}
-          formatValue={(value) => fullDayLine(addDays(today, value))}
-          accessibilityLabel={kind === 'since' ? 'Desde cuándo' : 'Hasta cuándo'}
-          accessibilityText={fullDayLine(addDays(today, chosen))}
+          formatValue={(value) => fullDayLine(addDays(today, value), text)}
+          accessibilityLabel={kind === 'since' ? t.since : t.until}
+          accessibilityText={fullDayLine(addDays(today, chosen), text)}
         />
         <Text role="control" size="sm" color="accent" align="center">
-          {relativeDayLine(chosen)}
+          {relativeDayLine(chosen, text.health)}
         </Text>
       </View>
     </EditScreen>
@@ -568,6 +571,8 @@ export function HealthDetailScreen({
   readonly claimId: string
 }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.health
   const { claims, unreadable } = useClaims(sources)
   const [asking, setAsking] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -580,12 +585,12 @@ export function HealthDetailScreen({
     try {
       const deletion = await sources.remove(claimId)
       setAsking(false)
-      const kept = deletionNote(deletion, new Date())
+      const kept = deletionNote(deletion, new Date(), text)
       if (kept) setNote(kept)
       else router.back()
     } catch (cause) {
       setAsking(false)
-      setNote(saveFailure(cause))
+      setNote(saveFailure(cause, text))
     } finally {
       setRemoving(false)
     }
@@ -593,32 +598,35 @@ export function HealthDetailScreen({
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <EditHeader title={claim ? claimTitle(claim) : ''} />
+      <EditHeader title={claim ? claimTitle(claim, t) : ''} />
       <ScrollView contentContainerStyle={styles.detail} showsVerticalScrollIndicator={false}>
-        {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
-        {claims && !claim ? <InlineAlert message="Ese registro ya no está." /> : null}
+        {unreadable ? <InlineAlert message={t.unreadable} /> : null}
+        {claims && !claim ? <InlineAlert message={t.detail.gone} /> : null}
         {claim ? (
           <RecordCard
-            kind={{ label: typeLabel(claim.context_type), tone: TYPE_TONE[claim.context_type] }}
-            {...(claim.body_area ? { context: AREA_LABEL[claim.body_area] } : {})}
+            kind={{ label: typeLabel(claim.context_type, t), tone: TYPE_TONE[claim.context_type] }}
+            {...(claim.body_area ? { context: t.areas[claim.body_area] } : {})}
             body={claim.description}
             facts={[
-              { label: 'Desde', value: fullDayLine(new Date(claim.valid_from)) },
+              { label: t.detail.since, value: fullDayLine(new Date(claim.valid_from), text) },
               ...(claim.context_type === 'recovery' && claim.valid_to
-                ? [{ label: 'Hasta', value: fullDayLine(new Date(claim.valid_to)) }]
+                ? [{ label: t.detail.until, value: fullDayLine(new Date(claim.valid_to), text) }]
                 : []),
             ]}
-            origin={`${claim.provenance === 'person_declared' ? 'Declarado por ti' : 'Observado'} · ${dayLine(new Date(claim.recorded_at), now)}`}
+            origin={t.detail.origin(
+              claim.provenance === 'person_declared' ? t.detail.declared : t.detail.observed,
+              dayLine(new Date(claim.recorded_at), now, text),
+            )}
           />
         ) : null}
         {note ? <InlineAlert message={note} tone="info" /> : null}
-        {claim ? <Note>{`Corregirlo cambia este registro. ${PRIVACY_NOTE}`}</Note> : null}
+        {claim ? <Note>{t.detail.correcting(t.privacy)}</Note> : null}
       </ScrollView>
       {claim && claim.provenance === 'person_declared' ? (
         <View style={styles.footer}>
-          <Button label="Corregir" onPress={() => router.push(`/me/health/${claimId}/edit`)} />
+          <Button label={t.correct} onPress={() => router.push(`/me/health/${claimId}/edit`)} />
           <Button
-            label="Eliminar este registro"
+            label={t.detail.remove}
             icon="remove"
             variant="quietDanger"
             onPress={() => setAsking(true)}
@@ -626,19 +634,18 @@ export function HealthDetailScreen({
         </View>
       ) : null}
 
-      <Sheet visible={asking} onDismiss={() => setAsking(false)} title="¿Eliminar este registro?">
+      <Sheet visible={asking} onDismiss={() => setAsking(false)} title={t.detail.askTitle}>
         <View style={styles.sheet}>
           <Text role="body" size="sm" color="secondary" align="center">
-            Se borra para siempre. Solo queda constancia de que borraste un dato de salud, nunca de
-            lo que decía.
+            {t.detail.askBody}
           </Text>
           <Button
-            label="Eliminar"
+            label={t.detail.confirm}
             variant="danger"
             loading={removing}
             onPress={() => void remove()}
           />
-          <Button label="Cancelar" variant="ghost" onPress={() => setAsking(false)} />
+          <Button label={text.common.cancel} variant="ghost" onPress={() => setAsking(false)} />
         </View>
       </Sheet>
     </Screen>

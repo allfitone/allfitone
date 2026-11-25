@@ -10,7 +10,8 @@
  * waist is not a waist of zero centimetres.
  *
  * The wheel starts at the last reading of that measure, so a second session corrects a
- * known number instead of searching from nothing.
+ * known number instead of searching from nothing. Muscle mass turns and is sent in the
+ * unit she reads masses in; lengths stay in centimetres.
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -32,8 +33,10 @@ import {
   decimal,
   declarationOf,
   latestOf,
+  readingIn,
   runAround,
   shortDay,
+  shownMeasure,
   type BodyRecord,
   type Measure,
 } from '../../src/client/body'
@@ -44,8 +47,9 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { BodyFigure } from '../../src/components/body-figure'
 import { FIGURE_TRACKING } from '../../src/components/nutrition-ui'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
-const SAVE_FAILED = 'No pudimos guardar esta medida. Inténtalo otra vez.'
 const FIGURE_SCALE = 0.8
 const FIGURE_WIDTH = 200 * FIGURE_SCALE
 const FIGURE_HEIGHT = 400 * FIGURE_SCALE
@@ -63,6 +67,10 @@ const TAPE: Partial<Record<Measure['code'], readonly [number, number, number]>> 
 
 export default function MeasuresScreen() {
   const router = useRouter()
+  const locale = useLocale()
+  const text = useText()
+  const words = text.progress.measures
+  const { mass } = useUnits()
   const theme = useTheme()
   const today = useMemo(
     () => new Intl.DateTimeFormat('en-CA', { timeZone: deviceTimezone() }).format(new Date()),
@@ -94,11 +102,15 @@ export default function MeasuresScreen() {
     }
   }, [])
 
-  const measure = MEASURES[step]
-  if (!measure) return null
+  const stored = MEASURES[step]
+  if (!stored) return null
+  // What the wheel turns and what is sent are in the unit shown, never converted back.
+  const measure = shownMeasure(stored, mass)
+  const named = words.each[measure.code]
   const last = latestOf(records, measure.code)
-  const value = values[measure.code] ?? last?.value ?? measure.resting
-  const run = runAround(last?.value ?? measure.resting, measure.step, 25, measure.min, measure.max)
+  const lastShown = last ? readingIn(stored, last.value, mass) : undefined
+  const value = values[measure.code] ?? lastShown ?? measure.resting
+  const run = runAround(lastShown ?? measure.resting, measure.step, 25, measure.min, measure.max)
   const nextMeasure = MEASURES[step + 1]
 
   const advance = () => {
@@ -110,11 +122,11 @@ export default function MeasuresScreen() {
     setSaving(true)
     setFailure(undefined)
     try {
-      await recordBodyMeasure(declarationOf(measure.code, value, today))
+      await recordBodyMeasure(declarationOf(measure.code, value, today, mass))
       setSaved({ ...saved, [measure.code]: value })
       advance()
     } catch (cause) {
-      if (!upgrade.handled(cause)) setFailure(SAVE_FAILED)
+      if (!upgrade.handled(cause)) setFailure(words.saveFailed)
     } finally {
       setSaving(false)
     }
@@ -125,12 +137,12 @@ export default function MeasuresScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="close" accessibilityLabel="Terminar" onPress={() => router.back()} />
+        <IconButton icon="close" accessibilityLabel={words.finish} onPress={() => router.back()} />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.title}>
-          Medidas
+          {words.title}
         </Text>
         <Text role="control" size="xs" color="muted" style={styles.step}>
-          {`${String(step + 1)} de ${String(MEASURES.length)}`}
+          {words.step(step + 1, MEASURES.length)}
         </Text>
       </View>
       <ScrollView
@@ -144,11 +156,12 @@ export default function MeasuresScreen() {
             any of them jumps straight to that measure. */}
         {MEASURES.map((one, index) => {
           const done = saved[one.code]
+          const label = words.each[one.code].label
           return (
             <Chip
               key={one.code}
               label={
-                done !== undefined && index !== step ? `${one.label} ${decimal(done)}` : one.label
+                done !== undefined && index !== step ? `${label} ${decimal(done, locale)}` : label
               }
               selected={index === step}
               {...(done !== undefined ? { icon: 'check' as const } : {})}
@@ -195,20 +208,23 @@ export default function MeasuresScreen() {
 
       <View style={styles.reading}>
         <Text role="control" size="xs" color="accent" uppercase tracking={0.16}>
-          {measure.label}
+          {named.label}
         </Text>
         <View style={styles.value}>
           <Text role="display" tracking={FIGURE_TRACKING} size="6xl">
-            {decimal(value)}
+            {decimal(value, locale)}
           </Text>
           <Text role="control" size="lg" color="secondary" style={styles.unit}>
             {measure.suffix}
           </Text>
         </View>
         <Text role="body" size="xs" color="secondary">
-          {last
-            ? `La última vez: ${decimal(last.value)} ${measure.suffix}, el ${shortDay(last.measured_on)}`
-            : 'Tu primera medida'}
+          {last && lastShown !== undefined
+            ? words.lastTime(
+                `${decimal(lastShown, locale)} ${measure.suffix}`,
+                shortDay(last.measured_on, text),
+              )
+            : words.first}
         </Text>
       </View>
 
@@ -220,21 +236,21 @@ export default function MeasuresScreen() {
           setValues({ ...values, [measure.code]: chosen })
           selectionTick()
         }}
-        formatValue={(shown) => decimal(shown)}
+        formatValue={(shown) => decimal(shown, locale)}
         suffix={measure.suffix}
-        accessibilityLabel={measure.label}
-        accessibilityText={`${decimal(value)} ${measure.suffix}`}
+        accessibilityLabel={named.label}
+        accessibilityText={`${decimal(value, locale)} ${measure.suffix}`}
       />
 
       <View style={styles.bottom}>
         <Note boxed accent>
-          {measure.how}
+          {named.how}
         </Note>
         {failure ? <InlineAlert message={failure} /> : null}
         <View style={styles.actions}>
-          <Button label="Saltar" variant="secondary" onPress={advance} style={styles.skip} />
+          <Button label={words.skip} variant="secondary" onPress={advance} style={styles.skip} />
           <Button
-            label={nextMeasure ? `Siguiente: ${nextMeasure.short}` : 'Terminar'}
+            label={nextMeasure ? words.next(words.each[nextMeasure.code].short) : words.finish}
             icon={nextMeasure ? 'forward' : 'check'}
             loading={saving}
             onPress={() => void saveAndAdvance()}

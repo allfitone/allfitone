@@ -33,18 +33,20 @@ import {
 } from '../../src/client/gym-affiliation'
 import { currentDraft } from '../../src/client/invitation-draft'
 import { GymMark, RowCard, scopeIcon } from '../../src/components/gym-ui'
-
-const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
-  { value: 'rejected', label: 'No' },
-  { value: 'accepted', label: 'Sí' },
-]
+import { useText } from '../../src/i18n/use-text'
 
 export default function InvitationShare() {
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const draft = currentDraft()
+  const text = useText()
+  const words = text.invitation
   const [, redraw] = useState(0)
+  const answers: readonly { readonly value: Decision; readonly label: string }[] = [
+    { value: 'rejected', label: words.answer.no },
+    { value: 'accepted', label: words.answer.yes },
+  ]
 
   if (!draft) {
     router.back()
@@ -57,7 +59,11 @@ export default function InvitationShare() {
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <View style={styles.gym}>
           <GymMark name={draft.invitation.organization.display_name} size={36} />
           <View style={styles.grow}>
@@ -65,7 +71,7 @@ export default function InvitationShare() {
               {draft.invitation.organization.display_name}
             </Text>
             <Text role="body" size="xs" color="muted">
-              te invita a entrenar con ellos
+              {words.share.invites}
             </Text>
           </View>
         </View>
@@ -76,14 +82,14 @@ export default function InvitationShare() {
         showsVerticalScrollIndicator={false}
       >
         <Text role="control" size="2xl" accessibilityRole="header">
-          Decide qué pueden ver
+          {words.share.title}
         </Text>
         <Text role="body" size="sm" color="secondary">
-          Aceptar la invitación no comparte nada por sí sola. Elige cada categoría.
+          {words.share.intro}
         </Text>
         <RowCard>
           {options.map((option) => {
-            const title = scopeTitle(option)
+            const title = scopeTitle(option, text.gyms)
             const description = scopeDescription(option)
             return (
               <View key={option.scope_code} style={styles.option}>
@@ -91,12 +97,12 @@ export default function InvitationShare() {
                   icon={scopeIcon(option.scope_code)}
                   iconTone="quiet"
                   name={title}
-                  caption={accessLevelLabel(option.offered_access_level)}
+                  caption={accessLevelLabel(option.offered_access_level, text.gyms)}
                   trailing={{
                     kind: 'choice',
-                    items: ANSWER,
+                    items: answers,
                     value: draft.scopes[option.scope_code] ?? 'rejected',
-                    accessibilityLabel: `Compartir ${title}`,
+                    accessibilityLabel: words.share.shareLabel(title),
                     onChange: (value) => {
                       draft.scopes[option.scope_code] = decisionOf(value)
                       redraw((tick) => tick + 1)
@@ -115,7 +121,7 @@ export default function InvitationShare() {
                 ) : null}
                 {offer && offer.required_scope.scope_code === option.scope_code ? (
                   <Text role="body" size="xs" color="accent" style={styles.detail}>
-                    {programNeedLine(offer)}
+                    {programNeedLine(offer, words)}
                   </Text>
                 ) : null}
               </View>
@@ -130,12 +136,9 @@ export default function InvitationShare() {
           { paddingBottom: insets.bottom + 14, backgroundColor: theme.color.background.canvas },
         ]}
       >
-        <Button
-          label={`Listo · compartes ${String(shared)} de ${String(options.length)}`}
-          onPress={() => router.back()}
-        />
+        <Button label={words.share.done(shared, options.length)} onPress={() => router.back()} />
         <Text role="body" size="xs" color="muted" align="center">
-          Lo que no elijas no se comparte.
+          {words.share.unchosen}
         </Text>
       </View>
     </Screen>

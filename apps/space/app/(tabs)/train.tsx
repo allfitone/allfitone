@@ -74,14 +74,8 @@ import { ProgramMenuBody, ProgramRemovalBody } from '../../src/components/progra
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
 import { opens } from '../../src/client/plan'
-
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const READ_FAILED = 'No pudimos cargar tu biblioteca. Inténtalo otra vez.'
-const START_FAILED = 'No pudimos empezar la sesión. Inténtalo otra vez.'
-const ORDER_FAILED = 'No pudimos cambiar de programa. Inténtalo otra vez.'
-const REMOVE_FAILED = 'No pudimos eliminar el programa. Inténtalo otra vez.'
-const DUPLICATE_FAILED = 'No pudimos duplicar el programa. Inténtalo otra vez.'
-const DUPLICATE_ROUTINE_FAILED = 'No pudimos duplicar la rutina. Inténtalo otra vez.'
+import type { Dictionary } from '../../src/i18n'
+import { useText } from '../../src/i18n/use-text'
 
 /**
  * Lo que la hoja puede estar enseñando. Sólo uno a la vez, que es la regla que la
@@ -97,20 +91,16 @@ type Segment = 'programs' | 'routines'
 /** Lo que ocupa la fotografía de un programa. Alta para que la imagen se vea, no se intuya. */
 const HERO = 190
 
-const SEGMENTS = [
-  { value: 'programs' as const, label: 'Programas' },
-  { value: 'routines' as const, label: 'Rutinas' },
-]
+const SEGMENTS: readonly Segment[] = ['programs', 'routines']
 
-const FILTERS: readonly { value: RoutineFilter; label: string }[] = [
-  { value: 'all', label: 'Todas' },
-  { value: 'in-program', label: 'En programa' },
-  { value: 'standalone', label: 'Sueltas' },
-]
+const FILTERS: readonly RoutineFilter[] = ['all', 'in-program', 'standalone']
 
 export default function Train() {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.train
+  const libraryWords = text.training.library
   const programs = useMemo(() => createSpaceProgramFlow(), [])
   const content = useMemo(() => createSpaceContentFlow(), [])
   const features = usePlan()
@@ -155,7 +145,7 @@ export default function Train() {
       .catch((cause: unknown) => {
         const meaning = weekPlanFailure(cause instanceof ApiError ? cause.failure : undefined)
         if (meaning === 'unassigned') setPlan(undefined)
-        else setFailure(meaning === 'expired' ? EXPIRED : READ_FAILED)
+        else setFailure(meaning === 'expired' ? text.training.expired : words.failure.read)
       })
     Promise.all([programs.readMyPrograms(), content.readMyRoutines(), readExerciseLibrary(content)])
       .then(([programmes, mineRoutines, read]) => {
@@ -165,10 +155,12 @@ export default function Train() {
       })
       .catch((cause: unknown) => {
         setFailure(
-          cause instanceof ApiError && cause.failure === 'unauthenticated' ? EXPIRED : READ_FAILED,
+          cause instanceof ApiError && cause.failure === 'unauthenticated'
+            ? text.training.expired
+            : words.failure.read,
         )
       })
-  }, [content, programs, timezone])
+  }, [content, programs, timezone, text, words])
 
   // En foco y no al montar: la pestaña se queda montada, así que montar ocurre una vez y
   // no vería una rutina escrita ni una sesión cerrada en otro sitio.
@@ -181,7 +173,7 @@ export default function Train() {
   const shown = filteredRoutines(routines, filter)
 
   const start = (card: RoutineCard) => {
-    const notice = heldNotice(card)
+    const notice = heldNotice(card, text.training.week)
     if (notice) {
       setHeld(notice)
       return
@@ -195,7 +187,7 @@ export default function Train() {
     training
       .start(card.routine.planned_session_id, timezone)
       .then((id) => router.push(`/session/${id}`))
-      .catch(() => setFailure(START_FAILED))
+      .catch(() => setFailure(words.failure.start))
       .finally(() => setStarting(undefined))
   }
 
@@ -224,7 +216,7 @@ export default function Train() {
         return programs.readWeekPlan(timezone)
       })
       .then(setPlan)
-      .catch(() => setFailure(ORDER_FAILED))
+      .catch(() => setFailure(words.failure.order))
   }
 
   /**
@@ -245,7 +237,7 @@ export default function Train() {
           .then(setPlan)
           .catch(() => undefined)
       })
-      .catch(() => setFailure(REMOVE_FAILED))
+      .catch(() => setFailure(words.failure.remove))
       .finally(() => setRemoving(false))
   }
 
@@ -261,7 +253,7 @@ export default function Train() {
     content
       .duplicateProgram(program.program_id)
       .then((copy) => router.push(`/programs/new?programId=${copy.id}`))
-      .catch(() => setFailure(DUPLICATE_FAILED))
+      .catch(() => setFailure(words.failure.duplicateProgram))
   }
 
   // Pro opens it; on the free plan the sheet explains instead of a refusal.
@@ -275,7 +267,7 @@ export default function Train() {
       .duplicateTemplate(routine.template_id)
       .then((copy) => router.push(`/routines/${copy.id}`))
       .catch((cause: unknown) => {
-        if (!upgrade.handled(cause)) setFailure(DUPLICATE_ROUTINE_FAILED)
+        if (!upgrade.handled(cause)) setFailure(words.failure.duplicateRoutine)
       })
   }
 
@@ -286,7 +278,9 @@ export default function Train() {
       .then(() =>
         setRoutines((held) => held.filter((one) => one.template_id !== routine.template_id)),
       )
-      .catch((cause: unknown) => setFailure(discardFailure(cause, routine.programs)))
+      .catch((cause: unknown) =>
+        setFailure(discardFailure(cause, routine.programs, text.training.save)),
+      )
   }
 
   return (
@@ -296,22 +290,22 @@ export default function Train() {
       <View style={styles.frame}>
         <View style={styles.header}>
           <Text role="control" size="2xl" accessibilityRole="header">
-            Entrenamiento
+            {words.title}
           </Text>
           {/* Sin preguntar qué: el segmentado ya lo dijo. Una hoja que vuelve a
               preguntar entre dos cosas, con una de ellas abierta delante, es un paso
               que sólo existe porque la pantalla no se fía de lo que muestra. */}
           <Button
-            label="Crear"
+            label={words.create}
             icon="create"
             size="sm"
             variant="secondary"
-            accessibilityLabel={segment === 'programs' ? 'Crear un programa' : 'Crear una rutina'}
+            accessibilityLabel={segment === 'programs' ? words.createProgram : words.createRoutine}
             onPress={() => router.push(segment === 'programs' ? '/programs/new' : '/routines/new')}
           />
         </View>
         <SegmentedControl
-          items={SEGMENTS}
+          items={SEGMENTS.map((value) => ({ value, label: words.segments[value] }))}
           value={segment}
           // Cambiar de mitad se lleva el aviso: hablaba de lo que estabas mirando, y
           // dejarlo colgando sobre la otra lista lo convierte en un cartel sin dueño.
@@ -319,7 +313,7 @@ export default function Train() {
             setFailure(undefined)
             setSegment(next)
           }}
-          accessibilityLabel="Qué parte de tu biblioteca ver"
+          accessibilityLabel={words.segmentsLabel}
         />
         {/* Los filtros son cabecera, no lista: filtran lo que hay debajo, y uno que se
             va con el desplazamiento obliga a subir para cambiar de filtro. */}
@@ -327,11 +321,11 @@ export default function Train() {
           <View style={styles.filters}>
             {FILTERS.map((one) => (
               <Chip
-                key={one.value}
-                label={one.label}
-                count={counts[one.value]}
-                selected={filter === one.value}
-                onPress={() => setFilter(one.value)}
+                key={one}
+                label={words.filters[one]}
+                count={counts[one]}
+                selected={filter === one}
+                onPress={() => setFilter(one)}
               />
             ))}
           </View>
@@ -365,7 +359,7 @@ export default function Train() {
               <View style={styles.section}>
                 <View style={styles.sectionHead}>
                   <Text role="control" size="lg">
-                    Tus otros programas
+                    {words.otherPrograms}
                   </Text>
                   <Text role="control" size="sm" color="accent">
                     {String(others.length)}
@@ -375,7 +369,7 @@ export default function Train() {
                   <ContentRow
                     key={program.assignment_id}
                     name={program.title}
-                    caption={programCaption(program)}
+                    caption={programCaption(program, libraryWords)}
                     preview={
                       program.cover_url === null ? (
                         <FoundationIcon
@@ -395,13 +389,13 @@ export default function Train() {
                       )
                     }
                     onPress={() => select(program.assignment_id)}
-                    accessibilityLabel={`Entrenar ${program.title}`}
+                    accessibilityLabel={words.trainProgram(program.title)}
                     /* Los tres puntos y no el lápiz: editar es una de las tres cosas
                        que se pueden hacer, y las otras dos no tenían dónde vivir. */
                     trailing={{
                       kind: 'action',
                       icon: 'more',
-                      accessibilityLabel: `Más opciones de ${program.title}`,
+                      accessibilityLabel: words.more(program.title),
                       onPress: () => setSheet({ kind: 'program', program }),
                     }}
                   />
@@ -413,8 +407,8 @@ export default function Train() {
                 hace con seis ya tomados, y esconderlo entonces es esconderlo justo
                 cuando alguien sabe lo que busca. */}
             <ContentRow
-              name="Programas de Allfit"
-              caption="Planes armados por el equipo"
+              name={text.training.programs.title}
+              caption={text.training.programs.rowCaption}
               tone="plain"
               preview={
                 <FoundationIcon
@@ -431,12 +425,12 @@ export default function Train() {
         ) : (
           <>
             {shown.map((routine) => {
-              const used = whereUsed(routine)
+              const used = whereUsed(routine, libraryWords)
               return (
                 <ContentRow
                   key={routine.template_id}
                   name={routine.title}
-                  caption={routineFigures(routine)}
+                  caption={routineFigures(routine, libraryWords)}
                   note={used.text}
                   noteTone={used.loose ? 'quiet' : 'accent'}
                   preview={<RoutineMark routine={routine} library={library} />}
@@ -444,7 +438,7 @@ export default function Train() {
                   trailing={{
                     kind: 'action',
                     icon: 'more',
-                    accessibilityLabel: `Más opciones de ${routine.title}`,
+                    accessibilityLabel: words.more(routine.title),
                     onPress: () => setSheet({ kind: 'routine', routine }),
                   }}
                 />
@@ -453,13 +447,13 @@ export default function Train() {
 
             {shown.length === 0 ? (
               <Text role="body" size="sm" color="muted" style={styles.empty}>
-                {emptyReason(filter)}
+                {emptyReason(filter, libraryWords)}
               </Text>
             ) : null}
 
             <ContentRow
-              name="Crear rutina"
-              caption="Elige ejercicios, series y repeticiones"
+              name={words.newRoutine}
+              caption={words.newRoutineCaption}
               tone="plain"
               preview={
                 <FoundationIcon
@@ -479,12 +473,12 @@ export default function Train() {
       <Sheet
         visible={sheet !== undefined}
         onDismiss={() => setSheet(undefined)}
-        title={sheetTitle(sheet)}
+        title={sheetTitle(sheet, words)}
       >
         {sheet?.kind === 'routine' ? (
           <View style={styles.sheetActions}>
             <Button
-              label="Editar"
+              label={words.edit}
               variant="secondary"
               icon="edit"
               onPress={() => {
@@ -494,7 +488,7 @@ export default function Train() {
               }}
             />
             <Button
-              label="Duplicar"
+              label={words.duplicate}
               variant="secondary"
               icon={opens(features, 'routine_duplication') ? 'duplicate' : 'locked'}
               onPress={() => duplicateRoutine(sheet.routine)}
@@ -504,10 +498,10 @@ export default function Train() {
                 versión que congelaron, y eso hay que decirlo en vez de dejar que se
                 descubra. */}
             <Text role="body" size="xs" color="muted">
-              {discardWarning(sheet.routine)}
+              {discardWarning(sheet.routine, libraryWords)}
             </Text>
             <Button
-              label="Descartar"
+              label={words.discard}
               variant="ghost"
               icon="remove"
               onPress={() => discard(sheet.routine)}
@@ -553,9 +547,9 @@ export default function Train() {
 /**
  * Qué dice la cabecera de la hoja. La confirmación pregunta; las otras dos nombran.
  */
-function sheetTitle(sheet: Sheeted | undefined): string {
+function sheetTitle(sheet: Sheeted | undefined, words: Dictionary['training']['train']): string {
   if (sheet === undefined) return ''
-  if (sheet.kind === 'removing') return `¿Eliminar «${sheet.program.title}»?`
+  if (sheet.kind === 'removing') return words.removeTitle(sheet.program.title)
   return sheet.kind === 'routine' ? sheet.routine.title : sheet.program.title
 }
 
@@ -577,6 +571,7 @@ function CurrentProgram({
   readonly onMenu: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
 
   return (
     <View style={[styles.current, { backgroundColor: theme.color.background.surface }]}>
@@ -610,14 +605,14 @@ function CurrentProgram({
         )}
 
         <View style={styles.currentHead}>
-          <Badge label="En curso" tone="accent" variant="quiet" />
+          <Badge label={text.training.train.current} tone="accent" variant="quiet" />
           {/* Siempre, se pueda editar o no: el que estás entrenando también se duplica
               y también se elimina, y esconderlo dejaba sin salida justo al que más
               ocupa la pantalla. */}
           <IconButton
             icon="more"
             size="sm"
-            accessibilityLabel={`Más opciones de ${program.title}`}
+            accessibilityLabel={text.training.train.more(program.title)}
             onPress={onMenu}
           />
         </View>
@@ -627,7 +622,7 @@ function CurrentProgram({
             {program.title}
           </Text>
           <Text role="body" size="sm" color="muted">
-            {programCaption(program, week)}
+            {programCaption(program, text.training.library, week)}
           </Text>
         </View>
       </View>
@@ -660,16 +655,18 @@ function WeekRow({
   readonly busy: boolean
   readonly onPress: () => void
 }) {
-  const day = dayName(card.routine.program_day)
+  const text = useText()
+  const words = text.training.train
+  const day = dayName(card.routine.program_day, text.training.library)
   const tag =
     card.state === 'suggested'
-      ? 'Sigue esta'
+      ? words.next
       : card.state === 'open'
-        ? 'A medias'
+        ? words.halfway
         : card.state === 'paused' || card.state === 'missed'
-          ? startLabel(card.state)
+          ? startLabel(card.state, text.training.week)
           : card.state === 'done'
-            ? 'Hecha'
+            ? words.done
             : undefined
 
   return (
@@ -682,8 +679,8 @@ function WeekRow({
         ? { tagTone: 'neutral' as const }
         : {})}
       {...(card.state === 'done' ? { tagTone: 'success' as const } : { value: day })}
-      caption={routineFigures(card.routine)}
-      accessibilityLabel={`${startLabel(card.state)} ${card.routine.title}, ${day}`}
+      caption={routineFigures(card.routine, text.training.library)}
+      accessibilityLabel={`${startLabel(card.state, text.training.week)} ${card.routine.title}, ${day}`}
       disabled={busy}
       onPress={onPress}
       style={styles.weekRow}

@@ -19,7 +19,10 @@
  * sets it, belongs to the screens; this answers what is in and what it is called.
  */
 
+import type { Dictionary } from '../i18n'
 import type { CatalogueTerm, Movement, MuscleTerm } from './content'
+
+type ExerciseWords = Dictionary['training']['exercises']
 
 export type FilterFacet = 'muscle' | 'equipment'
 
@@ -113,22 +116,25 @@ export function countFor(movements: readonly Movement[], facet: FilterFacet, cod
 }
 
 /** What the button at the bottom of a filter screen says. */
-export function resultLabel(count: number): string {
-  return count === 1 ? 'Ver 1 ejercicio' : `Ver ${count} ejercicios`
+export function resultLabel(count: number, text: ExerciseWords): string {
+  return text.seeResults(count)
 }
 
 /** What a facet's button says it is set to, without opening it. */
-export function facetSummary(filter: ExerciseFilter, facet: FilterFacet): string {
+export function facetSummary(
+  filter: ExerciseFilter,
+  facet: FilterFacet,
+  text: ExerciseWords,
+): string {
   const chosen = codesIn(filter, facet).length
-  if (chosen === 0) return 'cualquiera'
-  if (facet === 'muscle') return chosen === 1 ? '1 grupo' : `${chosen} grupos`
-  return chosen === 1 ? '1 tipo' : `${chosen} tipos`
+  if (chosen === 0) return text.any
+  return facet === 'muscle' ? text.groups(chosen) : text.kinds(chosen)
 }
 
 /** The count over the list, saying when it is a filtered count and not the library. */
-export function listSummary(shown: number, filtering: boolean): string {
-  const exercises = shown === 1 ? '1 ejercicio' : `${shown} ejercicios`
-  return filtering ? `${exercises} · filtrado` : exercises
+export function listSummary(shown: number, filtering: boolean, text: ExerciseWords): string {
+  const exercises = text.count(shown)
+  return filtering ? `${exercises} · ${text.filtered}` : exercises
 }
 
 /** What a row says under the name: what it works, and what it needs. */
@@ -188,12 +194,6 @@ export interface MuscleBlock {
   readonly muscles: readonly MuscleTerm[]
 }
 
-const REGION_TITLE: Record<string, string> = {
-  upper: 'TREN SUPERIOR',
-  lower: 'TREN INFERIOR',
-  general: 'GENERAL',
-}
-
 /**
  * Nineteen chips in one row is a wall, so they come grouped.
  *
@@ -202,14 +202,18 @@ const REGION_TITLE: Record<string, string> = {
  * so a region the contract does not declare yet gets its own block instead of dropping
  * its muscles: a muscle nobody can reach is worse than a heading nobody expected.
  */
-export function muscleBlocks(muscles: readonly MuscleTerm[]): readonly MuscleBlock[] {
+export function muscleBlocks(
+  muscles: readonly MuscleTerm[],
+  text: ExerciseWords,
+): readonly MuscleBlock[] {
+  const titles: Readonly<Record<string, string>> = text.regions
   const order = ['upper', 'lower', 'general']
   const regions = [...new Set(muscles.map((muscle) => muscle.region))].sort(
     (left, right) => indexOf(order, left) - indexOf(order, right),
   )
   return regions.map((region) => ({
     region,
-    title: REGION_TITLE[region] ?? region.toUpperCase(),
+    title: titles[region] ?? region.toUpperCase(),
     muscles: muscles.filter((muscle) => muscle.region === region),
   }))
 }

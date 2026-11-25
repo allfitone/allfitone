@@ -12,26 +12,15 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
+
 export type PeriodComparison = AllfitV1Schemas['SpacePeriodComparison']
 export type Period = AllfitV1Schemas['SpacePeriod']
 export type PeriodMovement = AllfitV1Schemas['SpacePeriodMovement']
 export type PeriodKind = PeriodComparison['period']
 export type PeriodProgram = AllfitV1Schemas['SpacePeriodProgram']
 
-const MONTHS = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
 const DAY = 86_400_000
 
 function dayOf(iso: string): Date {
@@ -40,7 +29,6 @@ function dayOf(iso: string): Date {
 }
 
 const isoOf = (date: Date) => date.toISOString().slice(0, 10)
-const short = (date: Date) => (MONTHS[date.getUTCMonth()] ?? '').slice(0, 3).toLowerCase()
 
 /** How many days a period has, counted from its first. */
 function lengthOf(startsOn: string, kind: PeriodKind): number {
@@ -49,15 +37,17 @@ function lengthOf(startsOn: string, kind: PeriodKind): number {
   return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate()
 }
 
-/** «19 – 25 oct», «28 sep – 4 oct» or «Octubre 2026». */
-export function periodLabel(startsOn: string, kind: PeriodKind): string {
+/** «19 – 25 oct», «28 sep – 4 oct» or «Octubre 2026»; in English «Oct 19 – 25». */
+export function periodLabel(startsOn: string, kind: PeriodKind, text: Dictionary): string {
   const start = dayOf(startsOn)
+  const words = text.progress.period
   if (kind === 'month')
-    return `${MONTHS[start.getUTCMonth()] ?? ''} ${String(start.getUTCFullYear())}`
+    return words.month(text.progress.monthNames[start.getUTCMonth()] ?? '', start.getUTCFullYear())
   const end = new Date(start.getTime() + 6 * DAY)
+  const short = (date: Date) => text.common.months[date.getUTCMonth()] ?? ''
   return start.getUTCMonth() === end.getUTCMonth()
-    ? `${String(start.getUTCDate())} – ${String(end.getUTCDate())} ${short(end)}`
-    : `${String(start.getUTCDate())} ${short(start)} – ${String(end.getUTCDate())} ${short(end)}`
+    ? words.sameMonth(start.getUTCDate(), end.getUTCDate(), short(end))
+    : words.across(start.getUTCDate(), short(start), end.getUTCDate(), short(end))
 }
 
 /** Rounded; null when either side is missing or the earlier one is zero. */
@@ -66,12 +56,13 @@ export function percentChange(current: number | null, previous: number | null): 
   return Math.round(((current - previous) / previous) * 100)
 }
 
-/** «12.480», «92,5»: a decimal comma, a thousands dot, one decimal at most. */
-export function formatKilos(kilos: number): string {
-  const rounded = Math.round(kilos * 10) / 10
-  const [whole = '0', decimal] = String(rounded).split('.')
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  return decimal ? `${grouped},${decimal}` : grouped
+/**
+ * «12.480», «92,5» in Spanish, «12,480» in English: a mass in the unit she reads, grouped
+ * by thousands, one decimal at most. The unit is the caller's to print.
+ */
+export function formatMass(kilograms: number, unit: MassUnit, locale: Locale): string {
+  const rounded = Math.round(massIn(kilograms, unit) * 10) / 10
+  return rounded.toLocaleString(intlLocale(locale), { maximumFractionDigits: 1 })
 }
 
 /**
@@ -202,28 +193,29 @@ export function programOptions(
   programs: readonly PeriodProgram[],
   periods: readonly Period[],
   index: number,
+  text: Dictionary['progress']['programs'],
 ): ProgramOption[] {
   const free = periods[index]?.unplanned ?? 0
   if (programs.length + (free > 0 ? 1 : 0) < 2) return []
   const each = programs.map((program) => ({
     key: program.assignment_id,
     label: program.title,
-    caption: program.from_gym ? 'De tu gimnasio' : 'Programa propio',
+    caption: program.from_gym ? text.fromGym : text.own,
     done: program.fulfilled[index] ?? 0,
     planned: program.planned[index] ?? 0,
   }))
-  const count = `${String(programs.length)} ${programs.length === 1 ? 'programa' : 'programas'}`
+  const count = text.count(programs.length)
   return [
     {
       key: null,
-      label: 'Todos los programas',
-      caption: free > 0 ? `${count} y entrenos libres` : count,
+      label: text.all,
+      caption: free > 0 ? text.withFree(count) : count,
       done: each.reduce((sum, option) => sum + option.done, 0),
       planned: each.reduce((sum, option) => sum + option.planned, 0),
     },
     ...each,
     ...(free > 0
-      ? [{ key: 'free', label: 'Libres', caption: 'Sin programa', done: free, planned: null }]
+      ? [{ key: 'free', label: text.free, caption: text.noProgram, done: free, planned: null }]
       : []),
   ]
 }

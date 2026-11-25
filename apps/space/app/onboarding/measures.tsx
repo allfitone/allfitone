@@ -43,6 +43,8 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import { selectionTick } from '../../src/client/selection-tick'
@@ -63,37 +65,33 @@ import {
 } from '../../src/client/measures-form'
 
 const FOOTER_LIFT = 16
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
-const READ_FAILED = 'No pudimos leer tus respuestas. Inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardar tus medidas. Inténtalo otra vez.'
 
 /** Drawn on the pill. Short because the pill sits beside the caption, not under it. */
 const UNIT_LABEL: Record<MeasureUnit, string> = { kg: 'KG', lb: 'LB', cm: 'CM', in: 'FT' }
 
-/** Said out loud. `FT` is two letters a screen reader spells rather than reads. */
-const UNIT_SPOKEN: Record<MeasureUnit, string> = {
-  kg: 'Kilos',
-  lb: 'Libras',
-  cm: 'Centímetros',
-  in: 'Pies',
-}
-
 /** What hangs off the reading inside the wheel. */
 const UNIT_SUFFIX: Record<MeasureUnit, string> = { kg: 'kg', lb: 'lb', cm: 'cm', in: '' }
+
+type Failure = 'expired' | 'readFailed' | 'saveFailed'
 
 export default function OnboardingMeasures() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [weightKg, setWeightKg] = useState(RESTING_WEIGHT_KG)
   const [heightCm, setHeightCm] = useState(RESTING_HEIGHT_CM)
-  const [massUnit, setMassUnit] = useState<MassUnit>(CANONICAL_MASS)
+  // Opens in her preferred unit until she picks one or a saved answer names it.
+  const preferredMass = useUnits().mass
+  const [chosenMass, setMassUnit] = useState<MassUnit | undefined>(undefined)
+  const massUnit = chosenMass ?? preferredMass
   const [lengthUnit, setLengthUnit] = useState<LengthUnit>(CANONICAL_LENGTH)
   const [weightTouched, setWeightTouched] = useState(false)
   const [heightTouched, setHeightTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -123,10 +121,10 @@ export default function OnboardingMeasures() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(READ_FAILED)
+        setFailure('readFailed')
       })
 
     return () => {
@@ -160,9 +158,9 @@ export default function OnboardingMeasures() {
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(SAVE_FAILED)
+        setFailure('saveFailed')
       }
     } finally {
       setSubmitting(false)
@@ -181,13 +179,13 @@ export default function OnboardingMeasures() {
       items={options.map((option) => ({
         value: option,
         label: UNIT_LABEL[option],
-        accessibilityLabel: UNIT_SPOKEN[option],
+        accessibilityLabel: words.measures.spoken[option],
       }))}
       value={chosen}
       onChange={(next) => {
         if (pressable) choose(next)
       }}
-      accessibilityLabel="Unidad"
+      accessibilityLabel={words.measures.unit}
     />
   )
 
@@ -197,6 +195,12 @@ export default function OnboardingMeasures() {
   // re-render every one of them on every scroll frame.
   const weightRun = useMemo(() => runFor(massUnit), [massUnit])
   const heightRun = useMemo(() => runFor(lengthUnit), [lengthUnit])
+
+  const failures: Record<Failure, string> = {
+    expired: words.expired,
+    readFailed: words.readFailed,
+    saveFailed: words.measures.saveFailed,
+  }
 
   return (
     <Screen edges={['top', 'bottom']} dots>
@@ -208,7 +212,7 @@ export default function OnboardingMeasures() {
         showsVerticalScrollIndicator={false}
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          ¿Cuánto pesas{'\n'}y cuánto mides?
+          {words.measures.title}
         </Text>
 
         <View style={styles.blocks}>
@@ -218,7 +222,7 @@ export default function OnboardingMeasures() {
           <View style={styles.block}>
             <View style={styles.head}>
               <Text role="body" size="xs" color="muted" style={styles.caption}>
-                PESO
+                {words.measures.weightHead}
               </Text>
               {units(['kg', 'lb'] as const, massUnit, setMassUnit)}
             </View>
@@ -233,7 +237,7 @@ export default function OnboardingMeasures() {
               }}
               suffix={UNIT_SUFFIX[massUnit]}
               disabled={!pressable}
-              accessibilityLabel="Peso"
+              accessibilityLabel={words.measures.weight}
               accessibilityText={`${weightReading.text} ${weightReading.suffix}`}
             />
           </View>
@@ -241,7 +245,7 @@ export default function OnboardingMeasures() {
           <View style={styles.block}>
             <View style={styles.head}>
               <Text role="body" size="xs" color="muted" style={styles.caption}>
-                ESTATURA
+                {words.measures.heightHead}
               </Text>
               {units(['cm', 'in'] as const, lengthUnit, setLengthUnit)}
             </View>
@@ -255,7 +259,7 @@ export default function OnboardingMeasures() {
               }}
               suffix={UNIT_SUFFIX[lengthUnit]}
               disabled={!pressable}
-              accessibilityLabel="Estatura"
+              accessibilityLabel={words.measures.height}
               accessibilityText={`${heightReading.text} ${heightReading.suffix}`}
               formatValue={(mark) =>
                 lengthUnit === 'in' ? readingFor(toCanonical(mark, 'in'), 'in').text : String(mark)
@@ -266,12 +270,12 @@ export default function OnboardingMeasures() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Note>Es tu primer registro de progreso. Podrás actualizarlo cuando quieras.</Note>
+        <Note>{words.measures.note}</Note>
 
-        {failure ? <InlineAlert message={failure} style={styles.alert} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} style={styles.alert} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!submittable}
           loading={submitting}
           onPress={submit}
@@ -280,7 +284,7 @@ export default function OnboardingMeasures() {
 
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
             style={styles.signIn}

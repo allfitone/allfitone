@@ -15,6 +15,8 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 import type { IconName } from '@allfitone/icons'
 
+import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+
 export type ProStatus = AllfitV1Schemas['SpaceProStatus']
 export type ProPlanCatalogue = AllfitV1Schemas['SpaceProPlanCatalogue']
 export type ProPlan = AllfitV1Schemas['SpaceProPlan']
@@ -70,15 +72,17 @@ export function createProFlow(dependencies: {
 
 // ———————————————————————————————————————— what the screens say
 
+type PlansText = Dictionary['plans']
+
 const STORE_NAME: Record<ProStore, string> = { app_store: 'Apple', google_play: 'Google Play' }
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 export const storeName = (store: ProStore) => STORE_NAME[store]
 
-/** «3 oct», in the phone's own time zone. */
-export function shortDate(instant: string): string {
+/** «3 oct», «Oct 3», in the phone's own time zone. */
+export function shortDate(instant: string, locale: Locale): string {
   const date = new Date(instant)
-  return `${date.getDate()} ${MONTHS[date.getMonth()]}`
+  const text = textFor(locale)
+  return text.plans.dayMonth(date.getDate(), text.common.months[date.getMonth()] ?? '')
 }
 
 export const subscriptionOf = (status: ProStatus): SubscriptionSource | undefined =>
@@ -88,81 +92,48 @@ export const gymsOf = (status: ProStatus): OrganizationSource[] =>
   status.sources.filter((source): source is OrganizationSource => source.kind === 'organization')
 
 /** The line under the plan's name: who pays for it, or that nobody does. */
-export function sourceLine(status: ProStatus): string {
+export function sourceLine(status: ProStatus, text: Dictionary['pro']): string {
   const subscription = subscriptionOf(status)
   const [gym] = gymsOf(status)
   if (status.effective_source === 'subscription' && subscription) {
-    return `Pagado con ${storeName(subscription.store)}`
+    return text.paidWith(storeName(subscription.store))
   }
   if (status.effective_source === 'organization' && gym)
-    return `Incluido por ${gym.organization_name}`
-  return 'Sin costo, para siempre'
+    return text.includedBy(gym.organization_name)
+  return text.freeForever
 }
 
 /** What happens at the end of the paid period, in one line. */
-export function renewalLine(subscription: SubscriptionSource): string {
+export function renewalLine(
+  subscription: SubscriptionSource,
+  text: PlansText,
+  locale: Locale,
+): string {
   if (subscription.status === 'grace' && subscription.grace_until) {
-    return `No pudimos renovar: sigues con Pro hasta el ${shortDate(subscription.grace_until)}`
+    return text.renewal.grace(shortDate(subscription.grace_until, locale))
   }
-  if (subscription.status === 'suspended') return 'Cobro pendiente: Pro está en pausa'
-  const day = shortDate(subscription.current_period_end)
-  return subscription.auto_renews ? `Renueva el ${day}` : `Termina el ${day}, no se renueva`
+  if (subscription.status === 'suspended') return text.renewal.suspended
+  const day = shortDate(subscription.current_period_end, locale)
+  return subscription.auto_renews ? text.renewal.renews(day) : text.renewal.ends(day)
 }
 
 /** `HU-SP-085` criterion 6: said before charging, never after. */
-export function gymWarning(status: ProStatus): string | undefined {
+export function gymWarning(status: ProStatus, text: PlansText): string | undefined {
   if (status.effective_source !== 'organization') return undefined
   const [gym] = gymsOf(status)
   if (!gym) return undefined
-  return `Ya tienes Pro por ${gym.organization_name}. Pagarlo solo te sirve para no depender de esa afiliación.`
-}
-
-export const WAITING_FOR_FEATURES = 'Muy pronto verás aquí cada función de Pro y su límite.'
-
-const historySentence = (what: string) => (limit: number | null) =>
-  limit === null
-    ? `Todo tu ${what}`
-    : limit === 1
-      ? `${what.charAt(0).toUpperCase()}${what.slice(1)} del último mes`
-      : `${what.charAt(0).toUpperCase()}${what.slice(1)} de los últimos ${String(limit)} meses`
-
-// What each known function says at a given limit; `null` is unlimited.
-const SENTENCES: Readonly<Record<string, (limit: number | null) => string>> = {
-  active_personal_programs: (limit) =>
-    limit === null
-      ? 'Programas propios sin límite'
-      : `Máximo ${String(limit)} ${limit === 1 ? 'programa propio activo' : 'programas propios activos'}`,
-  own_routines: (limit) =>
-    limit === null
-      ? 'Rutinas propias sin límite'
-      : `Máximo ${String(limit)} ${limit === 1 ? 'rutina propia' : 'rutinas propias'}`,
-  training_history_months: historySentence('historial'),
-  nutrition_history_months: historySentence('historial de comidas'),
-  routine_duplication: () => 'Duplicar rutinas',
-  full_program_catalogue: () => 'Todo el catálogo de programas',
-  period_analysis: () => 'Comparar tus periodos',
-  body_measurements: () => 'Todas tus medidas',
-  body_photos: () => 'Fotos de tu progreso',
-  meal_photo_recognition: () => 'Comidas por foto con IA',
-}
-
-// When a function is left out of a plan, what the person still has instead. A function
-// with nothing in its place is not listed: «Lo que incluye» names only what is included.
-const WITHOUT: Readonly<Record<string, string>> = {
-  full_program_catalogue: 'Una selección de programas',
-  period_analysis: 'Resumen de cada sesión',
-  body_measurements: 'Peso y estatura',
-  meal_photo_recognition: 'Comidas por búsqueda de alimentos',
+  return text.gymWarning(gym.organization_name)
 }
 
 /** One function as a sentence; undefined for one the plan leaves out with nothing instead. */
-export function featureSentence(feature: ProFeature): string | undefined {
-  if (!feature.enabled) return WITHOUT[feature.code]
-  const sentence = SENTENCES[feature.code]
+export function featureSentence(feature: ProFeature, text: PlansText): string | undefined {
+  // A function left out names only what the person still has instead, if anything.
+  const without: Readonly<Record<string, string>> = text.without
+  if (!feature.enabled) return without[feature.code]
+  const sentences: Readonly<Record<string, (limit: number | null) => string>> = text.feature
+  const sentence = sentences[feature.code]
   if (sentence) return sentence(feature.limit_value)
-  return feature.limit_value === null
-    ? `${feature.name} sin límite`
-    : `${feature.name}: máximo ${feature.limit_value}`
+  return text.unknownFeature(feature.name, feature.limit_value)
 }
 
 const FEATURE_ICONS: Readonly<Record<string, IconName>> = {
@@ -184,32 +155,34 @@ export const featureIcon = (code: string): IconName => FEATURE_ICONS[code] ?? 'c
 const MINOR_DIGITS: Readonly<Record<string, number>> = { CLP: 0, JPY: 0, KRW: 0, PYG: 0 }
 
 /** «$24.900» in pesos, «$9,99 USD» elsewhere: what a receipt says, not a ledger. */
-export function money(amountMinor: number | null, currency: string | null): string | undefined {
+export function money(
+  amountMinor: number | null,
+  currency: string | null,
+  locale: Locale,
+): string | undefined {
   if (amountMinor === null || !currency) return undefined
   const digits = MINOR_DIGITS[currency] ?? 2
-  const whole = Math.floor(amountMinor / 10 ** digits)
   const cents = amountMinor % 10 ** digits
-  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  const amount = cents === 0 ? `$${grouped}` : `$${grouped},${String(cents).padStart(digits, '0')}`
-  return currency === 'COP' ? amount : `${amount} ${currency}`
+  const figure = (amountMinor / 10 ** digits).toLocaleString(intlLocale(locale), {
+    minimumFractionDigits: cents === 0 ? 0 : digits,
+    maximumFractionDigits: digits,
+  })
+  return currency === 'COP' ? `$${figure}` : `$${figure} ${currency}`
 }
 
 /** The latest charge that went through, to show what the person pays. */
 export const lastPaid = (payments: readonly ProPayment[]): ProPayment | undefined =>
   payments.find((payment) => payment.result === 'succeeded')
 
-const PERIODS: Readonly<Record<string, { readonly fee: string; readonly per: string }>> = {
-  month: { fee: 'Cuota mensual', per: '/mes' },
-  year: { fee: 'Cuota anual', per: '/año' },
-}
-
 /** How a version is billed, read from the catalogue rather than assumed to be monthly. */
 export function billingOf(
   catalogue: ProPlanCatalogue | undefined,
   versionId: string,
+  text: PlansText,
 ): { readonly fee: string; readonly per: string } {
   const period = catalogue?.plans.find((plan) => plan.version_id === versionId)?.billing_period
-  return (period ? PERIODS[period] : undefined) ?? { fee: 'Cuota', per: '' }
+  if (period === 'month' || period === 'year') return text.period[period]
+  return { fee: text.otherFee, per: '' }
 }
 
 export const proPlanOf = (catalogue: ProPlanCatalogue): ProPlan | undefined =>

@@ -48,6 +48,7 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { canSubmitIdentity, isUsernameWellFormed } from '../../src/client/identity-form'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { readSession } from '../../src/client/session'
@@ -56,18 +57,16 @@ import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 const NAME_MAX_LENGTH = 120
 const USERNAME_MAX_LENGTH = 30
 
-const USERNAME_RULE =
-  'De 3 a 30 caracteres, empezando con una letra. Solo letras, números y guion bajo.'
-const TAKEN = 'Ese usuario ya está en uso. Prueba con otro.'
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tus datos.'
-const UNREACHABLE = 'No pudimos guardar tus datos. Inténtalo otra vez.'
+type Failure = 'expired' | 'saveFailed'
 
 export default function OnboardingIdentity() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [email, setEmail] = useState<string | undefined>(undefined)
   const [givenName, setGivenName] = useState('')
@@ -76,7 +75,7 @@ export default function OnboardingIdentity() {
   const [takenUsername, setTakenUsername] = useState<string | undefined>(undefined)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -110,10 +109,10 @@ export default function OnboardingIdentity() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(UNREACHABLE)
+        setFailure('saveFailed')
       })
 
     return () => {
@@ -121,7 +120,7 @@ export default function OnboardingIdentity() {
     }
   }, [flow, router])
 
-  const usernameError = username && username === takenUsername ? TAKEN : undefined
+  const usernameError = username && username === takenUsername ? words.identity.taken : undefined
   const editable = !submitting && !sessionExpired
   const complete = canSubmitIdentity({
     givenName,
@@ -149,13 +148,18 @@ export default function OnboardingIdentity() {
       }
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
         return
       }
-      setFailure(UNREACHABLE)
+      setFailure('saveFailed')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const failures: Record<Failure, string> = {
+    expired: words.identity.expired,
+    saveFailed: words.identity.saveFailed,
   }
 
   return (
@@ -173,16 +177,16 @@ export default function OnboardingIdentity() {
         automaticallyAdjustKeyboardInsets
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          {'Cómo te\nllamas'}
+          {words.identity.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Tu nombre viaja con lo que decidas compartir. El usuario es tu identificador en Allfit.
+          {words.identity.lede}
         </Text>
 
         <View style={styles.form}>
           <View style={styles.pair}>
             <TextField
-              label="Nombre"
+              label={words.identity.given}
               value={givenName}
               onChangeText={setGivenName}
               maxLength={NAME_MAX_LENGTH}
@@ -192,7 +196,7 @@ export default function OnboardingIdentity() {
               style={styles.half}
             />
             <TextField
-              label="Apellido"
+              label={words.identity.family}
               value={familyName}
               onChangeText={setFamilyName}
               maxLength={NAME_MAX_LENGTH}
@@ -205,19 +209,19 @@ export default function OnboardingIdentity() {
 
           <View>
             <Text role="label" size="xs" color="secondary" uppercase>
-              Entras con
+              {words.identity.signsInWith}
             </Text>
             <Text role="body" size="md" style={styles.email}>
               {email ?? '—'}
             </Text>
             <Text role="body" size="sm" color="muted" style={styles.hint}>
-              No se puede cambiar aquí.
+              {words.identity.fixedHere}
             </Text>
           </View>
 
           <View>
             <TextField
-              label="Usuario"
+              label={words.identity.username}
               value={username}
               // Lowercased as typed: two handles differing only in case are the
               // same handle, so showing otherwise would promise a choice.
@@ -229,7 +233,9 @@ export default function OnboardingIdentity() {
               {...(usernameError ? { error: usernameError } : {})}
             />
             <Text role="body" size="sm" color="muted" style={styles.hint}>
-              {isUsernameWellFormed(username) ? `Así te verán: @${username}` : USERNAME_RULE}
+              {isUsernameWellFormed(username)
+                ? words.identity.seenAs(username)
+                : words.identity.usernameRule}
             </Text>
           </View>
         </View>
@@ -238,10 +244,10 @@ export default function OnboardingIdentity() {
       {/* Outside the scroll so the button sits in the same place on every step of
           the onboarding, whatever the content above it does. */}
       <View style={styles.footer}>
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!complete}
           loading={submitting}
           onPress={() => {
@@ -253,7 +259,7 @@ export default function OnboardingIdentity() {
         {/* Without this the screen says "sign in again" and offers no way to. */}
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
           />

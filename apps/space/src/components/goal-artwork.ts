@@ -1,10 +1,11 @@
 /**
- * What each goal looks like and says: the name, the line under it, and the bodies the
- * stage shows (`HU-SP-010`).
+ * What each goal looks like: its icon and the bodies the stage shows (`HU-SP-010`).
  *
  * Shared by the onboarding and by the screen that edits the goal later, so the same
- * question is answered with the same pictures and the same words in both. A screen
+ * question is answered with the same pictures in both. A screen
  * that wants another look composes its own; this file holds no layout.
+ *
+ * The words live in the dictionary (`fitness.goals`).
  */
 
 import type { TrainingGoal } from '../client/goal-form'
@@ -29,50 +30,38 @@ import maintainMaleSingle from '../../assets/images/goal/goal-maintain-male-sing
 import maintainFemaleSingle from '../../assets/images/goal/goal-maintain-female-single.webp'
 
 /**
- * Copy and artwork per goal. The icon names come from the design system, whose
+ * Artwork per goal. The icon names come from the design system, whose
  * catalogue owns what an icon means; the app never decides that.
  */
 export const GOAL_ARTWORK: Record<
   TrainingGoal,
   {
-    name: string
-    why: string
     icon: 'weight' | 'training' | 'activity' | 'race' | 'heart'
     male: { before: number; after: number | null }
     female: { before: number; after: number | null }
   }
 > = {
   lose_weight: {
-    name: 'Bajar de peso',
-    why: 'Reduce grasa corporal y mejora tu composición.',
     icon: 'weight',
     male: { before: loseWeightMaleBefore, after: loseWeightMaleAfter },
     female: { before: loseWeightFemaleBefore, after: loseWeightFemaleAfter },
   },
   build_muscle: {
-    name: 'Construir músculo',
-    why: 'Aumenta tu masa muscular y tu fuerza.',
     icon: 'training',
     male: { before: buildMuscleMaleBefore, after: buildMuscleMaleAfter },
     female: { before: buildMuscleFemaleBefore, after: buildMuscleFemaleAfter },
   },
   get_fit: {
-    name: 'Ponerme en forma',
-    why: 'Mejora tu condición física y energía diaria.',
     icon: 'activity',
     male: { before: getFitMaleBefore, after: getFitMaleAfter },
     female: { before: getFitFemaleBefore, after: getFitFemaleAfter },
   },
   run_a_race: {
-    name: 'Correr una carrera',
-    why: 'Prepárate para completar tu próxima carrera.',
     icon: 'race',
     male: { before: runARaceMaleBefore, after: runARaceMaleAfter },
     female: { before: runARaceFemaleBefore, after: runARaceFemaleAfter },
   },
   maintain: {
-    name: 'Mantenerme',
-    why: 'Mantén tu estado actual y hábitos saludables.',
     icon: 'heart',
     male: { before: maintainMaleSingle, after: null },
     female: { before: maintainFemaleSingle, after: null },

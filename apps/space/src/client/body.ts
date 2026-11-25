@@ -2,15 +2,19 @@
  * What «Cuerpo» says about the person's measurements and photos (`BODY-2`, HU-SP-025).
  *
  * Every record arrives in the canonical unit of its dimension — kilograms, centimetres,
- * a percentage — and that is what is drawn: converting here would put a second factor
- * beside the one the database keeps. Weight and height are free; the measures below are
- * Pro (`body_measurements`), which the database enforces whatever the screen shows.
+ * a percentage. Lengths are drawn as they come; a mass is drawn in the person's unit,
+ * converted by `units.ts`, the one home of the factor, and never stored converted.
+ * Weight and height are free; the measures below are Pro (`body_measurements`), which
+ * the database enforces whatever the screen shows.
  *
  * Height is not among `MEASURES`. It is asked once, at onboarding, and changing it is
  * a correction rather than progress.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
 
 export type BodyRecord = AllfitV1Schemas['BodyProgressRecord']
 export type BodyPage = AllfitV1Schemas['BodyProgressPage']
@@ -19,12 +23,10 @@ export type BodyPhoto = AllfitV1Schemas['BodyPhoto']
 export type BodyPhotoPage = AllfitV1Schemas['BodyPhotoPage']
 export type BodyDeclaration = AllfitV1Schemas['SpaceBodyProgressDeclaration']
 
+/** Its name, its short name and how to take it are words: `text.progress.measures.each`. */
 export interface Measure {
   readonly code: Exclude<BodyMetric, 'body_weight' | 'body_height'>
-  readonly label: string
-  /** For the button that moves on to it, where the whole name does not fit. */
-  readonly short: string
-  /** The unit the declaration carries, which is also the canonical one. */
+  /** The canonical unit of its dimension. */
   readonly unit: 'cm' | 'percent' | 'kg'
   readonly suffix: string
   readonly step: number
@@ -32,113 +34,112 @@ export interface Measure {
   readonly max: number
   /** Where a first reading starts when there is no earlier one. */
   readonly resting: number
-  readonly how: string
 }
 
 export const MEASURES: readonly Measure[] = [
   {
     code: 'chest',
-    label: 'Pecho',
-    short: 'pecho',
     unit: 'cm',
     suffix: 'cm',
     step: 0.5,
     min: 50,
     max: 180,
     resting: 95,
-    how: 'A la altura del pecho, con los brazos relajados.',
   },
   {
     code: 'arm',
-    label: 'Brazo',
-    short: 'brazo',
     unit: 'cm',
     suffix: 'cm',
     step: 0.5,
     min: 15,
     max: 70,
     resting: 32,
-    how: 'En la parte más ancha del brazo, sin contraerlo.',
   },
   {
     code: 'waist',
-    label: 'Cintura',
-    short: 'cintura',
     unit: 'cm',
     suffix: 'cm',
     step: 0.5,
     min: 40,
     max: 180,
     resting: 82,
-    how: 'A la altura del ombligo, sin apretar la cinta.',
   },
   {
     code: 'hip',
-    label: 'Cadera',
-    short: 'cadera',
     unit: 'cm',
     suffix: 'cm',
     step: 0.5,
     min: 50,
     max: 180,
     resting: 96,
-    how: 'En la parte más ancha de los glúteos, de pie.',
   },
   {
     code: 'thigh',
-    label: 'Muslo',
-    short: 'muslo',
     unit: 'cm',
     suffix: 'cm',
     step: 0.5,
     min: 25,
     max: 100,
     resting: 55,
-    how: 'En la parte más ancha del muslo, de pie.',
   },
   {
     code: 'body_fat',
-    label: 'Grasa corporal',
-    short: 'grasa',
     unit: 'percent',
     suffix: '%',
     step: 0.5,
     min: 3,
     max: 60,
     resting: 20,
-    how: 'El porcentaje que marca tu báscula o tu medición.',
   },
   {
     code: 'muscle_mass',
-    label: 'Masa muscular',
-    short: 'masa',
     unit: 'kg',
     suffix: 'kg',
     step: 0.1,
     min: 10,
     max: 120,
     resting: 30,
-    how: 'Lo que marca tu báscula de bioimpedancia.',
   },
 ]
 
-/** What recording a measure sends, in the unit of its dimension. */
+/**
+ * A measure as the wheel shows it: muscle mass in the person's mass unit, whole pounds
+ * for its bounds; every other measure as the database keeps it.
+ */
+export function shownMeasure(measure: Measure, mass: MassUnit): Measure {
+  if (measure.unit !== 'kg' || mass === 'kg') return measure
+  const pounds = (kilos: number) => Math.round(massIn(kilos, mass))
+  return {
+    ...measure,
+    suffix: mass,
+    min: pounds(measure.min),
+    max: pounds(measure.max),
+    resting: pounds(measure.resting),
+  }
+}
+
+/** A stored reading of `measure` in the unit `shownMeasure` draws it in, in tenths. */
+export function readingIn(measure: Measure, canonical: number, mass: MassUnit): number {
+  if (measure.unit !== 'kg' || mass === 'kg') return canonical
+  return massTenths(canonical, mass)
+}
+
+/** What recording a measure sends: what was read, in the unit it was read in. */
 export function declarationOf(
   code: Measure['code'],
   value: number,
   measuredOn: string,
+  mass: MassUnit,
 ): BodyDeclaration {
   switch (code) {
     case 'body_fat':
       return { metric_code: code, value, unit: 'percent', measured_on: measuredOn }
     case 'muscle_mass':
-      return { metric_code: code, value, unit: 'kg', measured_on: measuredOn }
+      return { metric_code: code, value, unit: mass, measured_on: measuredOn }
     default:
       return { metric_code: code, value, unit: 'cm', measured_on: measuredOn }
   }
 }
-
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 /** Newest first by the day it was measured, then by when it was written down. */
 function newestFirst(records: readonly BodyRecord[], metric: BodyMetric): BodyRecord[] {
@@ -208,47 +209,58 @@ export function timeline(
   return first && first.at > 0 ? [{ at: 0, value: first.value }, ...points] : points
 }
 
-/** «84 días» between two photos, «1 día», or «El mismo día». */
-export function daysApart(older: string, newer: string): string {
+/** «84 días» between two photos, «1 día», or «El mismo día»; in the locale of `text`. */
+export function daysApart(
+  older: string,
+  newer: string,
+  text: Dictionary['progress']['body'],
+): string {
   const days = Math.abs(Math.round(dayNumber(newer) - dayNumber(older)))
-  if (days === 0) return 'El mismo día'
-  return days === 1 ? '1 día' : `${String(days)} días`
+  return days === 0 ? text.sameDay : text.daysApart(days)
 }
 
-/** The months the axis names, oldest first: at most five, always ending with this one. */
-export function monthTicks(months: number, today: string): string[] {
+/**
+ * The months the axis names, oldest first: at most five, always ending with this one.
+ * `names` are the short month names, January first.
+ */
+export function monthTicks(months: number, today: string, names: readonly string[]): string[] {
   const [year = 1970, month = 1] = today.split('-').map(Number)
   const count = Math.max(2, months)
   const all = Array.from({ length: count }, (_, index) => {
     const date = new Date(Date.UTC(year, month - count + index, 1))
-    return (MONTHS[date.getUTCMonth()] ?? '').toUpperCase()
+    return (names[date.getUTCMonth()] ?? '').toUpperCase()
   })
   if (all.length <= 5) return all
   return [0, 1, 2, 3, 4].map((tick) => all[Math.round((tick * (all.length - 1)) / 4)] ?? '')
 }
 
-/** «70,2», «82»: one decimal at most, with a comma. */
-export function decimal(value: number): string {
+/** «70,2», «82»: one decimal at most, with the locale's decimal mark and no grouping. */
+export function decimal(value: number, locale: Locale): string {
   const rounded = Math.round(value * 10) / 10
-  return String(rounded).replace('.', ',')
+  return rounded.toLocaleString(intlLocale(locale), {
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
 }
 
-const POUND = 0.45359237
-
 /** A mass in tenths of the unit shown; what is stored stays the canonical kilos. */
-export function massIn(kilos: number, unit: 'kg' | 'lb'): number {
-  return Math.round((unit === 'kg' ? kilos : kilos / POUND) * 10) / 10
+export function massTenths(kilos: number, unit: MassUnit): number {
+  return Math.round(massIn(kilos, unit) * 10) / 10
 }
 
 /** «71,0»: a weight keeps its tenth, which is where the progress is. */
-export function tenths(value: number): string {
-  return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',')
+export function tenths(value: number, locale: Locale): string {
+  return (Math.round(value * 10) / 10).toLocaleString(intlLocale(locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
 }
 
-/** «2 ago». */
-export function shortDay(iso: string): string {
+/** «2 ago», «Aug 2». */
+export function shortDay(iso: string, text: Dictionary): string {
   const [, month = 1, day = 1] = iso.split('-').map(Number)
-  return `${String(day)} ${MONTHS[month - 1] ?? ''}`
+  return text.progress.day(day, text.common.months[month - 1] ?? '')
 }
 
 /**

@@ -7,25 +7,16 @@
  */
 
 import type { ProgramDetail } from './programs'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 
 export type ProgramNutrition = NonNullable<ProgramDetail['nutrition']>
 type MacroCode = 'protein' | 'carbohydrates' | 'fat'
 
-const PURPOSE: Record<ProgramNutrition['goal_code'], string> = {
-  build_muscle: 'ganar músculo',
-  lose_weight: 'perder grasa',
-  get_fit: 'ponerte en forma',
-  maintain: 'mantenerte',
-  run_a_race: 'preparar una carrera',
-}
-
-const MACROS: readonly (readonly [MacroCode, string, number])[] = [
-  ['protein', 'Proteína', 4],
-  ['carbohydrates', 'Carbos', 4],
-  ['fat', 'Grasa', 9],
+const KCAL_PER_GRAM: readonly (readonly [MacroCode, number])[] = [
+  ['protein', 4],
+  ['carbohydrates', 4],
+  ['fat', 9],
 ]
-
-const figure = (value: number) => Math.round(value).toLocaleString('es-CO')
 
 export interface ProgramNutritionCopy {
   readonly energy: string
@@ -42,23 +33,25 @@ export interface ProgramNutritionCopy {
 export function programNutritionCopy(
   nutrition: ProgramNutrition,
   daysPerWeek: number,
+  locale: Locale,
+  text: Dictionary['training']['nutrition'],
 ): ProgramNutritionCopy {
+  const figure = (value: number) => Math.round(value).toLocaleString(intlLocale(locale))
   const target = (code: string) => nutrition.targets.find((one) => one.nutrient_code === code)
   const energy = target('energy')
   const low = energy?.minimum ?? energy?.exact ?? 0
   const high = energy?.maximum ?? energy?.exact ?? 0
   const middle = (low + high) / 2
-  const days = daysPerWeek === 1 ? '1 día' : `${String(daysPerWeek)} días`
   return {
     energy: low === high ? figure(low) : `${figure(low)}–${figure(high)}`,
-    purpose: `Para ${PURPOSE[nutrition.goal_code]} con ${days} por semana`,
-    macros: MACROS.flatMap(([code, label, kcalPerGram]) => {
+    purpose: text.purpose(text.goals[nutrition.goal_code], daysPerWeek),
+    macros: KCAL_PER_GRAM.flatMap(([code, kcalPerGram]) => {
       const grams = target(code)?.exact ?? target(code)?.minimum ?? null
       if (grams === null) return []
       return [
         {
           code,
-          label,
+          label: text.macros[code],
           value: `${figure(grams)} g`,
           share: middle > 0 ? Math.min(1, (grams * kcalPerGram) / middle) : 0,
         },

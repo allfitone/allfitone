@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   allZoneSlugs,
   areasFor,
@@ -67,6 +68,9 @@ const AVAILABLE: Record<'front' | 'back', readonly BodySlug[]> = {
   ],
 }
 
+const es = textFor('es').fitness.focus
+const en = textFor('en').fitness.focus
+
 const all = (): FocusZone[] => FOCUS_ZONES.map((entry) => entry.zone)
 
 describe('FOCUS_ZONES', () => {
@@ -98,9 +102,7 @@ describe('FOCUS_ZONES', () => {
   })
 
   test('calls the middle zone abdomen, not core', () => {
-    const middle = FOCUS_ZONES.find((entry) => entry.zone === 'abs')
-
-    expect(middle?.name).toBe('Abdomen')
+    expect(es.zones.abs).toBe('Abdomen')
   })
 })
 
@@ -310,23 +312,34 @@ describe('canSubmitFocus', () => {
 
 describe('focusSummary and focusHint', () => {
   test('count reads out of seven', () => {
-    expect(focusSummary({ zones: ['chest', 'arms'], whole: false })).toBe('2 de 7')
+    expect(focusSummary({ zones: ['chest', 'arms'], whole: false }, es)).toBe('2 de 7')
   })
 
   test('whole body and nothing are named rather than counted', () => {
-    expect(focusSummary({ zones: [], whole: true })).toBe('Todo el cuerpo')
-    expect(focusSummary(NOTHING_CHOSEN)).toBe('Ninguna')
+    expect(focusSummary({ zones: [], whole: true }, es)).toBe('Todo el cuerpo')
+    expect(focusSummary(NOTHING_CHOSEN, es)).toBe('Ninguna')
   })
 
   test('the two answered states each say something different', () => {
-    expect(focusHint({ zones: ['chest'], whole: false })).not.toBe(
-      focusHint({ zones: [], whole: true }),
+    expect(focusHint({ zones: ['chest'], whole: false }, es)).not.toBe(
+      focusHint({ zones: [], whole: true }, es),
     )
   })
 
   test('says nothing at all with nothing chosen', () => {
     // It used to say continuing without choosing was fine, and it no longer is.
-    expect(focusHint(NOTHING_CHOSEN)).toBeUndefined()
+    expect(focusHint(NOTHING_CHOSEN, es)).toBeUndefined()
+  })
+})
+
+describe('the zones in English (TECH-44)', () => {
+  test('T-SPC-UNIT-454 the count, whole body and the hints read in English', () => {
+    expect(focusSummary({ zones: ['chest', 'arms'], whole: false }, en)).toBe('2 of 7')
+    expect(focusSummary({ zones: [], whole: true }, en)).toBe('Whole body')
+    expect(focusSummary(NOTHING_CHOSEN, en)).toBe('None')
+    expect(focusHint({ zones: [], whole: true }, en)).toBe(
+      'No emphasis: your main goal spreads the work.',
+    )
   })
 })
 

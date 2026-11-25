@@ -42,22 +42,21 @@ import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { initialsOf, paymentsCaption, planCaption } from '../../src/client/profile'
 import type { SignOutFlow } from '../../src/client/sign-out'
 import { createSpaceSignOutFlow } from '../../src/client/sign-out-transport'
-import { latestOf, tenths } from '../../src/client/body'
+import { latestOf, massTenths, tenths } from '../../src/client/body'
 import { readBodyRecords } from '../../src/client/body-transport'
 import { deviceTimezone } from '../../src/client/timezone'
 import { PlanCard, ProfileGroup, ProfileRow, ProTeaser } from '../../src/components/profile-ui'
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
-
-const LOCAL_ONLY =
-  'Cerramos sesión en este teléfono. No pudimos avisarle al servidor, así que hazlo otra vez cuando tengas conexión.'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 export interface ProfileSources {
   readonly readName: () => Promise<string>
   /** The badge already worded; undefined for somebody who holds no number. */
   readonly readFounding: () => Promise<string | undefined>
   readonly readPlan: () => Promise<ProStatus>
-  /** The latest weight, already worded; undefined when none was ever recorded. */
-  readonly readWeight: () => Promise<string | undefined>
+  /** The latest weight in kilos; undefined when none was ever recorded. */
+  readonly readWeight: () => Promise<number | undefined>
   readonly signOut: SignOutFlow
 }
 
@@ -74,7 +73,7 @@ export default function ProfileRoute() {
       readWeight: () =>
         readBodyRecords().then((records) => {
           const latest = latestOf(records, 'body_weight')
-          return latest ? `${tenths(latest.value)} kg` : undefined
+          return latest?.value
         }),
       signOut: createSpaceSignOutFlow(),
     }
@@ -86,10 +85,14 @@ export default function ProfileRoute() {
 export function ProfileScreen({ sources }: { readonly sources: ProfileSources }) {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const locale = useLocale()
+  const { mass } = useUnits()
+  const t = text.profile
   const [name, setName] = useState('')
   const [founding, setFounding] = useState<string | undefined>(undefined)
   const [plan, setPlan] = useState<ProStatus | undefined>(undefined)
-  const [weight, setWeight] = useState<string | undefined>(undefined)
+  const [weight, setWeight] = useState<number | undefined>(undefined)
 
   useFocusEffect(
     useCallback(() => {
@@ -135,7 +138,7 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
       forgetExerciseLibrary()
       // Replaced, not pushed: there must be no way back into a signed-out session.
       router.replace('/welcome')
-      if (outcome.state === 'signed-out-locally') setNotice(LOCAL_ONLY)
+      if (outcome.state === 'signed-out-locally') setNotice(t.signedOutLocally)
     } finally {
       setBusy(false)
     }
@@ -149,7 +152,7 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
     <Screen edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Text role="control" size="2xl" accessibilityRole="header">
-          Perfil
+          {t.title}
         </Text>
       </View>
 
@@ -186,7 +189,7 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
               </Text>
             ) : null}
             <Text role="body" size="xs" color="secondary">
-              Fitness ID activo
+              {t.fitnessIdActive}
             </Text>
             {founding ? (
               <View style={styles.founding}>
@@ -199,81 +202,87 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
         {plan ? (
           <PlanCard
             pro={plan.is_pro}
-            caption={sourceLine(plan)}
+            caption={sourceLine(plan, text.pro)}
             onPress={() => router.push('/pro')}
           />
         ) : null}
         {plan && !plan.is_pro ? <ProTeaser onPress={() => router.push('/pro/plans')} /> : null}
 
-        <ProfileGroup label="Tú">
+        <ProfileGroup label={t.groups.you}>
           <ProfileRow
             icon="progress"
-            title="Progreso"
-            caption="Tu entrenamiento, semana a semana"
+            title={t.rows.progress.title}
+            caption={t.rows.progress.caption}
             end="open"
             onPress={() => router.push('/progress')}
           />
           <ProfileRow
             icon="person"
-            title="Cuerpo"
-            caption="Peso, medidas y fotos"
+            title={t.rows.body.title}
+            caption={t.rows.body.caption}
             end="open"
-            value={weight}
+            value={
+              weight === undefined
+                ? undefined
+                : `${tenths(massTenths(weight, mass), locale)} ${mass}`
+            }
             onPress={() => router.push('/body')}
           />
           <ProfileRow
             icon="person"
-            title="Perfil fitness"
-            caption="Objetivo, cómo entrenas y con qué"
+            title={t.rows.fitness.title}
+            caption={t.rows.fitness.caption}
             end="open"
             onPress={() => router.push('/me/fitness')}
           />
           <ProfileRow
             icon="heart"
-            title="Dolor y limitaciones"
-            caption="Solo lo ve quien tenga ese permiso"
+            title={t.rows.health.title}
+            caption={t.rows.health.caption}
             end="open"
             alert
             onPress={() => router.push('/me/health')}
           />
         </ProfileGroup>
 
-        <ProfileGroup label="Cuenta">
+        <ProfileGroup label={t.groups.account}>
           <ProfileRow
             icon="person"
-            title="Identidad y acceso"
-            caption="Fitness ID, correo, teléfono y contraseña"
+            title={t.rows.identity.title}
+            caption={t.rows.identity.caption}
             end="open"
             onPress={() => router.push('/me/identity')}
           />
           <ProfileRow
             icon="notification"
-            title="Avisos"
-            caption="Qué te avisamos y por dónde"
-            end="soon"
+            title={t.rows.notifications.title}
+            caption={t.rows.notifications.caption}
+            end="open"
+            onPress={() => router.push('/me/notifications')}
           />
           <ProfileRow
             icon="settings"
-            title="Preferencias"
-            caption="Kilos, kilómetros e idioma"
-            end="soon"
+            title={t.rows.preferences.title}
+            caption={t.rows.preferences.caption}
+            end="open"
+            onPress={() => router.push('/me/preferences')}
           />
           <ProfileRow
             icon="activity"
-            title="Apple Health"
-            caption="Publica tus entrenos"
+            title={t.rows.appleHealth.title}
+            caption={t.rows.appleHealth.caption}
             end="soon"
           />
         </ProfileGroup>
 
-        <ProfileGroup label="Tus gimnasios">
+        <ProfileGroup label={t.groups.gyms}>
           {gyms.length > 0 ? (
             gyms.map((gym) => (
               <ProfileRow
                 key={gym.organization_id}
                 icon="organization"
                 title={gym.organization_name}
-                caption="Te incluye Allfit Pro"
+                caption={t.rows.gym.caption}
                 end="open"
                 onPress={() => router.push('/gyms')}
               />
@@ -281,54 +290,54 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
           ) : (
             <ProfileRow
               icon="organization"
-              title="Sin gimnasio"
-              caption="Si un gimnasio te invita, aparece aquí"
+              title={t.rows.noGym.title}
+              caption={t.rows.noGym.caption}
               end="none"
             />
           )}
           <ProfileRow
             icon="history"
-            title="Relaciones anteriores"
-            caption="Las que ya terminaron"
+            title={t.rows.pastRelationships.title}
+            caption={t.rows.pastRelationships.caption}
             end="open"
             onPress={() => router.push('/gyms')}
           />
         </ProfileGroup>
 
-        <ProfileGroup label="Privacidad">
+        <ProfileGroup label={t.groups.privacy}>
           <ProfileRow
             icon="permissions"
-            title="Lo que compartes"
-            caption="Por gimnasio y categoría"
+            title={t.rows.sharing.title}
+            caption={t.rows.sharing.caption}
             end="open"
             onPress={() => router.push('/sharing')}
           />
           <ProfileRow
             icon="locked"
-            title="Sesiones ocultas"
-            caption="Entrenos que no compartes"
+            title={t.rows.hiddenSessions.title}
+            caption={t.rows.hiddenSessions.caption}
             end="soon"
           />
           <ProfileRow
             icon="remove"
-            title="Eliminar mis datos"
-            caption="Por categoría o toda la cuenta"
+            title={t.rows.deleteData.title}
+            caption={t.rows.deleteData.caption}
             end="soon"
           />
         </ProfileGroup>
 
-        <ProfileGroup label="Plan y pagos">
+        <ProfileGroup label={t.groups.plan}>
           <ProfileRow
             icon="favourite"
-            title="Tu plan"
-            caption={plan ? planCaption(plan) : undefined}
+            title={t.rows.plan.title}
+            caption={plan ? planCaption(plan, t) : undefined}
             end="open"
             onPress={() => router.push('/pro')}
           />
           <ProfileRow
             icon="frequency"
-            title="Tus pagos"
-            caption={plan ? paymentsCaption(plan) : undefined}
+            title={t.rows.payments.title}
+            caption={plan ? paymentsCaption(plan, t) : undefined}
             end="open"
             onPress={() => router.push('/pro/payments')}
           />
@@ -336,15 +345,15 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
               gateway. Both are money, so they belong in the same group. */}
           <ProfileRow
             icon="organization"
-            title="Planes de gimnasio"
-            caption="Los que ofrece tu gimnasio y los que pagas"
+            title={t.rows.gymPlans.title}
+            caption={t.rows.gymPlans.caption}
             end="open"
             onPress={() => router.push('/subscriptions')}
           />
         </ProfileGroup>
 
         <Button
-          label="Cerrar sesión"
+          label={t.signOut}
           variant="outlineDanger"
           loading={busy}
           disabled={busy}
@@ -353,29 +362,24 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
         />
 
         <Text role="body" size="2xs" color="muted" align="center">
-          {version ? `Versión ${version} · Allfit Space` : 'Allfit Space'}
+          {version ? t.version(version) : 'Allfit Space'}
         </Text>
       </ScrollView>
 
-      <Sheet
-        visible={warning}
-        onDismiss={() => setWarning(false)}
-        title="Tienes un entrenamiento sin terminar"
-      >
+      <Sheet visible={warning} onDismiss={() => setWarning(false)} title={t.unsynced.title}>
         <View style={styles.sheetBody}>
           <Text role="body" size="sm" color="secondary">
-            Dejaste una sesión abierta y todavía no llegó al servidor. Si cierras sesión ahora, se
-            pierde lo que registraste en ella.
+            {t.unsynced.body}
           </Text>
           <Button
-            label="Volver al entrenamiento"
+            label={t.unsynced.back}
             onPress={() => {
               setWarning(false)
               router.replace('/today')
             }}
           />
           <Button
-            label="Cerrar sesión de todas formas"
+            label={t.unsynced.signOutAnyway}
             variant="ghost"
             onPress={() => void leave(true)}
           />

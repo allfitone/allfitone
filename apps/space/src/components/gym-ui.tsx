@@ -14,6 +14,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { invitationExpiry, type PendingInvitation } from '../client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../client/gym-affiliation-transport'
 import { holdsLinkToken } from '../client/invitation-draft'
+import { useLocale, useText } from '../i18n/use-text'
 
 const SCOPE_ICON: Record<string, IconName> = {
   relationship_training: 'training',
@@ -64,6 +65,7 @@ let waiting: Promise<string | undefined> | undefined
 /** `INV-2`: the gym whose invitation waits at the end of the onboarding, if any. */
 export function WaitingGym() {
   const theme = useTheme()
+  const text = useText()
   const [gym, setGym] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export function WaitingGym() {
     >
       <GymMark name={gym} size={22} />
       <Text role="control" size="xs" style={{ color: theme.color.text.accent }}>
-        {gym} te espera al terminar
+        {text.gyms.waiting(gym)}
       </Text>
     </View>
   )
@@ -102,6 +104,8 @@ export function WaitingGym() {
  */
 export function PendingInvitationCard({ style }: { readonly style?: StyleProp<ViewStyle> }) {
   const router = useRouter()
+  const text = useText()
+  const locale = useLocale()
   const [pending, setPending] = useState<PendingInvitation | undefined>(undefined)
 
   useFocusEffect(
@@ -127,8 +131,10 @@ export function PendingInvitationCard({ style }: { readonly style?: StyleProp<Vi
   return (
     <ContentRow
       preview={<GymMark name={pending.organization_name} size={40} />}
-      name={`${pending.organization_name} te invitó`}
-      caption={`Ver y decidir · ${invitationExpiry(pending.expires_at)}`}
+      name={text.gyms.invited(pending.organization_name)}
+      caption={text.gyms.seeAndDecide(
+        invitationExpiry(pending.expires_at, text.invitation, locale),
+      )}
       onPress={() => router.push({ pathname: '/invitation', params: { id: pending.id } })}
       {...(style ? { style } : {})}
     />

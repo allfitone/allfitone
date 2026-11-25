@@ -34,14 +34,18 @@ import { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, register, unreachable, verifyRegistration } from '../src/client'
+import { startPersonSession } from '../src/client/person-start-transport'
 import { storeSession } from '../src/client/session'
 import { createSpaceOnboardingFlow } from '../src/client/onboarding-transport'
 import { routeAfterAuthentication } from '../src/client/resume-route'
+import { useText } from '../src/i18n/use-text'
 
 const CODE_LENGTH = 6
 
 export default function VerifyEmail() {
   const router = useRouter()
+  const text = useText()
+  const words = text.access.verify
   const { email = '', password = '' } = useLocalSearchParams<{
     email?: string
     password?: string
@@ -63,9 +67,9 @@ export default function VerifyEmail() {
       // resend endpoint to call.
       await register(email, password)
       setCode('')
-      setNotice('Te enviamos un código nuevo.')
+      setNotice(words.resent)
     } catch {
-      setFailure('No pudimos reenviar el código. Inténtalo otra vez.')
+      setFailure(words.resendFailed)
     } finally {
       setSubmitting(false)
     }
@@ -77,12 +81,11 @@ export default function VerifyEmail() {
     try {
       const session = await verifyRegistration(email, password, code)
       await storeSession({ ...session, email })
+      startPersonSession()
       router.replace(await routeAfterAuthentication(() => createSpaceOnboardingFlow().resume()))
     } catch (cause) {
       setFailure(
-        cause instanceof ApiError && unreachable(cause)
-          ? 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
-          : 'El código no es válido o ya venció.',
+        cause instanceof ApiError && unreachable(cause) ? text.access.unreachable : words.refused,
       )
     } finally {
       setSubmitting(false)
@@ -94,7 +97,7 @@ export default function VerifyEmail() {
       <IconButton
         icon="back"
         variant="plain"
-        accessibilityLabel="Volver"
+        accessibilityLabel={text.common.back}
         onPress={() => router.back()}
         style={styles.back}
       />
@@ -107,15 +110,15 @@ export default function VerifyEmail() {
         automaticallyAdjustKeyboardInsets
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          {'Revisa tu\ncorreo'}
+          {words.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Te enviamos un código de seis dígitos{email ? ` a ${email}` : ' a tu correo'}.
+          {words.sent(email)}
         </Text>
 
         <View style={styles.form}>
           <CodeField
-            label="Código"
+            label={words.code}
             value={code}
             onChangeText={(next) => {
               setNotice(undefined)
@@ -128,17 +131,13 @@ export default function VerifyEmail() {
             editable={!submitting}
           />
 
-          <InlineAlert
-            tone="info"
-            title="Todavía no tienes Fitness ID"
-            message="Se activa cuando completes el registro. Crear la cuenta es solo el primer paso."
-          />
+          <InlineAlert tone="info" title={words.noIdTitle} message={words.noIdBody} />
 
           {failure ? <InlineAlert message={failure} /> : null}
           {notice && !failure ? <InlineAlert message={notice} tone="success" /> : null}
 
           <Button
-            label="Verificar"
+            label={words.submit}
             disabled={!canSubmit}
             loading={submitting}
             onPress={() => {
@@ -151,13 +150,13 @@ export default function VerifyEmail() {
 
       <View style={styles.link}>
         <Text role="body" size="sm" color="secondary">
-          ¿No te llegó?
+          {words.notArrived}
         </Text>
         <Button
-          label="Reenviar"
+          label={words.resend}
           variant="ghost"
           size="sm"
-          accessibilityLabel="¿No te llegó? Reenviar el código"
+          accessibilityLabel={words.resendLabel}
           disabled={submitting}
           onPress={() => {
             void resend()

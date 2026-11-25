@@ -33,6 +33,7 @@ import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui'
 
 import { Tab, TabBar } from '../../src/components/tab-bar'
 import { TabScene } from '../../src/components/tab-entrance'
+import { useText } from '../../src/i18n/use-text'
 
 // The destinations in the bar's order, for the drop that is dragged between them.
 const PATHS = ['/today', '/train', '/food', '/profile'] as const
@@ -46,6 +47,7 @@ export default function TabsLayout() {
   const router = useRouter()
   const active = PATHS.findIndex((one) => one === path)
   const theme = useTheme()
+  const tabs = useText().training.tabs
   // The tabs not yet visited are built a moment after launch, while nothing moves, so a
   // first visit does not build a whole screen under the drop on its way there.
   const [warm, setWarm] = useState(false)
@@ -79,18 +81,18 @@ export default function TabsLayout() {
           }}
         >
           <TabTrigger name="today" href="/today" asChild>
-            <Tab icon="home" label="Hoy" active={path === '/today'} />
+            <Tab icon="home" label={tabs.today} active={path === '/today'} />
           </TabTrigger>
           <TabTrigger name="train" href="/train" asChild>
-            <Tab icon="training" label="Entrenamiento" active={path === '/train'} />
+            <Tab icon="training" label={tabs.train} active={path === '/train'} />
           </TabTrigger>
           {/* Cubiertos y no una cámara: Comida es dónde vive lo que registraste, y un
               obturador prometía una foto que no es lo que abre. */}
           <TabTrigger name="food" href="/food" asChild>
-            <Tab icon="nutrition" label="Comida" active={path === '/food'} />
+            <Tab icon="nutrition" label={tabs.food} active={path === '/food'} />
           </TabTrigger>
           <TabTrigger name="profile" href="/profile" asChild>
-            <Tab icon="person" label="Perfil" active={path === '/profile'} />
+            <Tab icon="person" label={tabs.profile} active={path === '/profile'} />
           </TabTrigger>
         </TabBar>
       </TabList>

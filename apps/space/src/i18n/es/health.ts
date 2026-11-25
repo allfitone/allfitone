@@ -1,0 +1,106 @@
+/** «Dolor y limitaciones» (`PF-7` to `PF-E22`): the list, the form, the area, the day, one claim. */
+export const health = {
+  title: 'Dolor y limitaciones',
+  add: 'Agregar',
+  correct: 'Corregir',
+  unreadable: 'No pudimos leer tus registros. Revisa tu conexión e inténtalo otra vez.',
+  privacy: 'Solo lo ve un gimnasio con el que entrenes y al que le diste el permiso de salud.',
+  types: {
+    pain: { label: 'Dolor', caption: 'Algo te duele' },
+    limitation: { label: 'Limitación', caption: 'Algo no puedes hacer' },
+    recovery: { label: 'Recuperación', caption: 'Vienes de una lesión' },
+  },
+  areas: {
+    neck: 'Cuello',
+    shoulder: 'Hombro',
+    chest: 'Pecho',
+    upper_back: 'Espalda alta',
+    arm: 'Brazo',
+    elbow: 'Codo',
+    wrist_hand: 'Muñeca y mano',
+    abdomen: 'Abdomen',
+    lower_back: 'Espalda baja',
+    hip: 'Cadera',
+    thigh: 'Muslo',
+    knee: 'Rodilla',
+    lower_leg: 'Pierna',
+    ankle_foot: 'Tobillo y pie',
+  },
+  areaGroups: { upper: 'Tren superior', trunk: 'Tronco', lower: 'Tren inferior' },
+  /** «9 oct»: a day of this year, without it. */
+  dayMonth: (day: number, month: string) => `${String(day)} ${month}`,
+  caption: {
+    ended: (type: string, day: string) => `${type} · terminó el ${day}`,
+    since: (day: string, words: string) => `Desde el ${day} · ${words}`,
+  },
+  since: { today: 'Hoy', week: 'Esta semana', month: 'Este mes', other: 'Otra fecha' },
+  relative: {
+    today: 'Hoy',
+    yesterday: 'Ayer',
+    tomorrow: 'Mañana',
+    ago: (days: number) => `Hace ${String(days)} días`,
+    ahead: (days: number) => `En ${String(days)} días`,
+  },
+  failure: {
+    held: 'Ahora no se puede cambiar: una retención legal mantiene tus datos de salud como están.',
+    gone: 'Ese registro ya no está. Vuelve a tu lista.',
+    offline: 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.',
+  },
+  deletion: {
+    held: (day: string) =>
+      `Una retención legal mantiene tus datos de salud hasta el ${day}. Lo eliminamos en cuanto termine.`,
+    soon: 'Lo eliminamos en unos minutos.',
+  },
+  list: {
+    protectedTitle: 'Lo más protegido de tu perfil',
+    protectedBody:
+      'Solo lo ve quien tenga el permiso de salud. No es historia clínica: no pedimos diagnósticos ni documentos.',
+    emptyTitle: 'Nada por ahora',
+    emptyBody:
+      'Si algo te duele o te limita, cuéntalo aquí y tu entrenamiento lo tendrá en cuenta. Puedes hacerlo cuando quieras.',
+    active: 'Activo',
+    healing: 'En recuperación',
+    ended: 'Ya terminó',
+  },
+  form: {
+    correctSubtitle:
+      'Cambia lo que haga falta. Corrige este registro; si es algo nuevo, mejor agrégalo aparte.',
+    addSubtitle:
+      'Cuéntalo con tus palabras. No es historia clínica: no pedimos diagnósticos ni documentos.',
+    saveCorrection: 'Guardar corrección',
+    what: 'Qué es',
+    area: 'Zona',
+    ifAny: '· si aplica',
+    noArea: 'Ninguna en particular',
+    words: 'Con tus palabras',
+    wordsPlaceholder: 'Por ejemplo: la derecha, me duele al bajar en sentadilla.',
+    wordsHint: 'Dónde, cuándo aparece y qué lo empeora. Con eso basta.',
+    since: 'Desde cuándo',
+    knowsEnd: 'Sé cuándo termina',
+    until: 'Hasta',
+    untilDay: (day: string) => `Hasta el ${day}`,
+    pickUntil: 'Elige hasta cuándo',
+  },
+  areaScreen: { subtitle: 'Dónde lo sientes. Derecha o izquierda va en tus palabras.' },
+  dateScreen: {
+    since: 'Desde cuándo',
+    until: 'Hasta cuándo',
+    sinceSubtitle: 'Desliza hasta el día en que empezó. No hace falta que sea exacto.',
+    untilSubtitle: 'Desliza hasta el día en que esperas terminar. Puedes cambiarlo después.',
+    done: 'Listo',
+  },
+  detail: {
+    gone: 'Ese registro ya no está.',
+    since: 'Desde',
+    until: 'Hasta',
+    declared: 'Declarado por ti',
+    observed: 'Observado',
+    origin: (who: string, day: string) => `${who} · ${day}`,
+    correcting: (privacy: string) => `Corregirlo cambia este registro. ${privacy}`,
+    remove: 'Eliminar este registro',
+    askTitle: '¿Eliminar este registro?',
+    askBody:
+      'Se borra para siempre. Solo queda constancia de que borraste un dato de salud, nunca de lo que decía.',
+    confirm: 'Eliminar',
+  },
+}

@@ -53,19 +53,12 @@ import { routineOfVersion } from '../client/library'
 import { ScreenHeader } from './screen-header'
 import { readExerciseLibrary, type ExerciseLibrary } from '../client/exercise-library'
 import { DayRoutinesBody, FirstRoutineBody } from './program-sheets'
+import { useText } from '../i18n/use-text'
 
 /** El lado del azulejo mediano del sistema de diseño. El arte dibuja dentro de él. */
 
 /** Monday first, because the week the plan lands on is the calendar week. */
-const DAYS = [
-  { day: 1, letter: 'L', name: 'lunes' },
-  { day: 2, letter: 'M', name: 'martes' },
-  { day: 3, letter: 'X', name: 'miércoles' },
-  { day: 4, letter: 'J', name: 'jueves' },
-  { day: 5, letter: 'V', name: 'viernes' },
-  { day: 6, letter: 'S', name: 'sábado' },
-  { day: 7, letter: 'D', name: 'domingo' },
-] as const
+const DAYS = [1, 2, 3, 4, 5, 6, 7] as const
 
 /** Keeps the button off the very bottom edge, the same amount as every other footer. */
 const FOOTER_LIFT = 16
@@ -74,21 +67,10 @@ const MIN_WEEKS = 1
 const MAX_WEEKS = 52
 const SAVE_DELAY_MS = 700
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const READ_FAILED = 'No pudimos cargar tus rutinas. Inténtalo otra vez.'
-const OPEN_FAILED = 'No pudimos abrir este programa. Inténtalo otra vez.'
-const NOT_MINE = 'Este programa no se puede editar aquí.'
-// What a programme is, rather than what publishing does to other people: nobody else
-// can take a personal programme, so that warning explained a rule that never applied.
-// It names Entrenar because that is a tab somebody can open. "Tu agenda" is the
-// domain's word and "el calendario" is a screen this app does not have.
-/** Days are stored in lower case, because a sentence needs them that way. */
+/** Days are written as a sentence needs them, lower case in Spanish; a list starts upper. */
 function named(day: string): string {
   return day === '' ? '' : `${day[0]?.toUpperCase() ?? ''}${day.slice(1)}`
 }
-
-const WHAT_A_PROGRAM_IS =
-  'Un programa es tu semana de entrenamiento, repetida. Eliges qué rutina toca cada día y, si quieres, cuántas semanas dura; al publicarlo, esas rutinas te aparecen en Entrenar, semana a semana.'
 
 /**
  * The base-week editor, for a programme being written and for one being reopened.
@@ -112,6 +94,8 @@ export function ProgramEditor({
 }) {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.editor
   const flow = useMemo(() => createSpaceContentFlow(), [])
   const saves = useMemo(() => createQueue(), [])
 
@@ -131,7 +115,7 @@ export function ProgramEditor({
   // could not be read, and saving would create something nobody asked for.
   const [openable, setOpenable] = useState(true)
   const [week, setWeek] = useState<readonly BaseWeekDay[]>(
-    DAYS.map((day) => ({ day: day.day, templateVersionId: null })),
+    DAYS.map((day) => ({ day, templateVersionId: null })),
   )
   const [routines, setRoutines] = useState<readonly MyRoutine[] | undefined>(undefined)
   // Only the cover art needs it, and only to turn a muscle code into a part of the
@@ -220,7 +204,7 @@ export function ProgramEditor({
       .catch((cause: unknown) => {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
-          setFailure(EXPIRED)
+          setFailure(text.training.expired)
           return
         }
         // Not found means it is somebody else's, or one taken from Allfit and never
@@ -228,7 +212,9 @@ export function ProgramEditor({
         // screen's URL, and typing into it would quietly make a second programme.
         setOpenable(false)
         setFailure(
-          cause instanceof ApiError && cause.failure === 'not-found' ? NOT_MINE : OPEN_FAILED,
+          cause instanceof ApiError && cause.failure === 'not-found'
+            ? words.notMine
+            : words.openFailed,
         )
       })
 
@@ -273,7 +259,7 @@ export function ProgramEditor({
           setFailure(undefined)
           return true
         } catch (cause: unknown) {
-          setFailure(saveFailure(cause))
+          setFailure(saveFailure(cause, text.training.save))
           return false
         } finally {
           setSaving(false)
@@ -403,8 +389,8 @@ export function ProgramEditor({
           if (!active) return
           setFailure(
             cause instanceof ApiError && cause.failure === 'unauthenticated'
-              ? EXPIRED
-              : READ_FAILED,
+              ? text.training.expired
+              : words.readFailed,
           )
         })
 
@@ -478,7 +464,7 @@ export function ProgramEditor({
       // design, so half the motion was missing and the other half looked broken.
       router.replace('/today')
     } catch (cause: unknown) {
-      setFailure(saveFailure(cause))
+      setFailure(saveFailure(cause, text.training.save))
     }
   }
 
@@ -504,18 +490,18 @@ export function ProgramEditor({
       await flow.discardProgram(identity.current)
       router.back()
     } catch (cause: unknown) {
-      setFailure(saveFailure(cause))
+      setFailure(saveFailure(cause, text.training.save))
     }
   }
 
   const subtitle = () => {
-    if (saving) return 'Guardando…'
-    if (failure) return 'Sin guardar'
-    // «Borrador» would be a lie on a programme that is published and deliberately
+    if (saving) return words.status.saving
+    if (failure) return words.status.unsaved
+    // «Draft» would be a lie on a programme that is published and deliberately
     // not being written to until the tick.
-    if (editing) return saved ? 'Publicado' : 'Con cambios sin guardar'
-    if (saved) return 'Programa propio · borrador'
-    return 'Aún sin guardar'
+    if (editing) return saved ? words.status.published : words.status.changed
+    if (saved) return words.status.draft
+    return words.status.notYet
   }
 
   // How many weeks a routine is used counts once per week, because the base week is
@@ -526,7 +512,7 @@ export function ProgramEditor({
       .filter(
         (one) => one.templateVersionId !== null && routine.versions.includes(one.templateVersionId),
       )
-      .map((one) => named(DAYS.find((day) => day.day === one.day)?.name ?? ''))
+      .map((one) => named(words.days[one.day - 1]?.name ?? ''))
       .join(' · ')
 
   // Por plantilla y no por versión: una rutina republicada sigue siendo la que está en
@@ -545,7 +531,7 @@ export function ProgramEditor({
    * miente sobre un contenido que aún no existe.
    */
 
-  const chosenDay = DAYS.find((one) => one.day === choosing)
+  const chosenDay = choosing === undefined ? undefined : words.days[choosing - 1]
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -556,7 +542,7 @@ export function ProgramEditor({
           no idea what they are editing. */}
       <View style={styles.frame}>
         <ScreenHeader
-          title={title.trim() === '' ? 'Programa nuevo' : title}
+          title={title.trim() === '' ? words.newProgram : title}
           subtitle={subtitle()}
           onClose={leave}
         />
@@ -568,8 +554,8 @@ export function ProgramEditor({
         <View style={styles.naming}>
           <View style={styles.namingField}>
             <TextField
-              label="Ponle un nombre"
-              placeholder="Fuerza inicial, Mi plan…"
+              label={text.training.routine.nameLabel}
+              placeholder={words.namePlaceholder}
               value={title}
               onChangeText={rename}
               autoCapitalize="sentences"
@@ -581,7 +567,7 @@ export function ProgramEditor({
             a case. The numbers are a consequence of the week below, not a control, and
             a case of them read as something to act on. */}
         <Text role="body" size="sm" color="secondary">
-          {programLoad(weeks, summary)}
+          {programLoad(weeks, summary, text.training.load)}
         </Text>
       </View>
 
@@ -598,23 +584,22 @@ export function ProgramEditor({
               la tarjeta de duración dice justo encima, y que los días libres son
               descanso, que es lo que pone en cada día libre. */}
           <Text role="control" size="sm" color="secondary">
-            La semana base
+            {words.baseWeek}
           </Text>
 
           <View style={styles.days}>
-            {DAYS.map((day) => {
-              const routine = routineOn(day.day)
+            {DAYS.map((number) => {
+              const day = words.days[number - 1] ?? { letter: '', name: '' }
+              const routine = routineOn(number)
               const filled = routine !== undefined
               return (
                 <Pressable
-                  key={day.day}
+                  key={number}
                   accessibilityRole="button"
                   accessibilityLabel={
-                    filled
-                      ? `${day.name}: ${routine.title}. Cambiar`
-                      : `${day.name}: libre. Poner una rutina`
+                    filled ? words.dayFilled(day.name, routine.title) : words.dayFree(day.name)
                   }
-                  onPress={() => setChoosing(day.day)}
+                  onPress={() => setChoosing(number)}
                   style={({ pressed }) => [
                     styles.dayCell,
                     {
@@ -650,7 +635,7 @@ export function ProgramEditor({
                     align="center"
                     numberOfLines={1}
                   >
-                    {filled ? routine.title : 'Libre'}
+                    {filled ? routine.title : words.free}
                   </Text>
                 </Pressable>
               )
@@ -661,7 +646,7 @@ export function ProgramEditor({
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text role="control" size="sm" color="secondary">
-              Rutinas que incluye
+              {words.included}
             </Text>
             {included.length === 0 ? null : (
               <Text role="control" size="sm" color="accent">
@@ -671,7 +656,7 @@ export function ProgramEditor({
           </View>
           {included.length === 0 ? (
             <Text role="body" size="sm" color="muted">
-              Todavía no hay ninguna rutina en la semana.
+              {words.noneIncluded}
             </Text>
           ) : (
             included.map((routine) => (
@@ -698,7 +683,7 @@ export function ProgramEditor({
             answering it the moment somebody has plainly worked it out. */}
         {summary.daysPerWeek > 0 ? null : (
           <Note size="md" boxed>
-            {WHAT_A_PROGRAM_IS}
+            {words.whatItIs}
           </Note>
         )}
       </ScrollView>
@@ -707,7 +692,7 @@ export function ProgramEditor({
           but «Listo» on a screen that has been saving a draft all along says nothing
           about the one press that turns it into weeks of training. */}
       <View style={styles.anchor}>
-        <Button label="Guardar programa" icon="check" disabled={!publishable} onPress={publish} />
+        <Button label={words.save} icon="check" disabled={!publishable} onPress={publish} />
       </View>
 
       {/* One sheet, not two. A `Sheet` is a real `Modal` that stays mounted through its
@@ -725,28 +710,28 @@ export function ProgramEditor({
         }}
         title={
           discarding
-            ? '¿Descartar cambios?'
+            ? text.training.routine.sheets.discarding
             : leaving
-              ? '¿Guardas este programa?'
+              ? words.keepTitle
               : chosenDay
-                ? `Qué toca el ${chosenDay.name}`
-                : 'Qué toca ese día'
+                ? words.whatOn(chosenDay.name)
+                : words.whatOnThatDay
         }
       >
         {leaving ? (
           <View style={styles.sheetBody}>
             <Text role="body" size="md" color="muted">
-              Se está guardando como borrador según lo armas. Puedes dejarlo para después o tirarlo.
+              {words.leaving}
             </Text>
             <Button
-              label="Guardar borrador"
+              label={text.training.routine.leaving.save}
               onPress={() => {
                 setLeaving(false)
                 router.back()
               }}
             />
             <Button
-              label="Descartar programa"
+              label={words.discardProgram}
               variant="ghost"
               icon="remove"
               onPress={() => void throwAway()}
@@ -755,11 +740,10 @@ export function ProgramEditor({
         ) : discarding ? (
           <View style={styles.sheetBody}>
             <Text role="body" size="md" color="muted">
-              Lo que cambiaste aquí no se ha aplicado todavía. Si lo descartas, el programa se queda
-              como estaba.
+              {words.discarding}
             </Text>
             <Button
-              label="Descartar cambios"
+              label={text.training.routine.discarding.discard}
               variant="ghost"
               icon="remove"
               onPress={() => {
@@ -768,7 +752,7 @@ export function ProgramEditor({
               }}
             />
             <Button
-              label="Seguir editando"
+              label={text.training.routine.discarding.keep}
               variant="secondary"
               onPress={() => setDiscarding(false)}
             />
@@ -815,6 +799,8 @@ export function DurationCard({
   readonly onChange: (next: number | null) => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.editor.duration
 
   return (
     <View
@@ -829,10 +815,10 @@ export function DurationCard({
       <FoundationIcon name="frequency" size="sm" color={theme.color.icon.accent} decorative />
       <View style={styles.rowText}>
         <Text role="body" size="xs" color="muted">
-          Duración del programa
+          {words.title}
         </Text>
         <Text role="control" size="md">
-          {weeksLabel(weeks)}
+          {weeksLabel(weeks, text.training.load)}
         </Text>
       </View>
       {/* Two buttons and no third number. A `Stepper` carries its own value, and
@@ -844,8 +830,8 @@ export function DurationCard({
           size="sm"
           accessibilityLabel={
             weeks === MIN_WEEKS
-              ? 'Quitar la fecha de fin. Se repetirá hasta que la cambies'
-              : `Quitar una semana. Ahora ${weeksLabel(weeks)}`
+              ? words.removeEnd
+              : words.less(weeksLabel(weeks, text.training.load))
           }
           disabled={weeks === null}
           onPress={() => onChange(weeks === MIN_WEEKS ? null : (weeks ?? MIN_WEEKS) - 1)}
@@ -854,9 +840,7 @@ export function DurationCard({
           icon="add"
           size="sm"
           accessibilityLabel={
-            weeks === null
-              ? 'Ponerle una fecha de fin, de una semana'
-              : `Añadir una semana. Ahora ${weeksLabel(weeks)}`
+            weeks === null ? words.addEnd : words.more(weeksLabel(weeks, text.training.load))
           }
           disabled={weeks !== null && weeks >= MAX_WEEKS}
           onPress={() => onChange(weeks === null ? MIN_WEEKS : weeks + 1)}
@@ -885,13 +869,14 @@ export function IncludedRoutine({
   readonly library: ExerciseLibrary | undefined
   readonly onPress: () => void
 }) {
+  const words = useText().training.routine
   return (
     <ContentRow
       preview={<RoutineMark routine={routine} library={library} size="xs" />}
       name={routine.title}
       // Which days, not how many times: «Lunes · Viernes» is what the list is read for.
       caption={days}
-      accessibilityLabel={`Abrir ${routine.title}`}
+      accessibilityLabel={words.open(routine.title)}
       onPress={onPress}
     />
   )

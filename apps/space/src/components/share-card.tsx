@@ -21,6 +21,8 @@
  *
  * **The brush is generated, not drawn:** a seeded dry-brush swash, the same on every
  * render. The logo is the Design System's — never redrawn.
+ *
+ * Words are `text.session.cards`; every weight prints in the person's unit.
  */
 
 import { BrandLogo, ProductLockup } from '@allfitone/react-native/brand'
@@ -57,6 +59,15 @@ import {
   type ShareSummary,
 } from '../client/share-cards'
 import { BodyFigure, faceShowing } from './body-figure'
+import { useLocale, useText } from '../i18n/use-text'
+import { intlLocale, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
+import { useUnits } from '../units/use-units'
+
+/** What every card reads with: the locale, the words and the person's mass unit. */
+function useCard() {
+  return { locale: useLocale(), text: useText().session, mass: useUnits().mass }
+}
 
 export const CARD_WIDTH = 300
 export const CARD_HEIGHT = 533
@@ -413,8 +424,9 @@ function Kicker({
   )
 }
 
-const kilos = (value: number | null) =>
-  (value ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })
+/** A canonical weight as a whole figure in `unit`. */
+const kilos = (value: number | null, locale: Locale, unit: MassUnit) =>
+  massIn(value ?? 0, unit).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
 
 /** Where the plain card's title block sits, for a title of two lines and of one. */
 const TWO_LINE_BLOCK = { kicker: 94, title: 118, detail: 216 }
@@ -471,8 +483,9 @@ function MainCard({
   photo,
   withPhoto,
 }: ShareCardProps & { readonly withPhoto: boolean }) {
-  const groups = groupsTitle(summary, catalogue)
-  const routine = routineTitle(summary, catalogue)
+  const { locale, text, mass } = useCard()
+  const groups = groupsTitle(summary, catalogue, text)
+  const routine = routineTitle(summary, catalogue, text)
   // The routine leads the body of both, so the header gives the groups: never the
   // same thing twice on one card.
   const lines = balancedLines(routine)
@@ -482,11 +495,11 @@ function MainCard({
   const block = single ? SINGLE_LINE_BLOCK : TWO_LINE_BLOCK
   return (
     <Frame photo={withPhoto ? photo : null}>
-      <Header title={groups} when={whenLine(summary, timeZone)} />
+      <Header title={groups} when={whenLine(summary, timeZone, locale, text)} />
       {withPhoto ? (
         <View style={[styles.at, styles.who, { left: 20, top: 214 }]}>
           <Text style={type(BODY_HEAVY, 10, INK.accent, { tracking: 2.4 })}>
-            ENTRENO COMPLETADO
+            {text.cards.completed}
           </Text>
           <Text
             numberOfLines={1}
@@ -502,7 +515,7 @@ function MainCard({
       ) : (
         <>
           <Kicker x={22} y={block.kicker}>
-            ENTRENO COMPLETADO
+            {text.cards.completed}
           </Kicker>
           <Text
             numberOfLines={single ? 1 : 2}
@@ -517,7 +530,7 @@ function MainCard({
           </Text>
           <View style={[styles.at, styles.who, { left: 22, top: block.detail }]}>
             <Text style={type(BODY_BOLD, 11, INK.muted)}>
-              {`${sentence(groups)} · ${exercisesLabel(summary.exercise_count)}`}
+              {`${sentence(groups)} · ${exercisesLabel(summary.exercise_count, text)}`}
             </Text>
             {summary.username ? (
               <Text style={type(BODY_BOLD, 10.5, INK.muted)}>@{summary.username}</Text>
@@ -527,21 +540,23 @@ function MainCard({
       )}
       <FigureRow
         figures={[
-          ['DURACIÓN', durationLabel(summary.duration_seconds)],
-          ['SERIES', String(summary.work_sets)],
-          ['EJERCICIOS', String(summary.exercise_count)],
-          ['KG TOTALES', kilos(summary.total_volume_kg)],
+          [text.cards.duration, durationLabel(summary.duration_seconds)],
+          [text.cards.sets, String(summary.work_sets)],
+          [text.cards.exercisesLabel, String(summary.exercise_count)],
+          [text.cards.total(mass), kilos(summary.total_volume_kg, locale, mass)],
         ]}
       />
       <View style={[styles.at, styles.list, { left: 20, top: 378 }]}>
-        <Text style={type(BODY_HEAVY, 8.5, INK.accent, { tracking: 1.6 })}>EJERCICIOS</Text>
+        <Text style={type(BODY_HEAVY, 8.5, INK.accent, { tracking: 1.6 })}>
+          {text.cards.exercisesLabel}
+        </Text>
         {summary.exercises.slice(0, 4).map((exercise) => (
           <View key={exercise.position} style={styles.listRow}>
             <Text numberOfLines={1} style={[type(BODY_BOLD, 10.5, INK.text), styles.grow]}>
-              {exercise.movement ?? 'Ejercicio'}
+              {exercise.movement ?? text.exercise}
             </Text>
             <Text style={type(POSTER, 14, INK.text, { leading: 1 })}>
-              {exerciseShape(exercise)}
+              {exerciseShape(exercise, text)}
             </Text>
           </View>
         ))}
@@ -560,27 +575,31 @@ const BAR = 196
  * scale that show the jump without reading a word. Little else on purpose.
  */
 function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const { locale, text, mass } = useCard()
   const record = headline(summary.records)
   if (!record) return <Frame>{null}</Frame>
-  const figure = recordFigure(record)
-  const jump = recordJump(record)
+  const figure = recordFigure(record, locale, mass, text)
+  const jump = recordJump(record, locale, mass)
   const trainedOn = new Intl.DateTimeFormat('en-CA', { timeZone }).format(
     new Date(summary.started_at),
   )
   const days = daysSince(record, trainedOn)
   const stats: readonly (readonly [string, string])[] = [
-    [`${jump.delta} ${figure.unit}`, 'MEJORA'],
+    [`${jump.delta} ${figure.unit}`, text.cards.gain],
     [
       record.reps ? String(record.reps) : figure.tail.toUpperCase(),
-      record.reps ? 'REPS' : 'MEDIDA',
+      record.reps ? text.cards.reps : text.cards.measure,
     ],
-    [days === 1 ? '1 DÍA' : `${String(days)} DÍAS`, 'DESDE LA ANTERIOR'],
+    [text.cards.days(days), text.cards.sincePrevious],
   ]
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header
+        title={routineTitle(summary, catalogue, text)}
+        when={whenLine(summary, timeZone, locale, text)}
+      />
       <Kicker x={22} y={70}>
-        NUEVO RÉCORD PERSONAL
+        {text.cards.newPersonalRecord}
       </Kicker>
       <Text
         numberOfLines={1}
@@ -606,18 +625,20 @@ function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
           <Text style={type(POSTER, 40, INK.text, { leading: 0.9 })}>{figure.unit}</Text>
           {figure.tail ? (
             <Text style={type(POSTER, 20, INK.text, { leading: 1 })}>
-              {figure.tail.startsWith('×') ? `${figure.tail} REPS` : figure.tail.toUpperCase()}
+              {figure.tail.startsWith('×')
+                ? `${figure.tail} ${text.cards.reps}`
+                : figure.tail.toUpperCase()}
             </Text>
           ) : null}
         </View>
       </View>
       <View style={[styles.at, styles.bars]}>
         <Text style={type(BODY_HEAVY, 8, INK.muted, { tracking: 1.6 })}>
-          {figure.label} · TU PROGRESO
+          {text.cards.progress(figure.label)}
         </Text>
         <View style={styles.barRow}>
           <Text style={[type(BODY_HEAVY, 8, INK.muted, { tracking: 1 }), styles.barWhen]}>
-            {shortDay(record.previous_on)}
+            {shortDay(record.previous_on, text)}
           </Text>
           <View style={[styles.bar, styles.barBefore, { width: BAR * jump.ratio }]}>
             <Text numberOfLines={1} style={type(POSTER, 12, INK.muted)}>
@@ -627,7 +648,7 @@ function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
         </View>
         <View style={styles.barRow}>
           <Text style={[type(BODY_HEAVY, 8, INK.accent, { tracking: 1 }), styles.barWhen]}>
-            HOY
+            {text.cards.today}
           </Text>
           <View style={[styles.bar, styles.barNow, { width: BAR }]}>
             <Text numberOfLines={1} style={type(POSTER, 12, INK.ink)}>
@@ -657,7 +678,7 @@ function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
           </View>
         ))}
       </View>
-      <Foot motto="pequeños avances, grandes resultados" />
+      <Foot motto={text.cards.mottoRecord} />
     </Frame>
   )
 }
@@ -674,6 +695,7 @@ const stepTop = (index: number) => STEP.floor - STEP.rise * (index + 1)
  * next one drawn and waiting. Two callouts name where it started and where it stands.
  */
 function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const { locale, text } = useCard()
   const weeks = summary.streak_weeks
   const { first, shown } = streakSteps(weeks)
   const last = shown - 1
@@ -682,9 +704,12 @@ function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
   const nowCall = { left: stepX(last) - CALL_INSET, top: stepTop(last) - 82 }
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header
+        title={routineTitle(summary, catalogue, text)}
+        when={whenLine(summary, timeZone, locale, text)}
+      />
       <Kicker x={22} y={70}>
-        RACHA ACTIVA
+        {text.cards.activeStreak}
       </Kicker>
       <Text
         numberOfLines={1}
@@ -694,10 +719,10 @@ function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
           type(POSTER, 56, INK.text, { tracking: -1, leading: 0.9 }),
         ]}
       >
-        {weeks} SEMANAS
+        {text.cards.weeks(weeks)}
       </Text>
       <Text style={[styles.at, { left: 22, top: 152 }, type(POSTER, 15, INK.muted)]}>
-        + SIN SALTARTE NINGUNA
+        {text.cards.noneSkipped}
       </Text>
       <Svg width={CARD_WIDTH} height={CARD_HEIGHT} style={StyleSheet.absoluteFill}>
         <Defs>
@@ -761,14 +786,14 @@ function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
       </Svg>
       <Callout
         number={first}
-        name={`SEMANA ${String(first)}`}
-        caption={weekStartLabel(summary, timeZone, weeks - first)}
+        name={text.cards.week(first)}
+        caption={weekStartLabel(summary, timeZone, weeks - first, text)}
         style={{ left: stepX(0) - CALL_INSET, top: 214, width: 110 }}
       />
       <Callout
         number={weeks}
-        name="ESTA SEMANA"
-        caption="CUMPLIDA"
+        name={text.cards.thisWeek}
+        caption={text.cards.fulfilled}
         style={{ ...nowCall, width: 90 }}
       />
       <Text
@@ -778,7 +803,7 @@ function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
           type(BODY_HEAVY, 7, INK.accent, { tracking: 1 }),
         ]}
       >
-        VAMOS POR LA {weeks + 1}
+        {text.cards.upNext(weeks + 1)}
       </Text>
       <Foot symbolAt={490} />
     </Frame>
@@ -826,11 +851,12 @@ const SESSION_FIGURE = 0.37
  * list of exercises.
  */
 function SessionCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const { locale, text, mass } = useCard()
   const metrics: readonly (readonly [string, string])[] = [
-    [durationLabel(summary.duration_seconds), 'DURACIÓN'],
-    [String(summary.work_sets), 'SERIES'],
-    [String(summary.exercise_count), 'EJERCICIOS'],
-    [`${kilos(summary.total_volume_kg)} kg`, 'LEVANTADOS'],
+    [durationLabel(summary.duration_seconds), text.cards.duration],
+    [String(summary.work_sets), text.cards.sets],
+    [String(summary.exercise_count), text.cards.exercisesLabel],
+    [`${kilos(summary.total_volume_kg, locale, mass)} ${mass}`, text.cards.lifted(mass)],
   ]
   const worked = workedMuscles(summary, catalogue)
   const main = worked.filter((muscle) => muscle.main)
@@ -844,20 +870,23 @@ function SessionCard({ summary, catalogue, timeZone }: ShareCardProps) {
   )
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header
+        title={routineTitle(summary, catalogue, text)}
+        when={whenLine(summary, timeZone, locale, text)}
+      />
       <Swash x={30} y={96} width={270} height={84} turn={-7} seed={23} opacity={0.3} />
       <Kicker x={22} y={62}>
-        RESUMEN DE LA SESIÓN
+        {text.cards.sessionSummary}
       </Kicker>
       <Text
         style={[styles.at, { left: 22, top: 88 }, type(POSTER, 50, INK.text, { leading: 0.9 })]}
       >
-        ENTRENO
+        {text.cards.todaysTop}
       </Text>
       <Text
         style={[styles.at, { left: 22, top: 130 }, type(POSTER, 50, INK.accent, { leading: 0.9 })]}
       >
-        DE HOY
+        {text.cards.todaysBottom}
       </Text>
       <View style={[styles.at, styles.grid]}>
         {metrics.map(([value, label], index) => (
@@ -947,6 +976,7 @@ const CALLOUT_SLOTS = [
  * the headline, numbered callouts on the figure, and what only helped in an inset.
  */
 function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const { locale, text } = useCard()
   const worked = workedMuscles(summary, catalogue)
   const main = worked.filter((muscle) => muscle.main).slice(0, CALLOUT_SLOTS.length)
   const helping = worked.filter((muscle) => !muscle.main).slice(0, 3)
@@ -963,9 +993,12 @@ function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
   const [lead, ...rest] = main
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header
+        title={routineTitle(summary, catalogue, text)}
+        when={whenLine(summary, timeZone, locale, text)}
+      />
       <Kicker x={22} y={70}>
-        MÚSCULO PRINCIPAL
+        {text.cards.mainMuscle}
       </Kicker>
       <Text
         numberOfLines={1}
@@ -977,11 +1010,11 @@ function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
           type(POSTER, 56, INK.text, { tracking: -1, leading: 0.9 }),
         ]}
       >
-        {(lead?.name ?? 'Cuerpo completo').toUpperCase()}
+        {(lead?.name ?? text.cards.wholeBody).toUpperCase()}
       </Text>
       {rest.length > 0 ? (
         <Text style={[styles.at, { left: 22, top: 152 }, type(POSTER, 15, INK.muted)]}>
-          + {rest.map((muscle) => muscle.name.toUpperCase()).join(' Y ')}
+          + {rest.map((muscle) => muscle.name.toUpperCase()).join(text.cards.andUpper)}
         </Text>
       ) : null}
       <View style={[styles.at, styles.plate]}>
@@ -1035,14 +1068,16 @@ function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
               {muscle.name.toUpperCase()}
             </Text>
             <Text style={type(BODY_HEAVY, 7, INK.muted, { tracking: 1 })}>
-              {muscle.sets} SERIES
+              {text.cards.muscleSets(muscle.sets)}
             </Text>
           </View>
         )
       })}
       {helping.length > 0 ? (
         <View style={[styles.at, styles.inset]}>
-          <Text style={type(BODY_HEAVY, 7, INK.muted, { tracking: 1.4 })}>DE APOYO</Text>
+          <Text style={type(BODY_HEAVY, 7, INK.muted, { tracking: 1.4 })}>
+            {text.cards.helping}
+          </Text>
           {helping.map((muscle) => (
             <Text key={muscle.code} style={type(BODY_BOLD, 9.5, INK.text)}>
               {muscle.name}
@@ -1050,7 +1085,7 @@ function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
           ))}
         </View>
       ) : null}
-      <Foot motto="tu cuerpo también progresa" symbolAt={490} mottoAt={484} />
+      <Foot motto={text.cards.mottoMuscles} symbolAt={490} mottoAt={484} />
     </Frame>
   )
 }
@@ -1066,14 +1101,21 @@ const NUMERAL = { top: 100, height: 210, size: 230 } as const
  * The outline is SVG text: React Native's text has no stroke.
  */
 function NumberCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const { locale, text, mass } = useCard()
   const figures: readonly (readonly [string, string])[] = [
-    [String(summary.work_sets), 'SERIES'],
-    [String(summary.exercise_count), 'EJERCICIOS'],
-    [`${kilos(summary.total_volume_kg)} KG`, 'LEVANTADOS'],
+    [String(summary.work_sets), text.cards.sets],
+    [String(summary.exercise_count), text.cards.exercisesLabel],
+    [
+      `${kilos(summary.total_volume_kg, locale, mass)} ${mass.toUpperCase()}`,
+      text.cards.lifted(mass),
+    ],
   ]
   return (
     <Frame>
-      <Header title={groupsTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header
+        title={groupsTitle(summary, catalogue, text)}
+        when={whenLine(summary, timeZone, locale, text)}
+      />
       <Text
         style={[
           styles.at,
@@ -1082,7 +1124,7 @@ function NumberCard({ summary, catalogue, timeZone }: ShareCardProps) {
           type(BODY_HEAVY, 10, INK.accent, { tracking: 2.4, leading: 1.2 }),
         ]}
       >
-        ESTE FUE TU ENTRENO NÚMERO
+        {text.cards.workoutNumber}
       </Text>
       <Svg width={CARD_WIDTH} height={NUMERAL.height} style={[styles.at, { top: NUMERAL.top }]}>
         <SvgText
@@ -1104,7 +1146,7 @@ function NumberCard({ summary, catalogue, timeZone }: ShareCardProps) {
         adjustsFontSizeToFit
         style={[styles.at, styles.routine, type(POSTER, 30, INK.text, { leading: 1 })]}
       >
-        {routineTitle(summary, catalogue)}
+        {routineTitle(summary, catalogue, text)}
       </Text>
       <View style={[styles.at, styles.hairline]} />
       {figures.map(([value, label], index) => (
@@ -1118,7 +1160,7 @@ function NumberCard({ summary, catalogue, timeZone }: ShareCardProps) {
           <Text style={type(BODY_HEAVY, 7.5, INK.muted, { tracking: 1 })}>{label}</Text>
         </View>
       ))}
-      <Foot motto="mismo yo, mejor versión" />
+      <Foot motto={text.cards.mottoNumber} />
     </Frame>
   )
 }
@@ -1132,6 +1174,7 @@ function MinimalFrame({
   timeZone,
   children,
 }: ShareCardProps & { readonly children: ReactNode }) {
+  const { locale, text } = useCard()
   return (
     <Frame>
       <Text
@@ -1143,7 +1186,7 @@ function MinimalFrame({
           type(BODY_HEAVY, 9.5, INK.accent, { tracking: 1.6 }),
         ]}
       >
-        {`${routineTitle(summary, catalogue)} · ${whenLine(summary, timeZone)}`}
+        {`${routineTitle(summary, catalogue, text)} · ${whenLine(summary, timeZone, locale, text)}`}
       </Text>
       {children}
       <View style={[styles.at, { left: 98, top: 491 }]}>
@@ -1174,20 +1217,24 @@ const MINIMAL_SMALL = type(BODY_HEAVY, 8, INK.ash, { tracking: 1.6 })
 
 /** «FN1 · Una cifra»: the kilos lifted, and what they took. */
 function TotalCard(props: ShareCardProps) {
+  const { locale, text, mass } = useCard()
   const { summary } = props
   return (
     <MinimalFrame {...props}>
       <Centred top={196} style={type(POSTER, 76, INK.text, { leading: 0.9 })}>
-        {kilos(summary.total_volume_kg)}
+        {kilos(summary.total_volume_kg, locale, mass)}
       </Centred>
       <Centred top={272} style={MINIMAL_UNIT}>
-        KILOS LEVANTADOS
+        {text.cards.liftedUnit(mass)}
       </Centred>
       <Centred top={318} style={type(POSTER, 18, INK.accent)}>
-        {`${String(summary.work_sets)} SERIES · ${exercisesLabel(summary.exercise_count).toUpperCase()}`}
+        {text.cards.setsAndExercises(
+          summary.work_sets,
+          exercisesLabel(summary.exercise_count, text).toUpperCase(),
+        )}
       </Centred>
       <Centred top={342} style={MINIMAL_SMALL}>
-        {minutesLine(summary.duration_seconds)}
+        {minutesLine(summary.duration_seconds, text)}
       </Centred>
     </MinimalFrame>
   )
@@ -1195,6 +1242,7 @@ function TotalCard(props: ShareCardProps) {
 
 /** «FN2 · El tiempo»: how long, and the shape of each exercise. */
 function TimeCard(props: ShareCardProps) {
+  const text = useText().session
   const { summary } = props
   return (
     <MinimalFrame {...props}>
@@ -1202,7 +1250,7 @@ function TimeCard(props: ShareCardProps) {
         {durationLabel(summary.duration_seconds)}
       </Centred>
       <Centred top={248} style={MINIMAL_UNIT}>
-        ENTRENANDO
+        {text.cards.training}
       </Centred>
       {summary.exercises.slice(0, 5).map((exercise, index) => (
         <View
@@ -1213,10 +1261,10 @@ function TimeCard(props: ShareCardProps) {
             numberOfLines={1}
             style={[styles.grow, type(BODY_HEAVY, 9, INK.muted, { tracking: 1.6 })]}
           >
-            {(exercise.movement ?? 'Ejercicio').toUpperCase()}
+            {(exercise.movement ?? text.exercise).toUpperCase()}
           </Text>
           <Text style={type(POSTER, 18, index === 0 ? INK.accent : INK.text)}>
-            {exerciseShape(exercise)}
+            {exerciseShape(exercise, text)}
           </Text>
         </View>
       ))}
@@ -1226,6 +1274,7 @@ function TimeCard(props: ShareCardProps) {
 
 /** «FN3 · Récords»: how many, and the one that leads. */
 function RecordsCard(props: ShareCardProps) {
+  const { locale, text, mass } = useCard()
   const { summary } = props
   const lead = headline(summary.records)
   const count = summary.records.length
@@ -1235,7 +1284,7 @@ function RecordsCard(props: ShareCardProps) {
         {String(count)}
       </Centred>
       <Centred top={262} style={MINIMAL_UNIT}>
-        {count === 1 ? 'RÉCORD NUEVO' : 'RÉCORDS NUEVOS'}
+        {text.cards.newRecords(count)}
       </Centred>
       {lead ? (
         <>
@@ -1243,10 +1292,10 @@ function RecordsCard(props: ShareCardProps) {
             {lead.movement.toUpperCase()}
           </Centred>
           <Centred top={328} style={type(POSTER, 28, INK.text)}>
-            {recordGain(lead).gain}
+            {recordGain(lead, locale, mass, text).gain}
           </Centred>
           <Centred top={362} style={MINIMAL_SMALL}>
-            {recordGain(lead).meaning}
+            {recordGain(lead, locale, mass, text).meaning}
           </Centred>
         </>
       ) : null}
@@ -1258,6 +1307,7 @@ const SET_SHADES = ['#55EFFB', '#3FC9D6', '#2E9FAE', '#257C89', '#1D5F69', '#184
 
 /** «FN4 · Músculos»: the sets, split by the muscle each one trained. */
 function SetsCard(props: ShareCardProps) {
+  const text = useText().session
   const { summary, catalogue } = props
   const main = workedMuscles(summary, catalogue).filter((muscle) => muscle.main)
   const total = main.reduce((sum, muscle) => sum + muscle.sets, 0) || 1
@@ -1269,7 +1319,7 @@ function SetsCard(props: ShareCardProps) {
         {String(summary.work_sets)}
       </Centred>
       <Centred top={242} style={MINIMAL_UNIT}>
-        {summary.work_sets === 1 ? 'SERIE' : 'SERIES'}
+        {text.cards.setsWord(summary.work_sets)}
       </Centred>
       {main.map((muscle, index) => {
         const width = Math.max(2, Math.round((room * muscle.sets) / total))

@@ -43,6 +43,7 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { FocusPicker } from '../../src/components/focus-picker'
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import {
@@ -56,11 +57,8 @@ import {
   type FocusSelection,
 } from '../../src/client/focus-form'
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
 // Two failures, two sentences: one happens before the person has done anything,
 // the other loses work they just did.
-const READ_FAILED = 'No pudimos leer tus respuestas. Inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
 
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
@@ -68,16 +66,20 @@ const FOOTER_LIFT = 16
 /** Everything above the map: header, title, lede, chips, hint and button. */
 const CHROME_HEIGHT = 600
 
+type Failure = 'expired' | 'readFailed' | 'saveFailed'
+
 export default function OnboardingFocus() {
   const router = useRouter()
   const { height } = useWindowDimensions()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [selection, setSelection] = useState<FocusSelection>(NOTHING_CHOSEN)
   const [declaredSex, setDeclaredSex] = useState<'male' | 'female' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   const scale = bodyScale(Math.max(0, height - CHROME_HEIGHT))
 
@@ -102,10 +104,10 @@ export default function OnboardingFocus() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(READ_FAILED)
+        setFailure('readFailed')
       })
 
     return () => {
@@ -127,9 +129,9 @@ export default function OnboardingFocus() {
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(SAVE_FAILED)
+        setFailure('saveFailed')
       }
     } finally {
       setSubmitting(false)
@@ -141,6 +143,12 @@ export default function OnboardingFocus() {
     [],
   )
 
+  const failures: Record<Failure, string> = {
+    expired: words.expired,
+    readFailed: words.readFailed,
+    saveFailed: words.saveFailed,
+  }
+
   return (
     <Screen edges={['top', 'bottom']} dots>
       <OnboardingHeader step="/onboarding/focus" />
@@ -151,10 +159,10 @@ export default function OnboardingFocus() {
         showsVerticalScrollIndicator={false}
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          ¿En qué te{'\n'}quieres centrar?
+          {words.focus.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Señala lo que más te importa. Es un énfasis: el resto del cuerpo sigue entrando.
+          {words.focus.lede}
         </Text>
 
         <FocusPicker
@@ -169,10 +177,10 @@ export default function OnboardingFocus() {
       {/* Outside the scroll so the button sits in the same place on every step of
           the onboarding, whatever the content above it does. */}
       <View style={styles.footer}>
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!submittable}
           loading={submitting}
           onPress={submit}
@@ -181,7 +189,7 @@ export default function OnboardingFocus() {
 
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
             style={styles.signIn}

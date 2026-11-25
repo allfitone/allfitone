@@ -34,9 +34,7 @@ import {
 } from '../../src/client/program-catalogue'
 import { OfferRow } from '../../src/components/offer-row'
 import { ProgramPoster } from '../../src/components/program-poster'
-
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const READ_FAILED = 'No pudimos cargar los programas. Inténtalo otra vez.'
+import { useText } from '../../src/i18n/use-text'
 
 const EMPTY_PROFILE: TrainingProfile = {
   given_name: '',
@@ -48,10 +46,12 @@ const EMPTY_PROFILE: TrainingProfile = {
 
 export default function Programs() {
   const router = useRouter()
+  const text = useText()
+  const words = text.training.programs
   const flow = useMemo(() => createSpaceProgramFlow(), [])
 
   const [catalogue, setCatalogue] = useState<ProgramCatalogue | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'expired' | 'read' | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -64,7 +64,7 @@ export default function Programs() {
       .catch((cause: unknown) => {
         if (!active) return
         setFailure(
-          cause instanceof ApiError && cause.failure === 'unauthenticated' ? EXPIRED : READ_FAILED,
+          cause instanceof ApiError && cause.failure === 'unauthenticated' ? 'expired' : 'read',
         )
       })
 
@@ -85,19 +85,28 @@ export default function Programs() {
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <View style={styles.heading}>
           <Text role="display" size="2xl" uppercase accessibilityRole="header">
-            Programas de Allfit
+            {words.title}
           </Text>
           <Text role="body" size="sm" color="secondary">
-            Planes armados por el equipo. Primero los que mejor encajan contigo.
+            {words.subtitle}
           </Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {failure ? <InlineAlert message={failure} onDismiss={() => setFailure(undefined)} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={failure === 'expired' ? text.training.expired : words.readFailed}
+            onDismiss={() => setFailure(undefined)}
+          />
+        ) : null}
 
         {offered.cards.map((card) => (
           <ProgramPoster
@@ -111,7 +120,7 @@ export default function Programs() {
 
         {catalogue === undefined && !failure ? (
           <Text role="body" size="sm" color="muted">
-            Cargando programas…
+            {words.loading}
           </Text>
         ) : null}
 
@@ -120,8 +129,8 @@ export default function Programs() {
         {catalogue ? (
           <OfferRow
             icon="create"
-            label="Crear el mío"
-            caption="Arma tu propio programa, día por día"
+            label={words.createMine}
+            caption={words.createMineCaption}
             tone="quiet"
             onPress={() => router.push('/programs/new')}
           />

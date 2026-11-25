@@ -7,6 +7,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   activeSince,
   contactState,
@@ -46,17 +47,24 @@ const profile = (attributes: ProfileEntry[]): FitnessProfile => ({
   attributes,
 })
 
+const es = textFor('es')
+const en = textFor('en')
+
 describe('where a datum comes from', () => {
   test('T-SPC-UNIT-FP-01 says who declared it, in words', () => {
-    expect(provenanceLine(entry({}))).toBe('Declarado por ti')
-    expect(provenanceLine(entry({ provenance: 'professional_observation' }))).toBe(
+    expect(provenanceLine(entry({}), es.fitness)).toBe('Declarado por ti')
+    expect(provenanceLine(entry({ provenance: 'professional_observation' }), es.fitness)).toBe(
       'Observado por tu coach',
     )
-    expect(provenanceLine(entry({ provenance: 'device_observed' }))).toBe(
+    expect(provenanceLine(entry({ provenance: 'device_observed' }), es.fitness)).toBe(
       'Medido por un dispositivo',
     )
-    expect(provenanceLine(entry({ provenance: 'system_inferred' }))).toBe('Calculado por Allfit')
-    expect(provenanceLine(entry({ provenance: 'authority_verified' }))).toBe('Verificado')
+    expect(provenanceLine(entry({ provenance: 'system_inferred' }), es.fitness)).toBe(
+      'Calculado por Allfit',
+    )
+    expect(provenanceLine(entry({ provenance: 'authority_verified' }), es.fitness)).toBe(
+      'Verificado',
+    )
   })
 
   test('T-SPC-UNIT-FP-02 counts the other versions, and says nothing when there are none', () => {
@@ -65,36 +73,42 @@ describe('where a datum comes from', () => {
       provenance: 'professional_observation' as const,
       valid_from: '2026-09-24T08:00:00.000Z',
     }
-    expect(versionsLine(entry({}))).toBeUndefined()
-    expect(versionsLine(entry({ alternatives: [other] }))).toBe('+1 versión')
-    expect(versionsLine(entry({ alternatives: [other, other] }))).toBe('+2 versiones')
+    expect(versionsLine(entry({}), es.fitness)).toBeUndefined()
+    expect(versionsLine(entry({ alternatives: [other] }), es.fitness)).toBe('+1 versión')
+    expect(versionsLine(entry({ alternatives: [other, other] }), es.fitness)).toBe('+2 versiones')
   })
 })
 
 describe('what a datum says', () => {
   test('T-SPC-UNIT-FP-03 words every value the way the onboarding named it', () => {
-    expect(valueLine('primary_training_goal', ['build_muscle'])).toBe('Construir músculo')
-    expect(valueLine('training_experience', ['some_practice'])).toBe('Tengo algo de práctica')
-    expect(valueLine('training_days_per_week', ['1'])).toBe('1 día')
-    expect(valueLine('training_days_per_week', ['4'])).toBe('4 días')
-    expect(valueLine('session_duration', ['45_to_60_min'])).toBe('Entre 45 y 60 min')
-    expect(valueLine('session_duration', ['up_to_30_min'])).toBe('Hasta 30 min')
-    expect(valueLine('training_place', ['gym'])).toBe('En el gimnasio')
-    expect(valueLine('training_place', ['multiple'])).toBe('En varios sitios')
+    expect(valueLine('primary_training_goal', ['build_muscle'], es.fitness)).toBe(
+      'Construir músculo',
+    )
+    expect(valueLine('training_experience', ['some_practice'], es.fitness)).toBe(
+      'Tengo algo de práctica',
+    )
+    expect(valueLine('training_days_per_week', ['1'], es.fitness)).toBe('1 día')
+    expect(valueLine('training_days_per_week', ['4'], es.fitness)).toBe('4 días')
+    expect(valueLine('session_duration', ['45_to_60_min'], es.fitness)).toBe('Entre 45 y 60 min')
+    expect(valueLine('session_duration', ['up_to_30_min'], es.fitness)).toBe('Hasta 30 min')
+    expect(valueLine('training_place', ['gym'], es.fitness)).toBe('En el gimnasio')
+    expect(valueLine('training_place', ['multiple'], es.fitness)).toBe('En varios sitios')
   })
 
   test('T-SPC-UNIT-FP-04 a set reads as a list, in the order the body is drawn', () => {
-    expect(valueLine('focus_areas', ['legs', 'back'])).toBe('Espalda y piernas')
-    expect(valueLine('focus_areas', ['whole_body'])).toBe('Todo el cuerpo')
-    expect(valueLine('focus_areas', ['legs', 'chest', 'arms'])).toBe('Pecho, brazos y piernas')
-    expect(valueLine('available_equipment', ['dumbbell', 'bodyweight', 'bench'])).toBe(
+    expect(valueLine('focus_areas', ['legs', 'back'], es.fitness)).toBe('Espalda y piernas')
+    expect(valueLine('focus_areas', ['whole_body'], es.fitness)).toBe('Todo el cuerpo')
+    expect(valueLine('focus_areas', ['legs', 'chest', 'arms'], es.fitness)).toBe(
+      'Pecho, brazos y piernas',
+    )
+    expect(valueLine('available_equipment', ['dumbbell', 'bodyweight', 'bench'], es.fitness)).toBe(
       'Peso corporal, mancuernas y banco',
     )
   })
 
   test('T-SPC-UNIT-FP-05 a value this app does not know is left out rather than invented', () => {
-    expect(valueLine('primary_training_goal', ['fly'])).toBeUndefined()
-    expect(valueLine('focus_areas', ['legs', 'wings'])).toBe('Piernas')
+    expect(valueLine('primary_training_goal', ['fly'], es.fitness)).toBeUndefined()
+    expect(valueLine('focus_areas', ['legs', 'wings'], es.fitness)).toBe('Piernas')
   })
 })
 
@@ -102,6 +116,7 @@ describe('the sections of «Perfil fitness»', () => {
   test('T-SPC-UNIT-FP-06 lists every question in its section, answered or not', () => {
     const sections = fitnessSections(
       profile([entry({}), entry({ attribute_code: 'training_place', values: ['home'] })]),
+      es.fitness,
     )
 
     expect(sections.map((section) => section.title)).toEqual([
@@ -131,6 +146,7 @@ describe('the sections of «Perfil fitness»', () => {
   test('T-SPC-UNIT-FP-07 leaves the discipline out while there is only one (TECH-47)', () => {
     const sections = fitnessSections(
       profile([entry({ attribute_code: 'training_discipline', values: ['strength'] })]),
+      es.fitness,
     )
     const codes = sections.flatMap((section) => section.rows.map((row) => row.code))
 
@@ -147,10 +163,43 @@ describe('the sections of «Perfil fitness»', () => {
           selected_because: 'most_recent',
         }),
       ]),
+      es.fitness,
     )
     const place = sections[2]?.rows.find((row) => row.code === 'training_place')
 
     expect(place).toMatchObject({ value: 'En el gimnasio', provenance: 'Observado por tu coach' })
+  })
+})
+
+describe('«Perfil fitness» in English (TECH-44)', () => {
+  test('T-SPC-UNIT-451 values, lists and plurals read in English', () => {
+    expect(valueLine('focus_areas', ['legs', 'chest', 'arms'], en.fitness)).toBe(
+      'Chest, arms and legs',
+    )
+    expect(valueLine('available_equipment', ['dumbbell', 'bodyweight'], en.fitness)).toBe(
+      'Bodyweight and dumbbells',
+    )
+    expect(valueLine('training_experience', ['starting'], en.fitness)).toBe("I'm just starting")
+    expect(daysLine(1, en.fitness)).toBe('1 day')
+    expect(daysLine(5, en.fitness)).toBe('5 days')
+    expect(versionsLine(entry({ alternatives: [] }), en.fitness)).toBeUndefined()
+    expect(provenanceLine(entry({ provenance: 'device_observed' }), en.fitness)).toBe(
+      'Measured by a device',
+    )
+  })
+
+  test('T-SPC-UNIT-452 the sections and their rows are titled in English', () => {
+    const sections = fitnessSections(profile([entry({})]), en.fitness)
+    expect(sections.map((section) => section.title)).toEqual([
+      "What you're after",
+      'Your starting point',
+      'How you train',
+    ])
+    expect(sections[0]?.rows[0]).toMatchObject({
+      title: 'Goal',
+      value: 'Build muscle',
+      provenance: 'Declared by you',
+    })
   })
 })
 
@@ -160,8 +209,8 @@ describe('how the training week is chosen', () => {
     expect(stepDays(4, 1)).toBe(5)
     expect(stepDays(7, 1)).toBe(7)
     expect(stepDays(1, -1)).toBe(1)
-    expect(daysLine(1)).toBe('1 día')
-    expect(daysLine(6)).toBe('6 días')
+    expect(daysLine(1, es.fitness)).toBe('1 día')
+    expect(daysLine(6, es.fitness)).toBe('6 días')
   })
 
   test('T-SPC-UNIT-FP-10 home with little equipment is said, the gym never is', () => {
@@ -178,7 +227,8 @@ describe('«Identidad y acceso»', () => {
   test('T-SPC-UNIT-FP-11 the initials and the date the Fitness ID became active', () => {
     expect(identityInitials('Camila', 'Rojas Díaz')).toBe('CR')
     expect(identityInitials('', '')).toBe('')
-    expect(activeSince('2026-07-03T10:05:00.000Z')).toBe('3 jul 2026')
+    expect(activeSince('2026-07-03T10:05:00.000Z', es.common)).toBe('3 jul 2026')
+    expect(activeSince('2026-07-03T10:05:00.000Z', en.common)).toBe('Jul 3, 2026')
   })
 
   test('T-SPC-UNIT-FP-22 the Founding Member badge writes its number in three digits', () => {
@@ -232,22 +282,35 @@ describe('«Identidad y acceso»', () => {
       expires_at: '2026-11-10T10:30:00.000Z',
     })
 
-    expect(emailRow({ address, verified: true, pending: null })).toEqual({
+    expect(emailRow({ address, verified: true, pending: null }, es.identity.emailRow)).toEqual({
       state: 'verified',
       caption: 'También es con el que entras.',
       route: '/me/email',
     })
-    expect(emailRow({ address, verified: true, pending: pending('awaiting_code') })).toEqual({
+    expect(
+      emailRow(
+        { address, verified: true, pending: pending('awaiting_code') },
+        es.identity.emailRow,
+      ),
+    ).toEqual({
       state: 'awaiting_code',
       caption: 'Escribe el código que enviamos a camila.nueva@example.test',
       route: '/me/email-code',
     })
-    expect(emailRow({ address, verified: true, pending: pending('applying') })).toEqual({
+    expect(
+      emailRow({ address, verified: true, pending: pending('applying') }, es.identity.emailRow),
+    ).toEqual({
       state: 'applying',
       caption: 'Cambiando tu correo a camila.nueva@example.test…',
       route: undefined,
     })
-    expect(emailRow({ address, verified: false, pending: null }).state).toBe('unverified')
+    expect(emailRow({ address, verified: false, pending: null }, es.identity.emailRow).state).toBe(
+      'unverified',
+    )
+    expect(
+      emailRow({ address, verified: true, pending: pending('awaiting_code') }, en.identity.emailRow)
+        .caption,
+    ).toBe('Enter the code we sent to camila.nueva@example.test')
   })
 
   test('T-SPC-UNIT-FP-17 a new email is checked for its shape and against the current one', () => {
@@ -282,19 +345,23 @@ describe('«Identidad y acceso»', () => {
       expires_at: '2026-11-10T10:30:00.000Z',
     })
 
-    expect(replacedCodeNote(pending('awaiting_code'))).toBe(
+    expect(replacedCodeNote(pending('awaiting_code'), es.identity)).toBe(
       'Ya pediste un código para antonia@example.org. Si escribes otro correo, ese código deja de servir.',
     )
-    expect(replacedCodeNote(pending('applying'))).toBeUndefined()
-    expect(replacedCodeNote(null)).toBeUndefined()
+    expect(replacedCodeNote(pending('applying'), es.identity)).toBeUndefined()
+    expect(replacedCodeNote(null, es.identity)).toBeUndefined()
   })
 
   test('T-SPC-UNIT-FP-20 the steps show only what the app can know: applying, then done', () => {
-    expect(emailChangeSteps(false)).toEqual([
+    expect(emailChangeSteps(false, es.identity.emailSteps)).toEqual([
       { label: 'Código confirmado', state: 'done' },
       { label: 'Actualizando tu inicio de sesión', state: 'now' },
       { label: 'Cerrando tus otras sesiones', state: 'todo' },
     ])
-    expect(emailChangeSteps(true).map((step) => step.state)).toEqual(['done', 'done', 'done'])
+    expect(emailChangeSteps(true, es.identity.emailSteps).map((step) => step.state)).toEqual([
+      'done',
+      'done',
+      'done',
+    ])
   })
 })

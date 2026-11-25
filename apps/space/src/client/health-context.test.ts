@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import { ApiError } from './api-error'
 import {
   addDays,
@@ -19,6 +20,9 @@ import {
   type HealthClaim,
   type HealthDraft,
 } from './health-context'
+
+const es = textFor('es')
+const en = textFor('en')
 
 // A Wednesday in the afternoon, where the person is.
 const NOW = new Date(2026, 10, 11, 15, 30)
@@ -60,24 +64,27 @@ describe('the list of «Dolor y limitaciones» (PF-7, PF-7b)', () => {
   })
 
   test('T-SPC-UNIT-HEALTH-02 a row is named by its area, or by its type without one', () => {
-    expect(claimTitle(claim({}))).toBe('Rodilla')
-    expect(claimTitle(claim({ body_area: 'wrist_hand' }))).toBe('Muñeca y mano')
-    expect(claimTitle(claim({ body_area: null, context_type: 'limitation' }))).toBe('Limitación')
+    expect(claimTitle(claim({}), es.health)).toBe('Rodilla')
+    expect(claimTitle(claim({ body_area: 'wrist_hand' }), es.health)).toBe('Muñeca y mano')
+    expect(claimTitle(claim({ body_area: null, context_type: 'limitation' }), es.health)).toBe(
+      'Limitación',
+    )
   })
 
   test('T-SPC-UNIT-HEALTH-03 under it, since when and her words; or when it ended', () => {
-    expect(claimCaption(claim({}), NOW)).toBe(
+    expect(claimCaption(claim({}), NOW, es)).toBe(
       'Desde el 29 sep · La derecha. Me duele al bajar en sentadilla.',
     )
     expect(
       claimCaption(
         claim({ context_type: 'recovery', valid_to: new Date(2026, 9, 30).toISOString() }),
         NOW,
+        es,
       ),
     ).toBe('Recuperación · terminó el 30 oct')
-    expect(claimCaption(claim({ valid_from: new Date(2025, 2, 3).toISOString() }), NOW)).toMatch(
-      /^Desde el 3 mar 2025 · /,
-    )
+    expect(
+      claimCaption(claim({ valid_from: new Date(2025, 2, 3).toISOString() }), NOW, es),
+    ).toMatch(/^Desde el 3 mar 2025 · /)
   })
 })
 
@@ -96,9 +103,9 @@ describe('since when, as local days (PF-E19b, PF-E19e)', () => {
     expect([since[0], since.at(-1), since.length]).toEqual([-730, 0, 731])
     expect([until[0], until.at(-1)]).toEqual([1, 365])
     expect(daysBetween(addDays(NOW, -33), NOW)).toBe(33)
-    expect(relativeDayLine(-33)).toBe('Hace 33 días')
-    expect(relativeDayLine(0)).toBe('Hoy')
-    expect(relativeDayLine(12)).toBe('En 12 días')
+    expect(relativeDayLine(-33, es.health)).toBe('Hace 33 días')
+    expect(relativeDayLine(0, es.health)).toBe('Hoy')
+    expect(relativeDayLine(12, es.health)).toBe('En 12 días')
   })
 })
 
@@ -164,12 +171,12 @@ describe('the draft (PF-E19b, PF-E19d, PF-E21)', () => {
 
 describe('what a refusal says (PF-E20b, PF-E21)', () => {
   test('T-SPC-UNIT-HEALTH-10 a hold, a claim that is gone, no connection, anything else', () => {
-    expect(saveFailure(new ApiError('conflict'))).toMatch(/retención legal/)
-    expect(saveFailure(new ApiError('not-found'))).toBe(
+    expect(saveFailure(new ApiError('conflict'), es)).toMatch(/retención legal/)
+    expect(saveFailure(new ApiError('not-found'), es)).toBe(
       'Ese registro ya no está. Vuelve a tu lista.',
     )
-    expect(saveFailure(new ApiError('unavailable'))).toMatch(/No pudimos conectar/)
-    expect(saveFailure(new Error('boom'))).toBe('No pudimos guardarlo. Inténtalo otra vez.')
+    expect(saveFailure(new ApiError('unavailable'), es)).toMatch(/No pudimos conectar/)
+    expect(saveFailure(new Error('boom'), es)).toBe('No pudimos guardarlo. Inténtalo otra vez.')
   })
 
   test('T-SPC-UNIT-HEALTH-11 a deletion a hold keeps says until when; a deleted one says nothing', () => {
@@ -178,7 +185,7 @@ describe('what a refusal says (PF-E20b, PF-E21)', () => {
       disposition_case_id: '019f7000-0000-7000-8000-000000000901',
     }
 
-    expect(deletionNote({ ...base, status: 'deleted', hold: null }, NOW)).toBeUndefined()
+    expect(deletionNote({ ...base, status: 'deleted', hold: null }, NOW, es)).toBeUndefined()
     expect(
       deletionNote(
         {
@@ -187,12 +194,53 @@ describe('what a refusal says (PF-E20b, PF-E21)', () => {
           hold: { reason_code: 'judicial_order', valid_to: new Date(2027, 0, 31).toISOString() },
         },
         NOW,
+        es,
       ),
     ).toBe(
       'Una retención legal mantiene tus datos de salud hasta el 31 ene 2027. Lo eliminamos en cuanto termine.',
     )
-    expect(deletionNote({ ...base, status: 'pending', hold: null }, NOW)).toBe(
+    expect(deletionNote({ ...base, status: 'pending', hold: null }, NOW, es)).toBe(
       'Lo eliminamos en unos minutos.',
+    )
+  })
+})
+
+describe('«Dolor y limitaciones» in English (TECH-44)', () => {
+  test('T-SPC-UNIT-400 a row reads its area, its type and its dates in English', () => {
+    expect(claimTitle(claim({ body_area: 'wrist_hand' }), en.health)).toBe('Wrist and hand')
+    expect(claimTitle(claim({ body_area: null, context_type: 'recovery' }), en.health)).toBe(
+      'Recovery',
+    )
+    expect(claimCaption(claim({}), NOW, en)).toBe(
+      'Since Sep 29 · La derecha. Me duele al bajar en sentadilla.',
+    )
+    expect(
+      claimCaption(
+        claim({ context_type: 'recovery', valid_to: new Date(2025, 9, 30).toISOString() }),
+        NOW,
+        en,
+      ),
+    ).toBe('Recovery · ended Oct 30, 2025')
+  })
+
+  test('T-SPC-UNIT-401 relative days, refusals and a held deletion in English', () => {
+    expect(relativeDayLine(-1, en.health)).toBe('Yesterday')
+    expect(relativeDayLine(-33, en.health)).toBe('33 days ago')
+    expect(relativeDayLine(12, en.health)).toBe('In 12 days')
+    expect(saveFailure(new Error('boom'), en)).toBe("We couldn't save it. Please try again.")
+    expect(
+      deletionNote(
+        {
+          health_context_claim_id: '019f7000-0000-7000-8000-000000000501',
+          disposition_case_id: '019f7000-0000-7000-8000-000000000901',
+          status: 'suspended',
+          hold: { reason_code: 'judicial_order', valid_to: new Date(2027, 0, 31).toISOString() },
+        },
+        NOW,
+        en,
+      ),
+    ).toBe(
+      "A legal hold keeps your health data until Jan 31, 2027. We'll delete it as soon as it ends.",
     )
   })
 })

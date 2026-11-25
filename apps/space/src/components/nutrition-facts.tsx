@@ -48,7 +48,6 @@ import type { Food, Values } from '../client/capture'
 import {
   dailyReference,
   NUTRIENT_GROUP,
-  NUTRIENT_NAMES,
   nutrientFigure,
   UNIT_OF,
   type GoalTarget,
@@ -56,14 +55,11 @@ import {
 } from '../client/nutrition'
 import { macroColor } from './nutrition-ui'
 import { SheetChoice } from './sheet-choice'
+import { intlLocale, type Locale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
 
 // ———————————————————————————————————————— amount
 
-// Drawn as what they write, so the control fits beside the amount; read aloud as words.
-const MODES = [
-  { value: 'number', label: '1,5', accessibilityLabel: 'Número' },
-  { value: 'fraction', label: '½', accessibilityLabel: 'Fracción' },
-] as const
 const SHARES: readonly (readonly [number, string])[] = [
   [1 / 4, '¼'],
   [1 / 3, '⅓'],
@@ -91,14 +87,25 @@ export function AmountField({
   readonly onChange: (amount: number, unit: UnitChoice, mode: AmountMode) => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const words = useText().nutrition.facts
+  // Drawn as what they write, so the control fits beside the amount; read aloud as words.
+  const modes = [
+    {
+      value: 'number',
+      label: (1.5).toLocaleString(intlLocale(locale)),
+      accessibilityLabel: words.number,
+    },
+    { value: 'fraction', label: '½', accessibilityLabel: words.fraction },
+  ] as const
   const choices = unitChoices(food)
-  const [text, setText] = useState(formatAmount(amount, mode))
+  const [text, setText] = useState(formatAmount(amount, mode, locale))
   const [typing, setTyping] = useState(false)
   const [picking, setPicking] = useState(false)
   // What the person is typing is theirs until they leave the field.
   useEffect(() => {
-    if (!typing) setText(formatAmount(amount, mode))
-  }, [amount, mode, typing])
+    if (!typing) setText(formatAmount(amount, mode, locale))
+  }, [amount, mode, typing, locale])
 
   const pickUnit = (next: UnitChoice) => {
     setPicking(false)
@@ -109,9 +116,9 @@ export function AmountField({
     <View style={styles.amount}>
       <View style={styles.amountRow}>
         {/* Numbers only; a fraction comes from the shortcuts, as that keyboard has no slash. */}
-        <Labeled label="Cantidad" style={styles.amountInput}>
+        <Labeled label={words.amount} style={styles.amountInput}>
           <TextField
-            label="Cantidad"
+            label={words.amount}
             hideLabel
             value={text}
             onChangeText={(typed) => {
@@ -125,10 +132,10 @@ export function AmountField({
             placeholder="1"
           />
         </Labeled>
-        <Labeled label="Unidad" style={styles.grow}>
+        <Labeled label={words.unit} style={styles.grow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Unidad: ${unitName(unit)}. Cambiar`}
+            accessibilityLabel={words.unitLabel(unitName(unit))}
             onPress={() => {
               Keyboard.dismiss()
               setPicking(true)
@@ -154,10 +161,10 @@ export function AmountField({
             <FoundationIcon name="expand" size="sm" color={theme.color.icon.secondary} decorative />
           </Pressable>
         </Labeled>
-        <Labeled label="Formato" style={styles.modes}>
+        <Labeled label={words.format} style={styles.modes}>
           <SegmentedControl
-            accessibilityLabel="Escribir la cantidad como"
-            items={MODES}
+            accessibilityLabel={words.writeAs}
+            items={modes}
             value={mode}
             onChange={(next) => {
               if (isMode(next)) onChange(amount, unit, next)
@@ -172,12 +179,12 @@ export function AmountField({
             <Chip
               key={glyph}
               label={glyph}
-              accessibilityLabel={`Sumar ${glyph}`}
+              accessibilityLabel={words.plus(glyph)}
               selected={Math.abs(amount - Math.floor(amount) - share) < 0.02}
               onPress={() => {
                 const next = Math.floor(amount) + share
                 // The shortcut writes in the field too: what is typed is what is counted.
-                setText(formatAmount(next, mode))
+                setText(formatAmount(next, mode, locale))
                 onChange(next, unit, mode)
               }}
               grow
@@ -185,7 +192,7 @@ export function AmountField({
           ))}
         </View>
       ) : null}
-      <Sheet visible={picking} onDismiss={() => setPicking(false)} title="Unidad">
+      <Sheet visible={picking} onDismiss={() => setPicking(false)} title={words.unit}>
         <ScrollView style={styles.unitList} showsVerticalScrollIndicator={false}>
           {choices.map((choice) => (
             <SheetChoice
@@ -224,12 +231,7 @@ function Labeled({
 
 // ———————————————————————————————————————— cells
 
-const CELLS: readonly { readonly code: NutrientCode; readonly label: string }[] = [
-  { code: 'energy', label: 'Kcal' },
-  { code: 'protein', label: 'Proteínas (g)' },
-  { code: 'carbohydrates', label: 'Carbs (g)' },
-  { code: 'fat', label: 'Grasas (g)' },
-]
+const CELLS = ['energy', 'protein', 'carbohydrates', 'fat'] as const
 
 export function NutrientCells({
   shown,
@@ -242,13 +244,14 @@ export function NutrientCells({
   readonly estimated: boolean
   readonly onEdit: (code: NutrientCode, value: number) => void
 }) {
+  const words = useText().nutrition.facts
   return (
     <View style={styles.cells}>
-      {CELLS.map(({ code, label }) => (
+      {CELLS.map((code) => (
         <Cell
           key={code}
           code={code}
-          label={label}
+          label={words.cells[code]}
           value={shown[code]}
           mine={edited[code] !== undefined}
           estimated={estimated}
@@ -260,10 +263,13 @@ export function NutrientCells({
 }
 
 // Kilocalories in whole numbers; grams to a tenth.
-const cellText = (code: NutrientCode, value: number | undefined) =>
+const cellText = (code: NutrientCode, value: number | undefined, locale: Locale) =>
   value === undefined
     ? ''
-    : String(code === 'energy' ? Math.round(value) : Math.round(value * 10) / 10).replace('.', ',')
+    : (code === 'energy' ? Math.round(value) : Math.round(value * 10) / 10).toLocaleString(
+        intlLocale(locale),
+        { useGrouping: false },
+      )
 
 function Cell({
   code,
@@ -281,11 +287,13 @@ function Cell({
   readonly onEdit: (value: number) => void
 }) {
   const theme = useTheme()
-  const [text, setText] = useState(cellText(code, value))
+  const locale = useLocale()
+  const { nutrition: words } = useText()
+  const [text, setText] = useState(cellText(code, value, locale))
   const [typing, setTyping] = useState(false)
   useEffect(() => {
-    if (!typing) setText(cellText(code, value))
-  }, [code, value, typing])
+    if (!typing) setText(cellText(code, value, locale))
+  }, [code, value, typing, locale])
 
   return (
     <View
@@ -307,7 +315,7 @@ function Cell({
       />
       <View style={styles.cellValue}>
         <TextInput
-          accessibilityLabel={`${NUTRIENT_NAMES[code]}${mine ? ', editado por ti' : estimated ? ', estimado con IA' : ''}`}
+          accessibilityLabel={words.facts.cellLabel(words.nutrients[code], mine, estimated)}
           value={text}
           onChangeText={(typed) => {
             setText(typed)
@@ -339,7 +347,7 @@ function Cell({
           size="2xs"
           style={{ color: mine ? theme.color.status.warning : theme.color.text.accent }}
         >
-          {mine ? 'Tuyo' : 'IA'}
+          {mine ? words.facts.mine : words.facts.ai}
         </Text>
       ) : null}
     </View>
@@ -360,12 +368,6 @@ const LABEL: readonly { readonly code: NutrientCode; readonly nested: boolean }[
   { code: 'sugars', nested: true },
   { code: 'protein', nested: false },
 ]
-const FACT_NAMES: Partial<Record<NutrientCode, string>> = {
-  energy: 'Calorías',
-  fat: 'Grasas totales',
-  carbohydrates: 'Carbohidratos totales',
-  protein: 'Proteínas',
-}
 const MICROS = Object.keys(NUTRIENT_GROUP).filter(
   (code): code is NutrientCode => code in NUTRIENT_GROUP,
 )
@@ -381,6 +383,9 @@ export function NutritionFacts({
   readonly targets: readonly GoalTarget[]
   readonly estimated: boolean
 }) {
+  const { nutrition: words } = useText()
+  // The label's own names for the four it heads; the rest by their usual name.
+  const factNames: Partial<Record<NutrientCode, string>> = words.facts.names
   const vitamins = MICROS.filter(
     (code) => NUTRIENT_GROUP[code] === 'vitamin' && values[code] !== undefined,
   )
@@ -389,16 +394,16 @@ export function NutritionFacts({
   )
   const note = estimated ? (
     <Text role="body" size="xs" color="muted">
-      Valores estimados con IA
+      {words.facts.estimated}
     </Text>
   ) : null
 
   return (
     <View style={styles.facts}>
-      <Fold title="Información nutricional">
+      <Fold title={words.facts.title}>
         <View style={styles.factRow}>
           <Text role="body" size="sm" style={styles.grow}>
-            Porción
+            {words.facts.portion}
           </Text>
           <Text role="control" size="sm">
             {portion}
@@ -408,7 +413,7 @@ export function NutritionFacts({
           <FactRow
             key={code}
             code={code}
-            name={FACT_NAMES[code] ?? NUTRIENT_NAMES[code]}
+            name={factNames[code] ?? words.nutrients[code]}
             nested={nested}
             value={values[code]}
             reference={dailyReference(code, targets)}
@@ -416,22 +421,22 @@ export function NutritionFacts({
         ))}
         {note}
       </Fold>
-      <Fold title="Micronutrientes">
+      <Fold title={words.facts.micros}>
         {vitamins.length === 0 && minerals.length === 0 ? (
           <Text role="body" size="sm" color="muted">
-            Este alimento no trae vitaminas ni minerales.
+            {words.facts.noMicros}
           </Text>
         ) : null}
         {vitamins.length > 0 ? (
           <Text role="control" size="md">
-            Vitaminas
+            {words.facts.vitamins}
           </Text>
         ) : null}
         {vitamins.map((code) => (
           <FactRow
             key={code}
             code={code}
-            name={NUTRIENT_NAMES[code]}
+            name={words.nutrients[code]}
             nested={false}
             value={values[code]}
             reference={dailyReference(code, targets)}
@@ -439,14 +444,14 @@ export function NutritionFacts({
         ))}
         {minerals.length > 0 ? (
           <Text role="control" size="md">
-            Minerales
+            {words.facts.minerals}
           </Text>
         ) : null}
         {minerals.map((code) => (
           <FactRow
             key={code}
             code={code}
-            name={NUTRIENT_NAMES[code]}
+            name={words.nutrients[code]}
             nested={false}
             value={values[code]}
             reference={dailyReference(code, targets)}
@@ -505,13 +510,15 @@ function FactRow({
   readonly value: number | undefined
   readonly reference: number | null
 }) {
+  const locale = useLocale()
+  const words = useText().nutrition
   const theme = useTheme()
   const unit = UNIT_OF[code]
   const share = value !== undefined && reference ? value / reference : null
   const figure =
     reference === null || value === undefined
-      ? nutrientFigure(value, unit)
-      : `${nutrientFigure(value, unit).replace(/ \S+$/, '')} / ${nutrientFigure(reference, unit)}`
+      ? nutrientFigure(value, unit, locale)
+      : `${nutrientFigure(value, unit, locale).replace(/ \S+$/, '')} / ${nutrientFigure(reference, unit, locale)}`
   return (
     <View style={[styles.fact, nested && styles.nested]}>
       <View style={styles.factRow}>
@@ -537,7 +544,7 @@ function FactRow({
             />
           </View>
           <Text role="body" size="xs" color="muted" style={styles.percent}>
-            {`${String(Math.round(share * 100))} %`}
+            {words.percent(Math.round(share * 100))}
           </Text>
         </View>
       ) : null}

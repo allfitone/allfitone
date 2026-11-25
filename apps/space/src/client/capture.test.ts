@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { Locale } from '../i18n'
 import { unitChoices } from './amount'
 import {
   captureTotals,
@@ -119,9 +120,9 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
   })
 
   test('T-SPC-UNIT-226 an amount reads as the person would say it: in its measure, else in grams', () => {
-    expect(portionText(fromFood(avocado, 50))).toBe('¼ unidad')
-    expect(portionText(fromFood(avocado, 400))).toBe('2 unidades')
-    expect(portionText(fromFood(avocado, 75))).toBe('75 g')
+    expect(portionText(fromFood(avocado, 50), 'es')).toBe('¼ unidad')
+    expect(portionText(fromFood(avocado, 400), 'es')).toBe('2 unidades')
+    expect(portionText(fromFood(avocado, 75), 'es')).toBe('75 g')
   })
 
   test('T-SPC-UNIT-240 an amount typed in a unit sets the grams, and a new food keeps them', () => {
@@ -129,13 +130,32 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
     if (!cup) throw new Error('an avocado comes by the unit')
     const item = withAmount(fromFood(avocado), 1.5, cup, 'fraction')
     expect(item).toMatchObject({ grams: 300, amount: 1.5 })
-    expect(portionText(item)).toBe('1 ½ unidades')
-    expect(portionText(withAmount(item, 1.5, cup, 'number'))).toBe('1,5 unidades')
+    expect(portionText(item, 'es')).toBe('1 ½ unidades')
+    expect(portionText(withAmount(item, 1.5, cup, 'number'), 'es')).toBe('1,5 unidades')
+    expect(portionText(withAmount(item, 1.5, cup, 'number'), 'en')).toBe('1.5 unidades')
     expect(withFood(item, { ...avocado, id: 'other', portions: [] })).toMatchObject({
       grams: 300,
       amount: 300,
       unit: { label: 'g' },
     })
+  })
+
+  test('T-SPC-UNIT-673 the serving sent is the same in every language; only the screen reads it', () => {
+    const cup = unitChoices(avocado).find((one) => one.label === 'unidad')
+    if (!cup) throw new Error('an avocado comes by the unit')
+    const item = withAmount(fromFood(avocado), 1.5, cup, 'number')
+    const sent = (locale: Locale) => {
+      expect(portionText(item, locale)).toBe(locale === 'es' ? '1,5 unidades' : '1.5 unidades')
+      return mealFromCapture({
+        items: [item],
+        mealType: 'lunch',
+        occurredAt: '2026-10-04T12:30:00-05:00',
+        timezone: 'America/Bogota',
+        recognizedBy: null,
+      }).items[0]?.serving
+    }
+    expect(sent('es')).toBe('1,5 unidades')
+    expect(sent('en')).toBe(sent('es'))
   })
 
   test('T-SPC-UNIT-227 the meal sent says where each item came from, its grams and what it shows', () => {

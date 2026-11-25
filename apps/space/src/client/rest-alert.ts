@@ -13,7 +13,7 @@
 
 import { Platform } from 'react-native'
 
-import { restEndNotice } from './rest-lines'
+import { restEndNotice, type RestWords } from './rest-lines'
 
 type NotificationsModule = typeof import('expo-notifications')
 
@@ -26,7 +26,7 @@ let prepared: Promise<NotificationsModule | undefined> | undefined
  * Loaded on first use, not imported: a build made before the native module existed
  * throws while evaluating it, and that must cost the notice, not the whole app.
  */
-function ready(): Promise<NotificationsModule | undefined> {
+function ready(channel: string): Promise<NotificationsModule | undefined> {
   prepared ??= (async () => {
     const Notifications = await import('expo-notifications')
     // In the foreground the screen already says it, and a banner would say it twice.
@@ -40,7 +40,7 @@ function ready(): Promise<NotificationsModule | undefined> {
     })
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CHANNEL, {
-        name: 'Descanso',
+        name: channel,
         importance: Notifications.AndroidImportance.HIGH,
       })
     }
@@ -52,16 +52,20 @@ function ready(): Promise<NotificationsModule | undefined> {
   return prepared
 }
 
-/** Replaces whatever was scheduled with a notice when this rest ends. */
-export async function announceRestEnd(endsAt: number, movement: string): Promise<void> {
+/** Replaces whatever was scheduled with a notice when this rest ends, in the words given. */
+export async function announceRestEnd(
+  endsAt: number,
+  movement: string,
+  words: RestWords,
+): Promise<void> {
   await cancelRestEnd()
   const seconds = Math.round((endsAt - Date.now()) / 1000)
   if (seconds < 1) return
-  const Notifications = await ready()
+  const Notifications = await ready(words.channel)
   if (!Notifications) return
   try {
     scheduled = await Notifications.scheduleNotificationAsync({
-      content: { ...restEndNotice(movement, endsAt / 1000), sound: true },
+      content: { ...restEndNotice(movement, endsAt / 1000, words), sound: true },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds,
@@ -78,6 +82,7 @@ export async function cancelRestEnd(): Promise<void> {
   const identifier = scheduled
   scheduled = undefined
   if (!identifier) return
-  const Notifications = await ready()
+  // Only something already scheduled is cancelled, so the module is already prepared.
+  const Notifications = await prepared
   await Notifications?.cancelScheduledNotificationAsync(identifier).catch(() => undefined)
 }

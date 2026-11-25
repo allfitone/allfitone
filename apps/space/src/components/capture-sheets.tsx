@@ -32,13 +32,9 @@ import {
   type CaptureItem,
   type Food,
 } from '../client/capture'
-import {
-  MEAL_NAMES,
-  MEAL_TYPES,
-  type GoalTarget,
-  type MealType,
-  type NutrientCode,
-} from '../client/nutrition'
+import { MEAL_TYPES, type GoalTarget, type MealType, type NutrientCode } from '../client/nutrition'
+import { intlLocale, type Locale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
 import { AmountField, NutrientCells, NutritionFacts } from './nutrition-facts'
 import { CardGlow, FIGURE_TRACKING, foodIcon, macroColor, MEAL_ICON } from './nutrition-ui'
 
@@ -96,13 +92,15 @@ export function ItemEditor({
   readonly onChange: (item: CaptureItem) => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const text = useText().nutrition.editor
   const shown = shownValues(item)
   const edited = Object.keys(item.edited).length > 0
   const estimated = isEstimated(item)
   return (
     <>
       <ItemHero item={item} shown={shown} estimated={estimated} />
-      <Section title="¿Cuánto comiste?">
+      <Section title={text.howMuch}>
         <AmountField
           food={item.food}
           amount={item.amount}
@@ -112,7 +110,7 @@ export function ItemEditor({
           onChange={(amount, unit, mode) => onChange(withAmount(item, amount, unit, mode))}
         />
       </Section>
-      <Section title="Valores" hint="Toca un valor para corregirlo">
+      <Section title={text.values} hint={text.valuesHint}>
         <NutrientCells
           shown={shown}
           edited={item.edited}
@@ -131,7 +129,7 @@ export function ItemEditor({
             >
               <FoundationIcon name="history" size="xs" color={theme.color.icon.accent} decorative />
               <Text role="control" size="sm" color="accent">
-                Volver a lo calculado
+                {text.restore}
               </Text>
             </Pressable>
           </Animated.View>
@@ -139,7 +137,7 @@ export function ItemEditor({
       </Section>
       <NutritionFacts
         values={shown}
-        portion={portionWithGrams(item)}
+        portion={portionWithGrams(item, locale)}
         targets={targets}
         estimated={estimated}
       />
@@ -148,16 +146,14 @@ export function ItemEditor({
 }
 
 /** «1 vaso (240 g)», or just «35 g» when the unit is already the gram. */
-const portionWithGrams = (item: CaptureItem) =>
+const portionWithGrams = (item: CaptureItem, locale: Locale) =>
   item.unit.label === 'g'
-    ? portionText(item)
-    : `${portionText(item)} (${String(Math.round(item.grams))} g)`
+    ? portionText(item, locale)
+    : `${portionText(item, locale)} (${String(Math.round(item.grams))} g)`
 
-const MACRO_PARTS = [
-  { code: 'protein', name: 'proteína' },
-  { code: 'carbohydrates', name: 'carbos' },
-  { code: 'fat', name: 'grasa' },
-] as const
+const MACRO_PARTS = ['protein', 'carbohydrates', 'fat'] as const
+const tenth = (value: number, locale: Locale) =>
+  (Math.round(value * 10) / 10).toLocaleString(intlLocale(locale), { useGrouping: false })
 
 /**
  * The food at a glance, as the diary's energy card: its tile on the accent's glow, the
@@ -173,7 +169,9 @@ function ItemHero({
   readonly estimated: boolean
 }) {
   const theme = useTheme()
-  const grams = MACRO_PARTS.map(({ code }) => shown[code] ?? 0)
+  const locale = useLocale()
+  const text = useText().nutrition
+  const grams = MACRO_PARTS.map((code) => shown[code] ?? 0)
   const total = Math.max(
     1,
     grams.reduce((sum, value) => sum + value, 0),
@@ -198,15 +196,15 @@ function ItemHero({
             </Text>
           </View>
           <Text role="control" size="xs" color="accent">
-            {estimated ? 'Estimado con IA' : 'Calculado por Allfit'}
+            {estimated ? text.editor.estimated : text.editor.calculated}
           </Text>
         </View>
       </View>
       <Text role="body" size="sm" color="secondary">
-        {portionWithGrams(item)}
+        {portionWithGrams(item, locale)}
       </Text>
       <View style={styles.split}>
-        {MACRO_PARTS.map(({ code }, at) => (
+        {MACRO_PARTS.map((code, at) => (
           <View
             key={code}
             style={[
@@ -220,15 +218,12 @@ function ItemHero({
         ))}
       </View>
       <View style={styles.legend}>
-        {MACRO_PARTS.map(({ code, name }, at) => (
+        {MACRO_PARTS.map((code, at) => (
           <View key={code} style={styles.legendItem}>
             <View style={[styles.swatch, { backgroundColor: macroColor(theme, code) }]} />
-            <Text
-              role="control"
-              size="sm"
-            >{`${String(Math.round((grams[at] ?? 0) * 10) / 10).replace('.', ',')} g`}</Text>
+            <Text role="control" size="sm">{`${tenth(grams[at] ?? 0, locale)} g`}</Text>
             <Text role="body" size="sm" color="muted">
-              {name}
+              {text.macroLegend[code]}
             </Text>
           </View>
         ))}
@@ -266,14 +261,7 @@ function Section({
 
 // ———————————————————————————————————————— consent
 
-/** Each consent version is a text: the one that names where the photo goes (ADR-045). */
-export const CONSENT_TEXTS: Readonly<Record<string, string>> = {
-  '2026-10-04':
-    'Para reconocer los alimentos, la foto se envía a Google (Gemini) a través de Vercel, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit, y tú revisas todo antes de guardar.',
-  '2026-11-15':
-    'Para reconocer los alimentos, la foto se envía a Claude, un modelo de Anthropic que funciona en Amazon Web Services, en Estados Unidos, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit One, y tú revisas todo antes de guardar.',
-}
-
+// The consent texts, one per version, live in the dictionary (`nutrition.consent.texts`).
 export function ConsentSheet({
   visible,
   text,
@@ -288,8 +276,9 @@ export function ConsentSheet({
   readonly onDecline: () => void
 }) {
   const theme = useTheme()
+  const words = useText().nutrition.consent
   return (
-    <Sheet visible={visible} onDismiss={onDecline} title="Reconocer tu comida" hideTitle>
+    <Sheet visible={visible} onDismiss={onDecline} title={words.title} hideTitle>
       <View style={styles.sheet}>
         <View
           style={[
@@ -300,13 +289,13 @@ export function ConsentSheet({
           <FoundationIcon name="camera" size="md" color={theme.color.icon.accent} decorative />
         </View>
         <Text role="control" size="xl" align="center" accessibilityRole="header">
-          Reconocer tu comida
+          {words.title}
         </Text>
         <Text role="body" size="md" color="secondary" align="center">
           {text}
         </Text>
-        <Button label="Aceptar y reconocer" loading={busy} onPress={onAccept} />
-        <Button label="Ahora no" variant="ghost" disabled={busy} onPress={onDecline} />
+        <Button label={words.accept} loading={busy} onPress={onAccept} />
+        <Button label={words.decline} variant="ghost" disabled={busy} onPress={onDecline} />
       </View>
     </Sheet>
   )
@@ -330,6 +319,7 @@ export function MealMenu({
   readonly onDismiss: () => void
 }) {
   const theme = useTheme()
+  const text = useText().nutrition
   if (!visible) return null
   return (
     <Animated.View
@@ -338,7 +328,7 @@ export function MealMenu({
       style={[StyleSheet.absoluteFill, styles.menuLayer]}
     >
       <Pressable
-        accessibilityLabel="Cerrar el menú"
+        accessibilityLabel={text.menu.close}
         onPress={onDismiss}
         style={[
           StyleSheet.absoluteFill,
@@ -375,7 +365,7 @@ export function MealMenu({
               color={type === value ? 'primary' : 'secondary'}
               style={styles.grow}
             >
-              {MEAL_NAMES[type]}
+              {text.meals[type]}
             </Text>
             {type === value ? (
               <FoundationIcon name="check" size="sm" color={theme.color.icon.accent} decorative />
@@ -390,7 +380,7 @@ export function MealMenu({
         align="center"
         style={[styles.menuHint, { top: top + 260 }]}
       >
-        {`Allfit eligió «${MEAL_NAMES[suggested]}» por la hora. Si no es, eliges otra aquí.`}
+        {text.menu.hint(text.meals[suggested])}
       </Text>
     </Animated.View>
   )

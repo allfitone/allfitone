@@ -11,6 +11,7 @@
  * out of the screen so they can be tested.
  */
 
+import { textFor, type Locale } from '../i18n'
 import type { FormMode, FormTarget, GoalForm, GoalNutrient } from './nutrition'
 
 /** Atwater's factors: what a gram of each macro gives. Fibre and water give none here. */
@@ -65,12 +66,13 @@ export function macroShares(form: GoalForm): Readonly<Record<Macro, number | nul
 }
 
 /** What the field holding one end of a target is called. */
-export function modeCaption(mode: FormMode, end: 'low' | 'high'): string {
-  if (mode === 'range') return end === 'low' ? 'Desde' : 'Hasta'
-  if (mode === 'minimum') return 'Al menos'
-  if (mode === 'maximum') return 'Como máximo'
-  if (mode === 'exact') return 'Exactamente'
-  return 'Sin meta'
+export function modeCaption(mode: FormMode, end: 'low' | 'high', locale: Locale): string {
+  const text = textFor(locale).nutrition
+  if (mode === 'range') return end === 'low' ? text.captions.from : text.captions.to
+  if (mode === 'minimum') return text.captions.minimum
+  if (mode === 'maximum') return text.captions.maximum
+  if (mode === 'exact') return text.captions.exact
+  return text.noGoal
 }
 
 /** A target moved to another kind keeps what it can of its value. */

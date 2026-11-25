@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
+
 import {
   dayParts,
   historyPath,
@@ -15,6 +17,9 @@ import {
   weekTally,
   type HistoryItem,
 } from './history'
+
+const es = textFor('es').session
+const en = textFor('en').session
 
 const item = (overrides: Partial<HistoryItem>): HistoryItem => ({
   executed_session_id: '019e4000-0000-7000-8000-000000000201',
@@ -44,6 +49,7 @@ describe('the history, grouped by week (H-2, H-6)', () => {
         item({ executed_session_id: 'e', trained_on: '2026-08-02' }),
       ],
       '2026-08-26',
+      es,
     )
 
     expect(
@@ -58,16 +64,20 @@ describe('the history, grouped by week (H-2, H-6)', () => {
   })
 
   test('T-SPC-UNIT-177 a range inside one month says the month once', () => {
-    const [group] = weekGroups([item({ trained_on: '2026-08-19' })], '2026-09-30')
+    const [group] = weekGroups([item({ trained_on: '2026-08-19' })], '2026-09-30', es)
     expect(group?.label).toBe('17 – 23 AGO')
   })
 })
 
 describe('what a history row says', () => {
   test('T-SPC-UNIT-178 minutes, work sets and kilos, each only when there is one', () => {
-    expect(historyDetail(item({}))).toBe('61 min · 18 series · 6.240 kg')
-    expect(historyDetail(item({ total_volume_kg: null }))).toBe('61 min · 18 series')
-    expect(historyDetail(item({ work_sets: 1, total_volume_kg: null }))).toBe('61 min · 1 serie')
+    expect(historyDetail(item({}), 'es', 'kg', es)).toBe('61 min · 18 series · 6.240 kg')
+    expect(historyDetail(item({ total_volume_kg: null }), 'es', 'kg', es)).toBe(
+      '61 min · 18 series',
+    )
+    expect(historyDetail(item({ work_sets: 1, total_volume_kg: null }), 'es', 'kg', es)).toBe(
+      '61 min · 1 serie',
+    )
     expect(
       historyDetail(
         item({
@@ -77,34 +87,39 @@ describe('what a history row says', () => {
           work_sets: 9,
           total_volume_kg: null,
         }),
+        'es',
+        'kg',
+        es,
       ),
     ).toBe('Entreno libre · 35 min · 9 series')
   })
 
   test('T-SPC-UNIT-179 records are news, so they say so', () => {
-    expect(recordsLine(0)).toBeNull()
-    expect(recordsLine(1)).toBe('1 récord nuevo')
-    expect(recordsLine(2)).toBe('2 récords nuevos')
+    expect(recordsLine(0, es)).toBeNull()
+    expect(recordsLine(1, es)).toBe('1 récord nuevo')
+    expect(recordsLine(2, es)).toBe('2 récords nuevos')
   })
 
   test('T-SPC-UNIT-180 the day on the right, short weekday over the number', () => {
-    expect(dayParts('2026-08-26')).toEqual({ weekday: 'MIÉ', day: '26' })
+    expect(dayParts('2026-08-26', es)).toEqual({ weekday: 'MIÉ', day: '26' })
   })
 })
 
 describe('how a week and a month read', () => {
   test('T-SPC-UNIT-181 the plan done of the plan, and whatever else apart', () => {
     const week = { week_starts_on: '2026-09-28' }
-    expect(weekTally({ ...week, completed: 2, planned: 3, fulfilled: 2 })).toBe('2 de 3')
+    expect(weekTally({ ...week, completed: 2, planned: 3, fulfilled: 2 }, es)).toBe('2 de 3')
     // The same planned session done four times is one of the plan and three extra.
-    expect(weekTally({ ...week, completed: 4, planned: 4, fulfilled: 1 })).toBe('1 de 4 · +3 extra')
+    expect(weekTally({ ...week, completed: 4, planned: 4, fulfilled: 1 }, es)).toBe(
+      '1 de 4 · +3 extra',
+    )
     // Nothing planned is not «0 de 0»: it is just how many.
-    expect(weekTally({ ...week, completed: 2, planned: 0, fulfilled: 0 })).toBe('2 entrenos')
-    expect(weekTally({ ...week, completed: 1, planned: 0, fulfilled: 0 })).toBe('1 entreno')
+    expect(weekTally({ ...week, completed: 2, planned: 0, fulfilled: 0 }, es)).toBe('2 entrenos')
+    expect(weekTally({ ...week, completed: 1, planned: 0, fulfilled: 0 }, es)).toBe('1 entreno')
   })
 
   test('T-SPC-UNIT-182 a month by its name', () => {
-    expect(monthName('2026-08-01')).toBe('Agosto')
+    expect(monthName('2026-08-01', es)).toBe('Agosto')
   })
 })
 
@@ -172,9 +187,9 @@ describe('the month card', () => {
   })
 
   test('T-SPC-UNIT-186 the card counts days, the same thing its calendar marks', () => {
-    expect(daysTrainedUnit(1)).toBe('Día entrenado')
-    expect(daysTrainedUnit(4)).toBe('Días entrenados')
-    expect(daysTrainedUnit(0)).toBe('Días entrenados')
+    expect(daysTrainedUnit(1, es)).toBe('Día entrenado')
+    expect(daysTrainedUnit(4, es)).toBe('Días entrenados')
+    expect(daysTrainedUnit(0, es)).toBe('Días entrenados')
   })
 
   test('T-SPC-UNIT-185 the longest run of days in a row', () => {
@@ -193,12 +208,12 @@ describe('the month card', () => {
 
 describe('picking a day and a month', () => {
   test('T-SPC-UNIT-187 a picked day names itself the way the rows do', () => {
-    expect(dayLabel('2026-09-30')).toBe('MIÉ 30 SEP')
+    expect(dayLabel('2026-09-30', es)).toBe('MIÉ 30 SEP')
   })
 
   test('T-SPC-UNIT-188 a year as twelve months, only those trained in to be picked', () => {
     const available = ['2026-10-01', '2026-09-01', '2025-11-01']
-    const grid = monthGrid(2026, available, '2026-10-01')
+    const grid = monthGrid(2026, available, '2026-10-01', es)
 
     expect(grid.months).toHaveLength(12)
     expect(grid.months[8]).toEqual({
@@ -217,6 +232,33 @@ describe('picking a day and a month', () => {
     // The arrows stop where there is nothing left to see.
     expect(grid.previous).toBe(2025)
     expect(grid.next).toBeNull()
-    expect(monthGrid(2025, available, '2026-10-01').previous).toBeNull()
+    expect(monthGrid(2025, available, '2026-10-01', es).previous).toBeNull()
+  })
+})
+
+describe('the history in English and in pounds (TECH-44)', () => {
+  test('T-SPC-UNIT-644 weeks, days and tallies read in English', () => {
+    const groups = weekGroups(
+      [
+        item({ executed_session_id: 'a', trained_on: '2026-08-26' }),
+        item({ executed_session_id: 'e', trained_on: '2026-08-02' }),
+      ],
+      '2026-08-26',
+      en,
+    )
+    expect(groups.map((group) => group.label)).toEqual(['THIS WEEK', 'JUL 27 – AUG 2'])
+    expect(weekGroups([item({ trained_on: '2026-08-19' })], '2026-09-30', en)[0]?.label).toBe(
+      'AUG 17 – 23',
+    )
+    expect(dayLabel('2026-09-30', en)).toBe('WED, SEP 30')
+    expect(recordsLine(1, en)).toBe('1 new record')
+    expect(
+      weekTally({ week_starts_on: '2026-09-28', completed: 4, planned: 4, fulfilled: 1 }, en),
+    ).toBe('1 of 4 · +3 extra')
+  })
+
+  test('T-SPC-UNIT-645 a row reads its volume in her unit', () => {
+    expect(historyDetail(item({}), 'en', 'lb', en)).toBe('61 min · 18 sets · 13,757 lb')
+    expect(historyDetail(item({}), 'es', 'lb', es)).toBe('61 min · 18 series · 13.757 lb')
   })
 })

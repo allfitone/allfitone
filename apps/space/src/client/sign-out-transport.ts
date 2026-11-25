@@ -12,6 +12,8 @@
 
 import { readSession, clearSession } from './session'
 import { authorizedGet, revokeSpaceSession } from './index'
+import { forgetPreferences } from './preferences-transport'
+import { spacePush } from './push-transport'
 import { createSignOutFlow, type SignOutFlow } from './sign-out'
 import type { WeekPlan } from './programs'
 
@@ -23,7 +25,12 @@ export function createSpaceSignOutFlow(): SignOutFlow {
         await revokeSpaceSession(stored?.accessToken)
       },
     },
-    clearSession,
+    // The next person on this phone starts from the phone's language and kilos.
+    clearSession: async () => {
+      await clearSession()
+      forgetPreferences()
+    },
+    retirePushDevice: () => spacePush.retire(),
     openExecutionId: async () => {
       const stored = await readSession()
       if (!stored) return null

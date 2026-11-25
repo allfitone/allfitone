@@ -33,7 +33,8 @@ import { StyleSheet, View } from 'react-native'
 
 import { posterCaption, programCaption, type ProgramSummary } from '../client/program-catalogue'
 import { CARD_TALL } from './home-card'
-import { ZONE_LABEL } from './program-card'
+import { useText } from '../i18n/use-text'
+import { zoneLabel } from './program-card'
 
 const PAD = 16
 
@@ -58,6 +59,8 @@ export function ProgramPoster({
   readonly onPress: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.catalogue
   const zones = program.emphases.slice(0, ZONES_SHOWN)
   const rest = program.emphases.length - zones.length
 
@@ -102,7 +105,7 @@ export function ProgramPoster({
 
       {suggested ? (
         <View style={styles.chip}>
-          <Badge label="Sugerido para ti" tone="accent" variant="quiet" />
+          <Badge label={words.suggested} tone="accent" variant="quiet" />
         </View>
       ) : null}
 
@@ -121,7 +124,7 @@ export function ProgramPoster({
             tarjeta ya lo gasta la chapa de sugerido. */}
         <View style={styles.zones}>
           {zones.map((zone) => (
-            <Badge key={zone} label={ZONE_LABEL[zone] ?? zone} variant="quiet" />
+            <Badge key={zone} label={zoneLabel(zone, text)} variant="quiet" />
           ))}
           {rest > 0 ? (
             <Text role="control" size="2xs" color="muted">
@@ -133,7 +136,7 @@ export function ProgramPoster({
           {program.title}
         </Text>
         <Text role="body" size="sm" color="secondary">
-          {posterCaption(program)}
+          {posterCaption(program, words)}
         </Text>
       </View>
 
@@ -142,12 +145,12 @@ export function ProgramPoster({
             pantalla: en el carrusel de Hoy se ve una tarjeta a la vez, pero aquí van
             apiladas y veinticuatro botones de acento no señalan ninguno. */}
         <Button
-          label="Ver programa"
+          label={words.see}
           icon="checklist"
           variant={suggested ? 'primary' : 'secondary'}
           disabled={disabled}
-          accessibilityLabel={`Ver ${program.title}. ${programCaption(program)}${
-            suggested ? '. Sugerido para ti' : ''
+          accessibilityLabel={`${words.seeNamed(program.title)}. ${programCaption(program, words)}${
+            suggested ? `. ${words.suggested}` : ''
           }`}
           onPress={onPress}
         />

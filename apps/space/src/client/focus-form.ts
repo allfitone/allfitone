@@ -28,6 +28,7 @@
  * highlights nothing but reacts to a tap reads as broken.
  */
 
+import type { Dictionary } from '../i18n'
 import type { FocusArea } from './onboarding'
 
 /** The library's own part names, as verified against its `Slug` union. */
@@ -66,36 +67,31 @@ export type FocusChoice = FocusZone | typeof WHOLE_BODY
 
 interface ZoneDefinition {
   readonly zone: FocusZone
-  readonly name: string
   readonly front: readonly BodySlug[]
   readonly back: readonly BodySlug[]
 }
 
 /**
- * Zone to muscles, in the order the chips are listed. "Abdomen" rather than "core":
- * core is the gym's word and covers the lower back too, which belongs to the back
- * zone here, so it would name something wider than what it lights.
+ * Zone to muscles, in the order the chips are listed. The names live in the dictionary,
+ * `fitness.focus.zones`: «Abdomen» rather than "core", which also covers the lower back.
  */
 export const FOCUS_ZONES: readonly ZoneDefinition[] = [
-  { zone: 'chest', name: 'Pecho', front: ['chest'], back: [] },
+  { zone: 'chest', front: ['chest'], back: [] },
   {
     zone: 'back',
-    name: 'Espalda',
     front: ['trapezius'],
     back: ['trapezius', 'upper-back', 'lower-back'],
   },
-  { zone: 'shoulders', name: 'Hombros', front: ['deltoids'], back: ['deltoids'] },
+  { zone: 'shoulders', front: ['deltoids'], back: ['deltoids'] },
   {
     zone: 'arms',
-    name: 'Brazos',
     front: ['biceps', 'triceps', 'forearm'],
     back: ['triceps', 'forearm'],
   },
-  { zone: 'abs', name: 'Abdomen', front: ['abs', 'obliques'], back: [] },
-  { zone: 'glutes', name: 'Glúteos', front: [], back: ['gluteal'] },
+  { zone: 'abs', front: ['abs', 'obliques'], back: [] },
+  { zone: 'glutes', front: [], back: ['gluteal'] },
   {
     zone: 'legs',
-    name: 'Piernas',
     front: ['quadriceps', 'adductors', 'tibialis', 'calves'],
     back: ['hamstring', 'adductors', 'calves'],
   },
@@ -223,20 +219,22 @@ export function canSubmitFocus({
   return isAnswered(selection)
 }
 
+type FocusText = Dictionary['fitness']['focus']
+
 /** What the screen says about the current selection, in the person's own terms. */
-export function focusSummary(selection: FocusSelection): string {
-  if (selection.whole) return 'Todo el cuerpo'
-  if (selection.zones.length === 0) return 'Ninguna'
-  return `${selection.zones.length} de ${FOCUS_ZONES.length}`
+export function focusSummary(selection: FocusSelection, text: FocusText): string {
+  if (selection.whole) return text.wholeBody
+  if (selection.zones.length === 0) return text.none
+  return text.count(selection.zones.length, FOCUS_ZONES.length)
 }
 
 /**
  * No line for the empty state any more: it used to say that continuing without
  * choosing was fine, and it no longer is.
  */
-export function focusHint(selection: FocusSelection): string | undefined {
-  if (selection.whole) return 'Sin énfasis: lo reparte tu objetivo principal.'
-  if (selection.zones.length > 0) return 'Ahí cargaremos más volumen, sin dejar el resto fuera.'
+export function focusHint(selection: FocusSelection, text: FocusText): string | undefined {
+  if (selection.whole) return text.hintWhole
+  if (selection.zones.length > 0) return text.hintZones
   return undefined
 }
 

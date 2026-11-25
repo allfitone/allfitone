@@ -37,6 +37,7 @@ import { scheduleOnRN } from 'react-native-worklets'
 
 import { cssDuration, PRESS_DURATION, PRESS_SCALE, SPRING } from '../client/motion'
 import { copyInset, pairLayout, singleHeight } from '../client/goal-form'
+import { useText } from '../i18n/use-text'
 
 import halo from '../../assets/images/goal/goal-halo.webp'
 
@@ -170,6 +171,7 @@ export function GoalStage({
   readonly reduceMotion: boolean
 }) {
   const theme = useTheme()
+  const waitingLine = useText().fitness.goalStageWaiting
 
   /**
    * Lo que el escenario está dibujando, que va un paso por detrás de lo elegido.
@@ -300,7 +302,7 @@ export function GoalStage({
         <View style={styles.stageCopy}>
           <Animated.View style={[waiting, { marginRight: waitingInset }]} pointerEvents="none">
             <Text role="body" size="md" color="secondary">
-              Elige uno abajo y verás aquí a dónde te lleva.
+              {waitingLine}
             </Text>
           </Animated.View>
           <Animated.View

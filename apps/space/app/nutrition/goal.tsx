@@ -43,8 +43,6 @@ import {
 } from '../../src/client/goal-energy'
 import {
   formFromGoal,
-  NUTRIENT_NAMES,
-  NUTRIENT_SHORT_NAMES,
   targetsFromForm,
   type FormMode,
   type FormTarget,
@@ -56,15 +54,9 @@ import { GoalEnergyFigure } from '../../src/components/goal-energy-figure'
 import { GoalSlider } from '../../src/components/goal-slider'
 import { GoalValueField } from '../../src/components/goal-value-field'
 import { CardGlow, FIGURE_TRACKING, foodIcon } from '../../src/components/nutrition-ui'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { intlLocale, type Locale } from '../../src/i18n'
 
-const PUBLISH_FAILED = 'No pudimos publicar tu meta. Inténtalo otra vez.'
-const MODE_NAMES: Readonly<Record<FormMode, string>> = {
-  exact: 'Exacta',
-  minimum: 'Mínimo',
-  maximum: 'Máximo',
-  range: 'Rango',
-  none: 'Sin meta',
-}
 const MODES: readonly FormMode[] = ['minimum', 'exact', 'range', 'maximum', 'none']
 /** The colour each nutrient wears, as the design system's tones. */
 const NUTRIENT_TONES: Record<GoalNutrient, BadgeTone> = {
@@ -89,15 +81,20 @@ const DEFAULT_FORM: GoalForm = {
 }
 
 const unitOf = (code: GoalNutrient) => (code === 'energy' ? 'kcal' : code === 'water' ? 'ml' : 'g')
-const number = (value: number | null) => Math.round(value ?? 0).toLocaleString('es-CO')
+const number = (value: number | null, locale: Locale) =>
+  Math.round(value ?? 0).toLocaleString(intlLocale(locale))
 
-function valueText(target: FormTarget): string {
+function valueText(target: FormTarget, locale: Locale): string {
   if (target.mode === 'none') return '—'
-  if (target.mode === 'range') return `${number(target.low)}–${number(target.high)}`
-  return number(target.mode === 'maximum' ? target.high : target.low)
+  if (target.mode === 'range') return `${number(target.low, locale)}–${number(target.high, locale)}`
+  return number(target.mode === 'maximum' ? target.high : target.low, locale)
 }
 
 export default function GoalScreen() {
+  const locale = useLocale()
+  const text = useText().nutrition
+  const words = text.goalForm
+  const { modeNames, nutrients: names, nutrientsShort: shortNames } = text
   const router = useRouter()
   const theme = useTheme()
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
@@ -143,14 +140,14 @@ export default function GoalScreen() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         router.back()
       })
-      .catch(() => setFailure(PUBLISH_FAILED))
+      .catch(() => setFailure(words.publishFailed))
       .finally(() => setBusy(false))
   }
 
   const target = form[selected]
   const kcal = macroKcal(selected, target)
   const fieldFor = (end: 'low' | 'high', autoFocus = false) => {
-    const caption = modeCaption(target.mode, end)
+    const caption = modeCaption(target.mode, end, locale)
     return (
       <View style={styles.fieldBlock} key={end}>
         <Text role="control" size="sm" color="secondary">
@@ -162,8 +159,8 @@ export default function GoalScreen() {
           unit={unitOf(selected)}
           step={START[selected].step}
           max={START[selected].max}
-          accessibilityLabel={`${NUTRIENT_NAMES[selected]}, ${caption.toLowerCase()}`}
-          keyboardTitle={`${NUTRIENT_SHORT_NAMES[selected]} · ${caption.toLowerCase()}`}
+          accessibilityLabel={`${names[selected]}, ${caption.toLowerCase()}`}
+          keyboardTitle={`${shortNames[selected]} · ${caption.toLowerCase()}`}
           autoFocus={autoFocus}
           onDone={() =>
             setForm((current) => ({ ...current, [selected]: orderedRange(current[selected]) }))
@@ -176,13 +173,9 @@ export default function GoalScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton
-          icon="close"
-          accessibilityLabel="Cerrar sin publicar"
-          onPress={() => router.back()}
-        />
+        <IconButton icon="close" accessibilityLabel={words.close} onPress={() => router.back()} />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          Mi meta
+          {words.title}
         </Text>
       </View>
 
@@ -205,14 +198,14 @@ export default function GoalScreen() {
           <CardGlow />
           <View style={styles.energyHead}>
             <Text role="control" size="sm" color="secondary" style={styles.grow}>
-              Energía diaria
+              {words.dailyEnergy}
             </Text>
             <Tabs
               labelStyle="control"
-              accessibilityLabel="Energía exacta o en rango"
+              accessibilityLabel={words.energyKind}
               items={[
-                { value: 'exact', label: 'Exacta' },
-                { value: 'range', label: 'Rango' },
+                { value: 'exact', label: modeNames.exact },
+                { value: 'range', label: modeNames.range },
               ]}
               value={energy.mode === 'range' ? 'range' : 'exact'}
               onChange={(mode) => set('energy', withMode('energy', energy, mode))}
@@ -224,8 +217,10 @@ export default function GoalScreen() {
               value={low}
               onChange={(value) => set('energy', { ...energy, low: value })}
               max={START.energy.max}
-              label={energy.mode === 'range' ? 'Desde' : 'Exacta'}
-              keyboardTitle={energy.mode === 'range' ? 'Energía · desde' : 'Energía · exacta'}
+              label={energy.mode === 'range' ? text.captions.from : modeNames.exact}
+              keyboardTitle={
+                energy.mode === 'range' ? words.energyFromTitle : words.energyExactTitle
+              }
               onDone={settleEnergy}
             />
             {energy.mode === 'range' ? (
@@ -237,8 +232,8 @@ export default function GoalScreen() {
                   value={high}
                   onChange={(value) => set('energy', { ...energy, high: value })}
                   max={START.energy.max}
-                  label="Hasta"
-                  keyboardTitle="Energía · hasta"
+                  label={text.captions.to}
+                  keyboardTitle={words.energyToTitle}
                   onDone={settleEnergy}
                 />
               </>
@@ -252,8 +247,8 @@ export default function GoalScreen() {
             high={energy.mode === 'range' ? high : null}
             step={START.energy.step}
             unit="kcal"
-            lowLabel={energy.mode === 'range' ? 'Energía, desde' : 'Energía diaria'}
-            highLabel="Energía, hasta"
+            lowLabel={energy.mode === 'range' ? words.energyFromLabel : words.dailyEnergy}
+            highLabel={words.energyToLabel}
             onChange={(nextLow, nextHigh) =>
               set(
                 'energy',
@@ -266,7 +261,7 @@ export default function GoalScreen() {
         </View>
 
         <Text role="control" size="lg">
-          Macronutrientes
+          {words.macros}
         </Text>
         <View style={styles.macros}>
           {MACROS.map((code) => {
@@ -284,19 +279,22 @@ export default function GoalScreen() {
                       {share === null ? '—' : `${String(Math.round(share * 100))}%`}
                     </Text>
                     <Text role="body" size="2xs" color="muted">
-                      De kcal
+                      {words.ofKcal}
                     </Text>
                   </ProgressRing>
                 }
-                value={valueText(form[code])}
+                value={valueText(form[code], locale)}
                 {...(on ? { unit: 'g' } : {})}
-                label={NUTRIENT_SHORT_NAMES[code]}
-                mode={MODE_NAMES[form[code].mode]}
+                label={shortNames[code]}
+                mode={modeNames[form[code].mode]}
                 selected={picked}
                 onPress={() => setSelected(code)}
-                accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
-                  on ? `${MODE_NAMES[form[code].mode]}, ${valueText(form[code])} g` : 'sin meta'
-                }. Editar`}
+                accessibilityLabel={words.edit(
+                  names[code],
+                  on
+                    ? `${modeNames[form[code].mode]}, ${valueText(form[code], locale)} g`
+                    : words.noGoal,
+                )}
                 style={styles.grow}
               />
             )
@@ -314,24 +312,24 @@ export default function GoalScreen() {
         >
           <View style={styles.editorHead}>
             <Text role="control" size="lg" style={styles.grow}>
-              {NUTRIENT_NAMES[selected]}
+              {names[selected]}
             </Text>
             {kcal !== null ? (
               <Text role="control" size="sm" color="muted">
-                {`${number(kcal)} kcal`}
+                {`${number(kcal, locale)} kcal`}
               </Text>
             ) : null}
           </View>
           <Tabs
             labelStyle="control"
-            accessibilityLabel={`Tipo de meta para ${NUTRIENT_NAMES[selected]}`}
-            items={MODES.map((mode) => ({ value: mode, label: MODE_NAMES[mode] }))}
+            accessibilityLabel={words.kind(names[selected])}
+            items={MODES.map((mode) => ({ value: mode, label: modeNames[mode] }))}
             value={target.mode}
             onChange={(mode) => set(selected, withMode(selected, target, mode))}
           />
           {target.mode === 'none' ? (
             <Text role="body" size="sm" color="muted">
-              {`${NUTRIENT_NAMES[selected]} queda fuera de tu meta.`}
+              {words.leftOut(names[selected])}
             </Text>
           ) : target.mode === 'range' ? (
             [fieldFor('low'), fieldFor('high')]
@@ -350,14 +348,15 @@ export default function GoalScreen() {
                 layout="inline"
                 tone={NUTRIENT_TONES[code]}
                 icon={icon}
-                label={NUTRIENT_NAMES[code]}
-                value={on ? `${valueText(form[code])} ${unitOf(code)}` : 'Sin meta'}
+                label={names[code]}
+                value={on ? `${valueText(form[code], locale)} ${unitOf(code)}` : text.noGoal}
                 empty={!on}
                 selected={picked}
                 onPress={() => setSelected(code)}
-                accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
-                  on ? `${valueText(form[code])} ${unitOf(code)}` : 'sin meta'
-                }. Editar`}
+                accessibilityLabel={words.edit(
+                  names[code],
+                  on ? `${valueText(form[code], locale)} ${unitOf(code)}` : words.noGoal,
+                )}
                 style={styles.grow}
               />
             )
@@ -370,11 +369,11 @@ export default function GoalScreen() {
       <View style={styles.foot}>
         {hasGoal ? (
           <Text role="body" size="xs" color="muted" align="center">
-            Reemplaza tu meta actual, que queda en el historial.
+            {words.replaces}
           </Text>
         ) : null}
         <Button
-          label="Publicar mi meta"
+          label={words.publish}
           loading={busy}
           disabled={targetsFromForm(form).length === 0 || energyOf(energy) === null}
           onPress={publish}

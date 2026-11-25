@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import type { HistoryItem } from './history'
 import type { Period, PeriodComparison, PeriodMovement } from './progress'
 import {
@@ -10,6 +11,9 @@ import {
   stickersFor,
   type ShareFacts,
 } from './progress-share'
+
+const es = textFor('es')
+const en = textFor('en')
 
 const period = (starts_on: string, overrides: Partial<Period> = {}): Period => ({
   starts_on,
@@ -99,13 +103,12 @@ const month: PeriodComparison = {
 }
 
 describe('the facts of a week', () => {
-  const facts = shareFacts(week, 5)
+  const facts = shareFacts(week, 5, es)
 
   test('T-SPC-UNIT-PSH-01 names the week and says it against the one before', () => {
     expect(facts).toMatchObject({
       kicker: 'MI SEMANA · 19 – 25 OCT',
       label: '19 – 25 OCT',
-      noun: 'semana',
       against: 'LA SEMANA PASADA',
       sessions: 4,
       volumeKg: 12480,
@@ -146,14 +149,13 @@ describe('the facts of a week', () => {
 })
 
 describe('the facts of a month', () => {
-  const facts = shareFacts(month, 1)
+  const facts = shareFacts(month, 1, es)
 
   test('T-SPC-UNIT-PSH-05 names the month and compares it with the one before by name', () => {
     expect(facts).toMatchObject({
       kicker: 'MI MES · SEPTIEMBRE 2026',
       label: 'SEPTIEMBRE 2026',
       monthName: 'SEPTIEMBRE',
-      noun: 'mes',
       against: 'AGOSTO',
       change: 12,
       lift: null,
@@ -182,7 +184,7 @@ describe('the facts of a month', () => {
 
 describe('which cards and stickers appear', () => {
   test('T-SPC-UNIT-PSH-08 a week offers its own cards, the receipt only with its sessions', () => {
-    expect(cardsFor(shareFacts(week, 5), true)).toEqual([
+    expect(cardsFor(shareFacts(week, 5, es), true)).toEqual([
       'load',
       'receipt',
       'versus',
@@ -192,17 +194,17 @@ describe('which cards and stickers appear', () => {
       'dots',
       'muscles',
     ])
-    expect(cardsFor(shareFacts(week, 5), false)).not.toContain('receipt')
+    expect(cardsFor(shareFacts(week, 5, es), false)).not.toContain('receipt')
   })
 
   test('T-SPC-UNIT-PSH-09 a card with nothing true to say does not appear', () => {
-    const empty: ShareFacts = shareFacts(month, 1)
+    const empty: ShareFacts = shareFacts(month, 1, es)
     expect(cardsFor(empty, false)).toEqual(['load', 'calendar', 'versus', 'total', 'dots'])
     expect(stickersFor(empty)).toEqual(['figures', 'change', 'calendar', 'ring', 'strip'])
   })
 
   test('T-SPC-UNIT-PSH-10 a week offers its stickers, the streak once it is one', () => {
-    expect(stickersFor(shareFacts(week, 5))).toEqual([
+    expect(stickersFor(shareFacts(week, 5, es))).toEqual([
       'figures',
       'change',
       'bars',
@@ -246,6 +248,7 @@ describe('words and the receipt', () => {
         item('2026-10-26', 'Fuera', 1000, 40),
       ],
       '2026-10-19',
+      es.progress.poster,
     )
     expect(rows).toEqual([
       { day: 'LUN 19', title: 'TORSO A', kg: 3600, minutes: 52 },
@@ -256,5 +259,38 @@ describe('words and the receipt', () => {
       { day: 'SÁB 24', title: null, kg: null, minutes: 0 },
       { day: 'DOM 25', title: null, kg: null, minutes: 0 },
     ])
+  })
+})
+
+describe('the facts in English', () => {
+  test('T-SPC-UNIT-PSH-13 a week and a month name themselves in English', () => {
+    const week5 = shareFacts(week, 5, en)
+    expect(week5).toMatchObject({
+      kicker: 'MY WEEK · OCT 19 – 25',
+      label: 'OCT 19 – 25',
+      against: 'LAST WEEK',
+      duration: '3H 40',
+    })
+    expect(week5.bars.map((bar) => bar.label)).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+    expect(week5.lift?.labels.at(-1)).toBe('OCT 19')
+    expect(shareFacts(month, 1, en)).toMatchObject({
+      kicker: 'MY MONTH · SEPTEMBER 2026',
+      monthName: 'SEPTEMBER',
+      against: 'AUGUST',
+    })
+  })
+
+  test('T-SPC-UNIT-PSH-14 the receipt reads its days in English and keeps the session titles', () => {
+    const rows = receiptRows([], '2026-10-19', en.progress.poster)
+    expect(rows.map((row) => row.day)).toEqual([
+      'MON 19',
+      'TUE 20',
+      'WED 21',
+      'THU 22',
+      'FRI 23',
+      'SAT 24',
+      'SUN 25',
+    ])
+    expect(en.progress.poster.manySessions(2)).toBe('2 SESSIONS')
   })
 })

@@ -58,9 +58,7 @@ import { exerciseFilter, rememberExerciseFilter } from '../../../src/client/exer
 import { INERT_SLUGS, type BodySide, type BodySlug } from '../../../src/client/focus-form'
 import { BodyFigure } from '../../../src/components/body-figure'
 import { ScreenHeader } from '../../../src/components/screen-header'
-
-const ONLY_IN_LIST =
-  'Cardio y Cuerpo completo no son músculos y no están en la figura: van solo aquí.'
+import { useText } from '../../../src/i18n/use-text'
 
 /**
  * Two figures side by side, as large as the narrowest phone allows.
@@ -73,6 +71,7 @@ const FIGURE_SCALE = 0.8
 
 export default function MuscleFilter() {
   const router = useRouter()
+  const words = useText().training.exercises
   const flow = useMemo(() => createSpaceContentFlow(), [])
 
   const [filter, setFilter] = useState<ExerciseFilter>(() => exerciseFilter())
@@ -123,18 +122,18 @@ export default function MuscleFilter() {
           somebody has to scroll back up to find. */}
       <View style={styles.head}>
         <ScreenHeader
-          title="Musculatura"
+          title={words.muscles}
           subtitle={
             filter.muscles.length === 0
-              ? 'Toca en la figura o en la lista'
-              : `${filter.muscles.length} ${filter.muscles.length === 1 ? 'músculo' : 'músculos'}`
+              ? words.musclesHint
+              : words.muscleCount(filter.muscles.length)
           }
           onClose={() => router.back()}
           onConfirm={
             filter.muscles.length === 0 ? undefined : () => change(clearFacet(filter, 'muscle'))
           }
-          confirmLabel="Quitar"
-          confirmText="Quitar"
+          confirmLabel={words.remove}
+          confirmText={words.remove}
         />
       </View>
 
@@ -154,13 +153,13 @@ export default function MuscleFilter() {
                 onPressSlug={press}
               />
               <Text role="body" size="xs" color="muted" style={styles.faceName}>
-                {side === 'front' ? 'FRENTE' : 'ESPALDA'}
+                {side === 'front' ? words.front : words.back}
               </Text>
             </View>
           ))}
         </View>
 
-        {muscleBlocks(muscles).map((block) => (
+        {muscleBlocks(muscles, words).map((block) => (
           <View key={block.region} style={styles.block}>
             <Text role="eyebrow" size="2xs" color="muted">
               {block.title}
@@ -179,12 +178,12 @@ export default function MuscleFilter() {
         ))}
 
         <Text role="body" size="xs" color="muted">
-          {ONLY_IN_LIST}
+          {words.onlyInList}
         </Text>
       </ScrollView>
 
       <Button
-        label={resultLabel(left.length)}
+        label={resultLabel(left.length, words)}
         disabled={left.length === 0}
         onPress={() => router.back()}
       />

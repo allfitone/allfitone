@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import type { Execution, FinishedExecution, FinishedSet } from './execution'
 import {
   annulConsequences,
@@ -23,6 +24,8 @@ import {
 import { withExtraSet, withoutSet, withTick } from './session-form'
 
 const ZONE = 'America/Bogota'
+const es = textFor('es').session
+const en = textFor('en').session
 
 const set = (overrides: Partial<FinishedSet>): FinishedSet => ({
   set_order: 1,
@@ -80,40 +83,40 @@ const detail: FinishedExecution = {
 
 describe('what the detail of a finished session says (FIN-18)', () => {
   test('T-SPC-UNIT-192 a set is its load and its reps, as much of it as there is', () => {
-    expect(setLine(set({}))).toBe('70 kg × 8')
-    expect(setLine(set({ load_value: 7.5 }))).toBe('7,5 kg × 8')
-    expect(setLine(set({ load_value: null, achieved_reps: 10 }))).toBe('10 reps')
-    expect(setLine(set({ achieved_reps: null }))).toBe('70 kg')
-    expect(setLine(set({ load_value: null, achieved_reps: null }))).toBe('—')
+    expect(setLine(set({}), 'es', 'kg', es)).toBe('70 kg × 8')
+    expect(setLine(set({ load_value: 7.5 }), 'es', 'kg', es)).toBe('7,5 kg × 8')
+    expect(setLine(set({ load_value: null, achieved_reps: 10 }), 'es', 'kg', es)).toBe('10 reps')
+    expect(setLine(set({ achieved_reps: null }), 'es', 'kg', es)).toBe('70 kg')
+    expect(setLine(set({ load_value: null, achieved_reps: null }), 'es', 'kg', es)).toBe('—')
   })
 
   test('T-SPC-UNIT-193 each exercise says its best set, and nothing when none was weighed', () => {
-    expect(bestSetLine({ load_kg: 70, reps: 8 })).toBe('Mejor serie 70 kg × 8')
-    expect(bestSetLine(null)).toBeNull()
+    expect(bestSetLine({ load_kg: 70, reps: 8 }, 'es', 'kg', es)).toBe('Mejor serie 70 kg × 8')
+    expect(bestSetLine(null, 'es', 'kg', es)).toBeNull()
   })
 
   test('T-SPC-UNIT-194 the exercises and their work sets, a warmup not one of them', () => {
-    expect(exercisesLine(detail)).toBe('2 ejercicios · 3 series')
+    expect(exercisesLine(detail, es)).toBe('2 ejercicios · 3 series')
   })
 
   test('T-SPC-UNIT-195 against the last time the routine was done', () => {
-    expect(comparisonLine(detail.previous, ZONE)).toBe('+4 % de carga frente al 17 sep')
+    expect(comparisonLine(detail.previous, ZONE, es)).toBe('+4 % de carga frente al 17 sep')
     const before = { ...lastTime, change_percent: -3 }
-    expect(comparisonLine(before, ZONE)).toBe('−3 % de carga frente al 17 sep')
-    expect(comparisonLine({ ...before, change_percent: 0 }, ZONE)).toBe(
+    expect(comparisonLine(before, ZONE, es)).toBe('−3 % de carga frente al 17 sep')
+    expect(comparisonLine({ ...before, change_percent: 0 }, ZONE, es)).toBe(
       'La misma carga que el 17 sep',
     )
-    expect(comparisonLine({ ...before, change_percent: null }, ZONE)).toBeNull()
-    expect(comparisonLine(null, ZONE)).toBeNull()
+    expect(comparisonLine({ ...before, change_percent: null }, ZONE, es)).toBeNull()
+    expect(comparisonLine(null, ZONE, es)).toBeNull()
   })
 
   test('T-SPC-UNIT-196 when it was, in the zone it was trained in', () => {
-    expect(whenRange(detail, ZONE)).toBe('mar 29 sep · 6:02–6:50 p. m.')
-    expect(menuTitle('Tirón', detail.started_at, ZONE)).toBe('Tirón · mar 29')
+    expect(whenRange(detail, ZONE, es)).toBe('mar 29 sep · 6:02–6:50 p. m.')
+    expect(menuTitle('Tirón', detail.started_at, ZONE, es)).toBe('Tirón · mar 29')
   })
 
   test('T-SPC-UNIT-202 the warning names the day in full', () => {
-    expect(deletionLine('Tirón', detail.started_at, ZONE)).toBe(
+    expect(deletionLine('Tirón', detail.started_at, ZONE, es)).toBe(
       'Tirón del martes 29 sale de tu historial y no se puede recuperar.',
     )
   })
@@ -121,16 +124,16 @@ describe('what the detail of a finished session says (FIN-18)', () => {
 
 describe('what annulling would change (FIN-18c)', () => {
   test('T-SPC-UNIT-197 the records that go, the streak if it moves, and the totals', () => {
-    expect(annulConsequences({ records: 2, streak_weeks: 8, streak_weeks_after: 7 })).toEqual([
+    expect(annulConsequences({ records: 2, streak_weeks: 8, streak_weeks_after: 7 }, es)).toEqual([
       { icon: 'record', text: 'Se pierden sus 2 récords' },
       { icon: 'energy', text: 'Tu racha baja de 8 a 7 semanas' },
       { icon: 'weight', text: 'Tus totales se recalculan' },
     ])
-    expect(annulConsequences({ records: 1, streak_weeks: 3, streak_weeks_after: 3 })).toEqual([
+    expect(annulConsequences({ records: 1, streak_weeks: 3, streak_weeks_after: 3 }, es)).toEqual([
       { icon: 'record', text: 'Se pierde su récord' },
       { icon: 'weight', text: 'Tus totales se recalculan' },
     ])
-    expect(annulConsequences({ records: 0, streak_weeks: 1, streak_weeks_after: 0 })).toEqual([
+    expect(annulConsequences({ records: 0, streak_weeks: 1, streak_weeks_after: 0 }, es)).toEqual([
       { icon: 'energy', text: 'Tu racha de 1 semana se pierde' },
       { icon: 'weight', text: 'Tus totales se recalculan' },
     ])
@@ -212,7 +215,7 @@ describe('editing a finished session (FIN-18d)', () => {
   test('T-SPC-UNIT-198 opens with what was recorded, each set showing itself as recorded', () => {
     const [remo] = editStateFrom(recorded)
     expect(
-      remo?.sets.map((one) => [one.order, one.loadKg, one.reps, one.done, one.previous]),
+      remo?.sets.map((one) => [one.order, one.load, one.reps, one.done, one.previous]),
     ).toEqual([
       [1, '60', '8', true, '60 × 8'],
       [2, '65', '8', true, '65 × 8'],
@@ -224,7 +227,7 @@ describe('editing a finished session (FIN-18d)', () => {
     const touch = (load: string) =>
       before.map((exercise) => ({
         ...exercise,
-        sets: exercise.sets.map((one) => (one.order === 2 ? { ...one, loadKg: load } : one)),
+        sets: exercise.sets.map((one) => (one.order === 2 ? { ...one, load: load } : one)),
       }))
     expect(changesBetween(before, touch('67,5'), false)).toBe(1)
     expect(changesBetween(before, withExtraSet(touch('67,5'), 1), true)).toBe(3)
@@ -247,15 +250,15 @@ describe('the time of a finished session', () => {
 
 describe('the clock as people read it', () => {
   test('T-SPC-UNIT-220 a clock reads in twelve hours, with its half of the day', () => {
-    expect(twelveHour('18:02')).toEqual({ time: '6:02', period: 'p. m.' })
-    expect(twelveHour('00:15')).toEqual({ time: '12:15', period: 'a. m.' })
-    expect(twelveHour('12:00')).toEqual({ time: '12:00', period: 'p. m.' })
-    expect(clockLabel('2026-09-29T23:02:00.000Z', ZONE)).toBe('6:02 p. m.')
+    expect(twelveHour('18:02', es.time)).toEqual({ time: '6:02', period: 'p. m.' })
+    expect(twelveHour('00:15', es.time)).toEqual({ time: '12:15', period: 'a. m.' })
+    expect(twelveHour('12:00', es.time)).toEqual({ time: '12:00', period: 'p. m.' })
+    expect(clockLabel('2026-09-29T23:02:00.000Z', ZONE, es.time)).toBe('6:02 p. m.')
   })
 
   test('T-SPC-UNIT-221 a range names its half of the day once when both ends share it', () => {
-    expect(rangeLabel('18:02', '18:50')).toBe('6:02–6:50 p. m.')
-    expect(rangeLabel('11:40', '12:20')).toBe('11:40 a. m.–12:20 p. m.')
+    expect(rangeLabel('18:02', '18:50', es.time)).toBe('6:02–6:50 p. m.')
+    expect(rangeLabel('11:40', '12:20', es.time)).toBe('11:40 a. m.–12:20 p. m.')
   })
 
   test('T-SPC-UNIT-222 the wheels turn twelve hours and a half of the day, and back', () => {
@@ -265,5 +268,34 @@ describe('the clock as people read it', () => {
     expect(fromTwelve(12, false)).toBe(0)
     expect(fromTwelve(12, true)).toBe(12)
     expect(fromTwelve(7, true)).toBe(19)
+  })
+})
+
+describe('a finished session in English and in pounds (TECH-44)', () => {
+  test('T-SPC-UNIT-648 the detail speaks English', () => {
+    expect(exercisesLine(detail, en)).toBe('2 exercises · 3 sets')
+    expect(comparisonLine(detail.previous, ZONE, en)).toBe('+4% load vs. Sep 17')
+    expect(whenRange(detail, ZONE, en)).toBe('Tue, Sep 29 · 6:02–6:50 PM')
+    expect(deletionLine('Tirón', detail.started_at, ZONE, en)).toBe(
+      "Tirón from Tuesday the 29 leaves your history and can't be recovered.",
+    )
+    expect(rangeLabel('11:40', '12:20', en.time)).toBe('11:40 AM–12:20 PM')
+    expect(setLine(set({ load_value: null, achieved_reps: 1 }), 'en', 'kg', en)).toBe('1 rep')
+  })
+
+  test('T-SPC-UNIT-649 a set reads in her unit; one logged in it reads exactly', () => {
+    expect(setLine(set({}), 'en', 'lb', en)).toBe('154.3 lb × 8')
+    expect(setLine(set({ load_value: 155, load_unit_code: 'lb' }), 'en', 'lb', en)).toBe(
+      '155 lb × 8',
+    )
+    expect(setLine(set({ load_value: 155, load_unit_code: 'lb' }), 'es', 'kg', es)).toBe(
+      '70,3 kg × 8',
+    )
+    expect(bestSetLine({ load_kg: 70, reps: 8 }, 'en', 'lb', en)).toBe('Best set 154.3 lb × 8')
+  })
+
+  test('T-SPC-UNIT-650 editing opens loads in her unit', () => {
+    const [remo] = editStateFrom(recorded, { unit: 'lb' })
+    expect(remo?.sets.map((one) => one.load)).toEqual(['132.3', '143.3'])
   })
 })

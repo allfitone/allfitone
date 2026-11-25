@@ -49,17 +49,21 @@ import {
   type Subscription,
 } from '../../src/client/subscriptions'
 import { createSpaceSubscriptionFlow } from '../../src/client/subscriptions-transport'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
-const READ_FAILED = 'No pudimos cargar tus planes. Inténtalo otra vez.'
+type Failure = { readonly kind: 'read' } | { readonly kind: 'cancel'; readonly failure: string }
 
 export default function SubscriptionsScreen() {
+  const locale = useLocale()
+  const text = useText()
+  const words = text.plans.gym
   const router = useRouter()
   const theme = useTheme()
   const flow = useMemo(() => createSpaceSubscriptionFlow(), [])
 
   const [subscriptions, setSubscriptions] = useState<readonly Subscription[]>([])
   const [relationships, setRelationships] = useState<readonly MyRelationship[]>([])
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
   const [cancelling, setCancelling] = useState<Subscription | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -77,7 +81,7 @@ export default function SubscriptionsScreen() {
         })
         .catch(() => {
           if (!active) return
-          setFailure(READ_FAILED)
+          setFailure({ kind: 'read' })
           setLoaded(true)
         })
       return () => {
@@ -98,7 +102,10 @@ export default function SubscriptionsScreen() {
       setCancelling(undefined)
       setFailure(undefined)
     } catch (cause) {
-      setFailure(cancelRefusalMessage(cause instanceof ApiError ? cause.failure : 'unavailable'))
+      setFailure({
+        kind: 'cancel',
+        failure: cause instanceof ApiError ? cause.failure : 'unavailable',
+      })
       setCancelling(undefined)
     } finally {
       setBusy(false)
@@ -108,14 +115,26 @@ export default function SubscriptionsScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          Planes de gimnasio
+          {words.title}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={
+              failure.kind === 'read'
+                ? words.readFailed
+                : cancelRefusalMessage(failure.failure, words)
+            }
+          />
+        ) : null}
 
         {subscriptions.map((subscription) => (
           <View
@@ -130,15 +149,15 @@ export default function SubscriptionsScreen() {
             testID={`subscription-${subscription.subscription_id}`}
           >
             <Text role="eyebrow" size="2xs" color="muted" uppercase>
-              {statusLabel(subscription.status)}
+              {statusLabel(subscription.status, words)}
             </Text>
             <Text role="control" size="lg">
               {subscription.organization_name}
             </Text>
             <Text role="body" size="sm" color="secondary">
               {subscription.plan_name} ·{' '}
-              {formatPrice(subscription.amount_minor, subscription.currency_code)}{' '}
-              {periodLabel(subscription.billing_period)}
+              {formatPrice(subscription.amount_minor, subscription.currency_code, locale)}{' '}
+              {periodLabel(subscription.billing_period, words)}
             </Text>
 
             {/* The sentence this screen exists for. Without it, "En pausa" is read as
@@ -146,13 +165,13 @@ export default function SubscriptionsScreen() {
             {subscription.status === 'suspended' ? (
               <View style={styles.paused}>
                 <Text role="body" size="sm" color="secondary">
-                  {pausedExplanation(subscription.organization_name)}
+                  {pausedExplanation(subscription.organization_name, words)}
                 </Text>
               </View>
             ) : null}
 
             <Button
-              label="Cancelar este plan"
+              label={words.cancelThis}
               variant="ghost"
               onPress={() => setCancelling(subscription)}
             />
@@ -162,11 +181,10 @@ export default function SubscriptionsScreen() {
         {loaded && subscriptions.length === 0 && !failure ? (
           <View style={styles.empty}>
             <Text role="control" size="lg">
-              No pagas ningún plan
+              {words.noneTitle}
             </Text>
             <Text role="body" size="sm" color="muted">
-              Si tu gimnasio tiene planes, puedes verlos aquí abajo. Entrenar y pagar son cosas
-              separadas: no hace falta un plan para seguir usando la app.
+              {words.noneBody}
             </Text>
           </View>
         ) : null}
@@ -174,7 +192,7 @@ export default function SubscriptionsScreen() {
         {offerable.length > 0 ? (
           <View style={styles.section}>
             <Text role="eyebrow" size="2xs" color="muted" uppercase>
-              Dónde entrenas
+              {words.whereYouTrain}
             </Text>
             {offerable.map((gym) => (
               <ContentRow
@@ -183,7 +201,7 @@ export default function SubscriptionsScreen() {
                 size="sm"
                 trailing={{ kind: 'chevron', glyph: 'forward' }}
                 name={gym.organization_name}
-                accessibilityLabel={`Ver los planes de ${gym.organization_name}`}
+                accessibilityLabel={words.seePlans(gym.organization_name)}
                 onPress={() => router.push(`/subscriptions/${gym.organization_id}`)}
               />
             ))}
@@ -191,8 +209,7 @@ export default function SubscriptionsScreen() {
         ) : null}
 
         <Text role="body" size="sm" color="muted" style={styles.note}>
-          El cobro lo administra cada gimnasio en su propia pasarela. Allfit nunca guarda los datos
-          de tu tarjeta.
+          {words.gatewayNote}
         </Text>
       </ScrollView>
 
@@ -202,21 +219,21 @@ export default function SubscriptionsScreen() {
           if (busy) return
           setCancelling(undefined)
         }}
-        title={cancelling ? `¿Cancelar tu plan con ${cancelling.organization_name}?` : ''}
+        title={cancelling ? words.cancelTitle(cancelling.organization_name) : ''}
       >
         <View style={styles.sheetBody}>
           <Text role="body" size="sm" color="secondary">
-            {cancelling ? cancellationExplanation(cancelling.organization_name) : ''}
+            {cancelling ? cancellationExplanation(cancelling.organization_name, words) : ''}
           </Text>
           <Button
-            label="Sí, cancelar el plan"
+            label={words.confirmCancel}
             loading={busy}
             onPress={() => {
               if (cancelling) void confirmCancellation(cancelling)
             }}
           />
           <Button
-            label="Dejarlo como está"
+            label={words.leaveIt}
             variant="ghost"
             onPress={() => {
               if (busy) return

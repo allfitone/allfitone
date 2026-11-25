@@ -90,13 +90,13 @@ import {
   type PickedMovement,
 } from '../../src/client/exercise-pick'
 import { ScreenHeader } from '../../src/components/screen-header'
-
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const SEARCH_FAILED = 'No pudimos buscar en el catálogo. Inténtalo otra vez.'
+import { useText } from '../../src/i18n/use-text'
 
 export default function ExercisePicker() {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.exercises
   const flow = useMemo(() => createSpaceContentFlow(), [])
   // Read once: the editor left it before pushing, and it cannot change while this
   // screen is up, because this screen is the only thing that changes it.
@@ -108,7 +108,7 @@ export default function ExercisePicker() {
   const [muscles, setMuscles] = useState<readonly MuscleTerm[]>([])
   const [equipment, setEquipment] = useState<readonly CatalogueTerm[]>([])
   const [picked, setPicked] = useState<readonly PickedMovement[]>([])
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'expired' | 'search' | undefined>(undefined)
 
   // The whole library, once for the flow rather than once per screen. Filtering it
   // here is what makes the counts instant and what lets a filter screen say how many
@@ -127,9 +127,7 @@ export default function ExercisePicker() {
       .catch((cause: unknown) => {
         if (!active) return
         setFailure(
-          cause instanceof ApiError && cause.failure === 'unauthenticated'
-            ? EXPIRED
-            : SEARCH_FAILED,
+          cause instanceof ApiError && cause.failure === 'unauthenticated' ? 'expired' : 'search',
         )
       })
 
@@ -193,13 +191,13 @@ export default function ExercisePicker() {
           of it used to scroll away with the first flick. */}
       <View style={styles.head}>
         <ScreenHeader
-          title={substituting ? 'Reemplazar ejercicio' : 'Añadir ejercicio'}
+          title={substituting ? words.replaceTitle : words.addTitle}
           subtitle={
             substituting
-              ? 'Toca el que lo sustituye'
+              ? words.replaceHint
               : picked.length === 0
-                ? 'Toca los que quieras'
-                : `${picked.length} ${picked.length === 1 ? 'elegido' : 'elegidos'}`
+                ? words.pickHint
+                : words.chosen(picked.length)
           }
           onClose={() => router.back()}
           // No confirm while substituting: the tap on the row is the whole decision,
@@ -207,14 +205,21 @@ export default function ExercisePicker() {
           onConfirm={substituting || picked.length === 0 ? undefined : confirm}
           {...(substituting
             ? {}
-            : { confirmLabel: pickLabel(picked.length), confirmText: pickButton(picked.length) })}
+            : {
+                confirmLabel: pickLabel(picked.length, words),
+                confirmText: pickButton(picked.length, words),
+              })}
         />
 
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={failure === 'expired' ? text.training.expired : words.searchFailed}
+          />
+        ) : null}
 
         <TextField
-          label="Buscar ejercicio"
-          placeholder="Busca por nombre"
+          label={words.search}
+          placeholder={words.searchPlaceholder}
           value={query}
           onChangeText={setQuery}
           autoCapitalize="none"
@@ -222,16 +227,16 @@ export default function ExercisePicker() {
 
         <View style={styles.filters}>
           <DisclosureButton
-            label="Equipamiento"
-            value={facetSummary(filter, 'equipment')}
+            label={words.equipment}
+            value={facetSummary(filter, 'equipment', words)}
             icon="settings"
             active={filter.equipment.length > 0}
             grow
             onPress={() => router.push('/routines/exercises/equipment')}
           />
           <DisclosureButton
-            label="Musculatura"
-            value={facetSummary(filter, 'muscle')}
+            label={words.muscles}
+            value={facetSummary(filter, 'muscle', words)}
             icon="target"
             active={filter.muscles.length > 0}
             grow
@@ -245,7 +250,7 @@ export default function ExercisePicker() {
               <Pressable
                 key={`${pill.facet}-${pill.code}`}
                 accessibilityRole="button"
-                accessibilityLabel={`Quitar ${pill.name}`}
+                accessibilityLabel={words.removeFilter(pill.name)}
                 onPress={() =>
                   change(
                     toggleFilter(
@@ -278,10 +283,10 @@ export default function ExercisePicker() {
             {/* Only past one: beside a single pill it would say the same thing twice. */}
             {pills.length > 1 ? (
               <Button
-                label="Quitar todos"
+                label={words.clearAll}
                 variant="ghost"
                 size="sm"
-                accessibilityLabel="Quitar todos los filtros"
+                accessibilityLabel={words.clearAllLabel}
                 onPress={() => change({ muscles: [], equipment: [] })}
               />
             ) : null}
@@ -289,7 +294,7 @@ export default function ExercisePicker() {
         ) : null}
 
         <Text role="eyebrow" size="xs" color="muted">
-          {listSummary(shown.length, filtering).toUpperCase()}
+          {listSummary(shown.length, filtering, words).toUpperCase()}
         </Text>
       </View>
 
@@ -319,20 +324,18 @@ export default function ExercisePicker() {
           <View style={styles.foot}>
             {movements !== undefined && shown.length === 0 ? (
               <Text role="body" size="md" color="muted" align="center">
-                {filtering
-                  ? 'Nada con esos filtros. Quita alguno para ver más.'
-                  : 'Tu rutina ya tiene todos los ejercicios del catálogo.'}
+                {filtering ? words.nothingFiltered : words.allTaken}
               </Text>
             ) : null}
 
             {movements === undefined && !failure ? (
               <Text role="body" size="md" color="muted">
-                Cargando el catálogo…
+                {words.loading}
               </Text>
             ) : null}
 
             <Text role="body" size="sm" color="muted">
-              Solo el catálogo global de Allfit.
+              {words.onlyGlobal}
             </Text>
           </View>
         }
@@ -361,6 +364,7 @@ const MovementRow = memo(function MovementRow({
   readonly onToggle: (movement: Movement) => void
   readonly onOpen: (movement: Movement) => void
 }) {
+  const words = useText().training.exercises
   return (
     <SelectableRow
       name={movement.name}
@@ -385,7 +389,7 @@ const MovementRow = memo(function MovementRow({
       // targets.
       action={{
         icon: 'info',
-        accessibilityLabel: `Ver el detalle de ${movement.name}`,
+        accessibilityLabel: words.details(movement.name),
         onPress: () => onOpen(movement),
       }}
     />

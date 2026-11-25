@@ -38,8 +38,8 @@ import {
   type ClaimCode,
 } from '../../src/client/profile-transport'
 import { Note } from '@allfitone/react-native/note'
+import { useText } from '../../src/i18n/use-text'
 
-const SAVE_FAILED = 'No pudimos guardarlo. Inténtalo otra vez.'
 const PLACE_ICON: Record<TrainingPlace, IconName> = {
   gym: 'training',
   home: 'home',
@@ -69,6 +69,8 @@ export default function PlaceRoute() {
 /** The screen given where its data comes from; the route passes the real sources. */
 export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.fitness
   const [place, setPlace] = useState<TrainingPlace | undefined>(undefined)
   const [equipment, setEquipment] = useState<EquipmentPiece[]>([])
   const [initial, setInitial] = useState<{ place?: string; equipment: string } | undefined>()
@@ -83,10 +85,8 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
         if (!active) return
         const declaredPlace = entryOf(profile, 'training_place')?.values[0]
         const declared = entryOf(profile, 'available_equipment')?.values ?? []
-        const pieces = EQUIPMENT_CHOICES.map((one) => one.value).filter((one) =>
-          declared.includes(one),
-        )
-        setPlace(PLACE_CHOICES.find((one) => one.value === declaredPlace)?.value)
+        const pieces = EQUIPMENT_CHOICES.filter((one) => declared.includes(one))
+        setPlace(PLACE_CHOICES.find((one) => one === declaredPlace))
         setEquipment(pieces)
         setInitial({
           ...(declaredPlace === undefined ? {} : { place: declaredPlace }),
@@ -103,9 +103,7 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
     setEquipment((chosen) =>
       chosen.includes(piece)
         ? chosen.filter((one) => one !== piece)
-        : EQUIPMENT_CHOICES.map((one) => one.value).filter(
-            (one) => one === piece || chosen.includes(one),
-          ),
+        : EQUIPMENT_CHOICES.filter((one) => one === piece || chosen.includes(one)),
     )
 
   const placeChanged = place !== undefined && place !== initial?.place
@@ -119,7 +117,7 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
       if (equipmentChanged) await sources.declareEquipment(equipment)
       router.back()
     } catch {
-      setFailure(SAVE_FAILED)
+      setFailure(text.common.saveFailed)
       setSaving(false)
     }
   }
@@ -127,31 +125,35 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Dónde y con qué
+          {t.place.title}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text role="body" size="sm" color="secondary">
-          Para no proponerte ejercicios que no puedes hacer.
+          {t.place.subtitle}
         </Text>
 
         <Text role="label" size="xs" color="secondary" uppercase>
-          Dónde entrenas
+          {t.place.where}
         </Text>
         {rowsOf(PLACE_CHOICES, 2).map((row) => (
-          <View key={row[0]?.value} style={styles.row}>
+          <View key={row[0]} style={styles.row}>
             {row.map((choice) => (
               <SelectableTile
-                key={choice.value}
+                key={choice}
                 style={styles.cell}
-                name={choice.name}
-                icon={PLACE_ICON[choice.value]}
+                name={t.places[choice]}
+                icon={PLACE_ICON[choice]}
                 choice="single"
-                selected={place === choice.value}
-                onPress={() => setPlace(choice.value)}
+                selected={place === choice}
+                onPress={() => setPlace(choice)}
               />
             ))}
           </View>
@@ -159,25 +161,25 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
 
         <View style={styles.equipmentHead}>
           <Text role="label" size="xs" color="secondary">
-            EL EQUIPO QUE TIENES
+            {t.place.equipmentHead}
           </Text>
           {equipment.length > 0 ? (
             <Text role="control" size="xs" color="accent">
-              {equipment.length === 1 ? '1 elegido' : `${String(equipment.length)} elegidos`}
+              {t.place.chosen(equipment.length)}
             </Text>
           ) : null}
         </View>
         {rowsOf(EQUIPMENT_CHOICES, 3).map((row) => (
-          <View key={row[0]?.value} style={styles.row}>
+          <View key={row[0]} style={styles.row}>
             {row.map((piece) => {
-              const picture = EQUIPMENT_PICTURES[piece.value]
+              const picture = EQUIPMENT_PICTURES[piece]
               return (
                 <SelectableTile
-                  key={piece.value}
+                  key={piece}
                   style={styles.cell}
-                  name={piece.name}
-                  selected={equipment.includes(piece.value)}
-                  onPress={() => toggle(piece.value)}
+                  name={t.equipment[piece]}
+                  selected={equipment.includes(piece)}
+                  onPress={() => toggle(piece)}
                 >
                   {picture === undefined ? null : (
                     <Image source={picture} style={styles.picture} resizeMode="cover" />
@@ -188,17 +190,13 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
           </View>
         ))}
 
-        {fewEquipmentAtHome(place, equipment) ? (
-          <Note boxed>
-            Entrenas en casa con poco equipo: tu plan se apoya en tu peso y en lo que marcaste.
-          </Note>
-        ) : null}
+        {fewEquipmentAtHome(place, equipment) ? <Note boxed>{t.place.fewAtHome}</Note> : null}
         {failure ? <InlineAlert message={failure} /> : null}
       </ScrollView>
 
       <View style={styles.footer}>
         <Button
-          label="Guardar"
+          label={text.common.save}
           loading={saving}
           disabled={!placeChanged && !equipmentChanged}
           onPress={() => void save()}

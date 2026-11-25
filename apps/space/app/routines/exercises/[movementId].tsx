@@ -84,9 +84,7 @@ import { litSlugsFor } from '../../../src/client/exercise-catalogue'
 import { addsToRoutine, FROM_SESSION, offerExercisePick } from '../../../src/client/exercise-pick'
 import { INERT_SLUGS, type BodySide } from '../../../src/client/focus-form'
 import { BodyFigure, faceShowing } from '../../../src/components/body-figure'
-
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const READ_FAILED = 'No pudimos abrir este ejercicio. Inténtalo otra vez.'
+import { useText } from '../../../src/i18n/use-text'
 
 /** Owed while the source is what it is. See the NOTICE beside the curation. */
 const PICTURE_SOURCE = 'ExerciseDB · provisional'
@@ -104,12 +102,11 @@ const FALLBACK_SCALE = 0.78
 
 type TabValue = 'how' | 'variants'
 
-const HOW_TITLE = 'CÓMO SE HACE'
-const VARIANTS_TITLE = 'VARIANTES'
-
 export default function MovementDetailScreen() {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.movement
   const flow = useMemo(() => createSpaceContentFlow(), [])
   const params = useLocalSearchParams<{ movementId: string; from?: string }>()
   const movementId = params.movementId
@@ -119,7 +116,7 @@ export default function MovementDetailScreen() {
 
   const [movement, setMovement] = useState<MovementDetail | undefined>(undefined)
   const [muscles, setMuscles] = useState<readonly MuscleTerm[]>([])
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'expired' | 'read' | undefined>(undefined)
   const [playing, setPlaying] = useState(true)
   const [tab, setTab] = useState<TabValue>('how')
   const player = useRef<Image>(null)
@@ -141,7 +138,7 @@ export default function MovementDetailScreen() {
       .catch((cause: unknown) => {
         if (!active) return
         setFailure(
-          cause instanceof ApiError && cause.failure === 'unauthenticated' ? EXPIRED : READ_FAILED,
+          cause instanceof ApiError && cause.failure === 'unauthenticated' ? 'expired' : 'read',
         )
       })
 
@@ -172,8 +169,8 @@ export default function MovementDetailScreen() {
   // Only what has something behind it: a tab over an empty panel is a control that
   // does nothing. The strip shows even with one, so the heading never moves.
   const panels = [
-    ...(steps.length > 0 ? [{ value: 'how' as const, label: HOW_TITLE }] : []),
-    ...(variants.length > 0 ? [{ value: 'variants' as const, label: VARIANTS_TITLE }] : []),
+    ...(steps.length > 0 ? [{ value: 'how' as const, label: words.how }] : []),
+    ...(variants.length > 0 ? [{ value: 'variants' as const, label: words.variants }] : []),
   ]
   const shownTab = panels.some((one) => one.value === tab) ? tab : (panels[0]?.value ?? 'how')
   const picture = movement?.demo_url ?? undefined
@@ -213,30 +210,36 @@ export default function MovementDetailScreen() {
       {/* A sheet closes by its grabber or a tap outside; a button would be a third way. */}
       {sheet ? null : (
         <View style={styles.top}>
-          <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+          <IconButton
+            icon="back"
+            accessibilityLabel={text.common.back}
+            onPress={() => router.back()}
+          />
         </View>
       )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heading}>
           <Text role="eyebrow" size="2xs" color="muted">
-            MOVIMIENTO DEL CATÁLOGO
+            {words.eyebrow}
           </Text>
           <Text role="display" size="3xl" uppercase accessibilityRole="header">
             {movement?.name ?? ' '}
           </Text>
           {movement !== undefined && movement.aliases.length > 0 ? (
             <Text role="body" size="sm" color="muted">
-              {`También: ${movement.aliases.join(' · ')}`}
+              {words.aliases(movement.aliases.join(' · '))}
             </Text>
           ) : null}
         </View>
 
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert message={failure === 'expired' ? text.training.expired : words.readFailed} />
+        ) : null}
 
         {movement === undefined && !failure ? (
           <Text role="body" size="sm" color="muted">
-            Cargando el ejercicio…
+            {words.loading}
           </Text>
         ) : null}
 
@@ -269,7 +272,7 @@ export default function MovementDetailScreen() {
                       autoplay={playing}
                       accessible
                       accessibilityRole="image"
-                      accessibilityLabel={`Ejecución de ${movement.name}`}
+                      accessibilityLabel={words.demoOf(movement.name)}
                     />
                   </View>
                   <View
@@ -292,9 +295,7 @@ export default function MovementDetailScreen() {
                     />
                     <IconButton
                       icon={playing ? 'pause' : 'start'}
-                      accessibilityLabel={
-                        playing ? 'Detener la demostración' : 'Reproducir la demostración'
-                      }
+                      accessibilityLabel={playing ? words.stopDemo : words.playDemo}
                       onPress={() => setPlaying((on) => !on)}
                     />
                   </View>
@@ -307,7 +308,7 @@ export default function MovementDetailScreen() {
 
             <View style={styles.section}>
               <Text role="eyebrow" size="2xs" color="muted">
-                QUÉ TRABAJA
+                {words.works}
               </Text>
               <View style={styles.chips}>
                 {worked.map((one) => (
@@ -327,10 +328,10 @@ export default function MovementDetailScreen() {
                   items={panels}
                   value={shownTab}
                   onChange={setTab}
-                  accessibilityLabel="Secciones del ejercicio"
+                  accessibilityLabel={words.sections}
                 />
                 {shownTab === 'how' ? (
-                  <StepList steps={steps} accessibilityLabel={HOW_TITLE} />
+                  <StepList steps={steps} accessibilityLabel={words.how} />
                 ) : (
                   <Variants variants={variants} onOpen={openVariant} />
                 )}
@@ -340,9 +341,7 @@ export default function MovementDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {movement === undefined || !adding ? null : (
-        <Button label="Añadir a la rutina" onPress={add} />
-      )}
+      {movement === undefined || !adding ? null : <Button label={words.add} onPress={add} />}
     </Screen>
   )
 }
@@ -358,6 +357,7 @@ function Variants({
   readonly variants: MovementDetail['variants']
   readonly onOpen: (id: string) => void
 }) {
+  const words = useText().training.catalogue
   return (
     <View style={styles.section}>
       {variants.map((one) => (
@@ -366,7 +366,7 @@ function Variants({
           size="sm"
           name={one.name}
           {...(one.note === null ? {} : { caption: one.note })}
-          accessibilityLabel={`Ver ${one.name}`}
+          accessibilityLabel={words.seeNamed(one.name)}
           onPress={() => onOpen(one.id)}
         />
       ))}

@@ -67,7 +67,8 @@ import {
   type PreviewHistory,
 } from '../client/home-preview'
 import { drawsSomething, type RoutineCover } from '../client/routine-cover'
-import { LAST_TIME_LABEL, LAST_TIME_NONE, type LastTimeShown } from '../client/week-plan'
+import type { LastTimeShown } from '../client/week-plan'
+import { useText } from '../i18n/use-text'
 import { BodyFigure, faceShowing } from './body-figure'
 import { coverArt } from './routine-cover-art'
 
@@ -218,7 +219,8 @@ export function HomeCard({
   readonly actions?: CardActions | undefined
 }) {
   const theme = useTheme()
-  const name = previewTitle(title)
+  const text = useText()
+  const name = previewTitle(title, text.training.card.unnamed)
   const photographed = cover?.kind === 'photo' && Boolean(coverUrl)
   const still = actions === undefined
 
@@ -264,7 +266,7 @@ export function HomeCard({
     // mientras alguien compara, ni el carrusel puede cambiar de alto al deslizarse.
     <View
       accessible={still}
-      accessibilityLabel={still ? `Previsualización: así se verá ${name} en tu inicio` : undefined}
+      accessibilityLabel={still ? text.training.card.preview(name) : undefined}
       importantForAccessibility={still ? 'no-hide-descendants' : 'auto'}
       // El hueco sólo se fija en la previa, donde la hoja compara las tres y no puede
       // crecer y encoger bajo el pulgar. En el carrusel todas las tarjetas son de la
@@ -420,6 +422,7 @@ function Figured({
   readonly actions: CardActions | undefined
 }) {
   const theme = useTheme()
+  const words = useText().training.card
   const shown = (load ?? []).slice(0, MUSCLES_SHOWN)
   // Por músculo cuando la portada los dibuja y alguien sabe contarlos; si no, las cifras
   // de la última vez, y si tampoco hay, la tarjeta se queda con el nombre.
@@ -455,7 +458,7 @@ function Figured({
       {strip ? (
         <View style={styles.caption}>
           <Text role="eyebrow" size="2xs" color="muted">
-            {byMuscle ? 'SERIES POR MÚSCULO' : (history?.when ?? '')}
+            {byMuscle ? words.setsByMuscle : (history?.when ?? '')}
           </Text>
         </View>
       ) : null}
@@ -508,6 +511,7 @@ function Turn({
   readonly onPress: () => void
   readonly showing: 'front' | 'back'
 }) {
+  const words = useText().training.card
   return (
     <View style={styles.turn}>
       <IconButton
@@ -515,7 +519,7 @@ function Turn({
         shape="squircle"
         size="sm"
         // Dice a dónde lleva, no qué hace: «girar» no cuenta qué aparece al girar.
-        accessibilityLabel={showing === 'front' ? 'Ver el detalle' : 'Volver a la portada'}
+        accessibilityLabel={showing === 'front' ? words.seeDetail : words.backToCover}
         onPress={onPress}
       />
     </View>
@@ -550,6 +554,7 @@ function Reverse({
   readonly lastTime: LastTimeShown | undefined
 }) {
   const theme = useTheme()
+  const text = useText()
   // Proporcional al músculo que más trabaja y no a un máximo inventado: la barra dice
   // cómo se reparte el trabajo de esta rutina, no cuánto es mucho en general.
   const most = load.reduce((top, one) => Math.max(top, one.sets), 0)
@@ -573,7 +578,7 @@ function Reverse({
         <>
           <View style={[styles.backMusclesLabel, { top: 120 }]}>
             <Text role="eyebrow" size="xs" color="muted">
-              SERIES POR MÚSCULO
+              {text.training.card.setsByMuscle}
             </Text>
           </View>
 
@@ -621,13 +626,13 @@ function Reverse({
       <View style={[styles.backRule, { backgroundColor: theme.color.border.subtle }]} />
       <View style={styles.backSince}>
         <Text role="eyebrow" size="xs" color="muted" numberOfLines={1}>
-          {lastTime?.when ?? LAST_TIME_LABEL}
+          {lastTime?.when ?? text.training.week.lastTime.label}
         </Text>
       </View>
       {lastTime === undefined ? (
         <View style={styles.backEmpty}>
           <Text role="body" size="sm" color="muted">
-            {LAST_TIME_NONE}
+            {text.training.week.lastTime.none}
           </Text>
         </View>
       ) : (
@@ -645,10 +650,11 @@ function Reverse({
 
 /** El dorsal de la sesión, casi apagado: es textura de la tarjeta, no un dato que leer. */
 function Session({ number }: { readonly number: string }) {
+  const words = useText().training.card
   return (
     <View style={styles.session} pointerEvents="none">
       <Text role="eyebrow" size="2xs" style={styles.ghostLabel}>
-        SESIÓN
+        {words.session}
       </Text>
       <Text role="display" size="6xl" style={styles.ghost}>
         {number}
@@ -703,20 +709,21 @@ function Naming({ name, figures }: { readonly name: string; readonly figures: st
 
 /** Los dos botones. Sin acciones se dibujan igual y no se pueden tocar: es una previa. */
 function Actions({ actions }: { readonly actions: CardActions | undefined }) {
+  const words = useText().training
   return (
     <View style={styles.row} pointerEvents={actions === undefined ? 'none' : 'auto'}>
       {/* En `md` y no en `sm`: el lienzo los dibuja a cuarenta, y el tamaño compacto
           del sistema se queda en treinta y seis. Cuarenta y cuatro es además el suelo
           táctil, que en el botón que empieza un entrenamiento no es un detalle. */}
       <Button
-        label="Ver rutina"
+        label={words.card.seeRoutine}
         variant="secondary"
         icon="checklist"
         style={styles.action}
         onPress={actions?.onOpen}
       />
       <Button
-        label={actions?.startLabel ?? 'Empezar'}
+        label={actions?.startLabel ?? words.week.start.start}
         icon="start"
         style={styles.action}
         loading={actions?.starting ?? false}

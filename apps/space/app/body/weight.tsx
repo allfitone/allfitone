@@ -9,7 +9,9 @@
  * not a search from 70. The day defaults to today and can go back a week, for the
  * weigh-in somebody forgot to write down.
  *
- * What is sent is what was read, in the unit it was read in; the database converts.
+ * It opens in the unit she reads masses in, and the toggle beside the wheel changes it for
+ * this reading only. What is sent is what was read, in the unit it was read in; the
+ * database converts.
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -31,7 +33,7 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 import {
   decimal,
   latestOf,
-  massIn,
+  massTenths,
   runAround,
   shortDay,
   tenths,
@@ -42,8 +44,11 @@ import { toCanonical, type MassUnit } from '../../src/client/measures-form'
 import { selectionTick } from '../../src/client/selection-tick'
 import { deviceTimezone } from '../../src/client/timezone'
 import { CardGlow, FIGURE_TRACKING } from '../../src/components/nutrition-ui'
+import type { Dictionary } from '../../src/i18n'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { massLabel } from '../../src/units/units'
+import { useUnits } from '../../src/units/use-units'
 
-const SAVE_FAILED = 'No pudimos guardar tu peso. Inténtalo otra vez.'
 const RESTING_KG = 70
 const DAY = 86_400_000
 
@@ -55,6 +60,10 @@ function localDay(timezone: string, daysBack: number): string {
 
 export default function WeightScreen() {
   const router = useRouter()
+  const locale = useLocale()
+  const text = useText()
+  const words = text.progress.weight
+  const units = useUnits()
   const theme = useTheme()
   const timezone = deviceTimezone()
   const days = useMemo(
@@ -64,7 +73,9 @@ export default function WeightScreen() {
 
   const [records, setRecords] = useState<BodyRecord[]>([])
   const [kilos, setKilos] = useState(RESTING_KG)
-  const [unit, setUnit] = useState<MassUnit>('kg')
+  // Her unit until she flips the toggle, so a preference that arrives late still applies.
+  const [picked, setUnit] = useState<MassUnit | null>(null)
+  const unit = picked ?? units.mass
   const [day, setDay] = useState(0)
   const [choosingDay, setChoosingDay] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -86,9 +97,9 @@ export default function WeightScreen() {
   }, [])
 
   const latest = latestOf(records, 'body_weight')
-  const shown = massIn(kilos, unit)
+  const shown = massTenths(kilos, unit)
   const run = useMemo(
-    () => runAround(massIn(latest?.value ?? RESTING_KG, unit), 0.1, 25, 25, 550),
+    () => runAround(massTenths(latest?.value ?? RESTING_KG, unit), 0.1, 25, 25, 550),
     [latest, unit],
   )
   const change = latest ? Math.round((kilos - latest.value) * 10) / 10 : null
@@ -109,7 +120,7 @@ export default function WeightScreen() {
       })
       router.back()
     } catch {
-      setFailure(SAVE_FAILED)
+      setFailure(words.saveFailed)
       setSaving(false)
     }
   }
@@ -119,22 +130,22 @@ export default function WeightScreen() {
       <View style={styles.header}>
         <IconButton
           icon="close"
-          accessibilityLabel="Cerrar sin guardar"
+          accessibilityLabel={words.closeUnsaved}
           onPress={() => router.back()}
         />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.title}>
-          Peso
+          {words.title}
         </Text>
         <View style={styles.headerSpace} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.day}>
           <Chip
-            label={dayLabel(days[day] ?? '', day)}
+            label={dayLabel(days[day] ?? '', day, text)}
             icon="calendar"
             selected={false}
             onPress={() => setChoosingDay(true)}
-            accessibilityLabel={`Día: ${dayLabel(days[day] ?? '', day)}. Cambiar`}
+            accessibilityLabel={words.dayLabel(dayLabel(days[day] ?? '', day, text))}
           />
         </View>
 
@@ -142,7 +153,7 @@ export default function WeightScreen() {
           <CardGlow size={300} right={20} top={-40} />
           <View style={styles.figure}>
             <Text role="display" tracking={FIGURE_TRACKING} size="7xl">
-              {tenths(shown)}
+              {tenths(shown, locale)}
             </Text>
             <Text role="control" size="xl" color="secondary" style={styles.unit}>
               {unit}
@@ -157,12 +168,15 @@ export default function WeightScreen() {
                 decorative
               />
               <Text role="control" size="xs" color="accent">
-                {`${change > 0 ? '+' : '−'}${decimal(Math.abs(change))} kg desde el ${shortDay(latest.measured_on)}`}
+                {text.progress.body.changeSince(
+                  `${change > 0 ? '+' : '−'}${massLabel(Math.abs(change), unit, locale)}`,
+                  shortDay(latest.measured_on, text),
+                )}
               </Text>
             </View>
           ) : latest ? (
             <Text role="body" size="xs" color="muted">
-              {`Igual que el ${shortDay(latest.measured_on)}`}
+              {words.sameAs(shortDay(latest.measured_on, text))}
             </Text>
           ) : null}
         </View>
@@ -175,19 +189,19 @@ export default function WeightScreen() {
             setKilos(toCanonical(value, unit))
             selectionTick()
           }}
-          formatValue={(value) => tenths(value)}
+          formatValue={(value) => tenths(value, locale)}
           suffix={unit}
-          accessibilityLabel="Peso"
-          accessibilityText={`${tenths(shown)} ${unit === 'kg' ? 'kilos' : 'libras'}`}
+          accessibilityLabel={words.title}
+          accessibilityText={`${tenths(shown, locale)} ${text.progress.massSpoken[unit]}`}
         />
         <SegmentedControl
           items={[
-            { value: 'kg', label: 'KG', accessibilityLabel: 'Kilos' },
-            { value: 'lb', label: 'LB', accessibilityLabel: 'Libras' },
+            { value: 'kg', label: 'KG', accessibilityLabel: words.massUnits.kg },
+            { value: 'lb', label: 'LB', accessibilityLabel: words.massUnits.lb },
           ]}
           value={unit}
           onChange={setUnit}
-          accessibilityLabel="Unidad"
+          accessibilityLabel={words.unit}
           size="sm"
           style={styles.units}
         />
@@ -203,12 +217,15 @@ export default function WeightScreen() {
             ]}
           >
             <Text role="control" size="2xs" color="muted" uppercase tracking={0.12}>
-              Tus últimos registros
+              {words.recent}
             </Text>
             <View
               style={styles.bars}
               accessible
-              accessibilityLabel={`Últimos registros: ${recent.map((one) => decimal(one.value)).join(', ')} kilos`}
+              accessibilityLabel={words.recentLabel(
+                recent.map((one) => decimal(massTenths(one.value, unit), locale)).join(', '),
+                text.progress.massSpoken[unit],
+              )}
             >
               {recent.map((one, index) => {
                 const values = recent.map((each) => each.value)
@@ -219,7 +236,7 @@ export default function WeightScreen() {
                   <View key={one.id} style={styles.barColumn}>
                     {last ? (
                       <Text role="control" size="2xs" color="accent">
-                        {decimal(one.value)}
+                        {decimal(massTenths(one.value, unit), locale)}
                       </Text>
                     ) : null}
                     <View
@@ -241,24 +258,20 @@ export default function WeightScreen() {
         ) : null}
 
         <Text role="body" size="xs" color="muted" align="center">
-          Pésate a la misma hora y en ayunas para comparar mejor.
+          {words.tip}
         </Text>
         {failure ? <InlineAlert message={failure} /> : null}
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Guardar peso" loading={saving} onPress={() => void save()} />
+        <Button label={words.save} loading={saving} onPress={() => void save()} />
       </View>
 
-      <Sheet
-        visible={choosingDay}
-        onDismiss={() => setChoosingDay(false)}
-        title="¿Qué día te pesaste?"
-      >
+      <Sheet visible={choosingDay} onDismiss={() => setChoosingDay(false)} title={words.whichDay}>
         <View style={styles.days}>
           {days.map((iso, index) => (
             <SelectableRow
               key={iso}
-              name={dayLabel(iso, index)}
+              name={dayLabel(iso, index, text)}
               selected={index === day}
               onPress={() => {
                 setDay(index)
@@ -272,10 +285,11 @@ export default function WeightScreen() {
   )
 }
 
-function dayLabel(iso: string, back: number): string {
-  if (back === 0) return `Hoy, ${shortDay(iso)}`
-  if (back === 1) return `Ayer, ${shortDay(iso)}`
-  return shortDay(iso).replace(/^./, (first) => first.toUpperCase())
+function dayLabel(iso: string, back: number, text: Dictionary): string {
+  const day = shortDay(iso, text)
+  if (back === 0) return text.progress.weight.today(day)
+  if (back === 1) return text.progress.weight.yesterday(day)
+  return day.replace(/^./, (first) => first.toUpperCase())
 }
 
 const styles = StyleSheet.create({

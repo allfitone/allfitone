@@ -8,16 +8,23 @@
 
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
-  RPE_EXPLAINER,
-  RPE_LEVELS,
   RPE_MAX,
   RPE_MIN,
-  RPE_UNSET,
-  rpeCopy,
-  rpeLevel,
+  rpeCopy as copy,
+  rpeLevel as level,
+  rpeLevels,
   rpeShown,
 } from './rpe-scale'
+
+const es = textFor('es').session.rpe
+const en = textFor('en').session.rpe
+const RPE_LEVELS = rpeLevels(es)
+const RPE_EXPLAINER = es.explainer
+const RPE_UNSET = es.unset
+const rpeLevel = (value: number | undefined) => level(value, es)
+const rpeCopy = (value: number | undefined) => copy(value, es)
 
 describe('RPE_LEVELS', () => {
   test('T-SP-RPE-01 son diez peldaños, del uno al diez y en ese orden', () => {
@@ -59,6 +66,9 @@ describe('rpeShown y rpeCopy', () => {
   test('T-SP-RPE-06 el copy cambia con lo marcado', () => {
     expect(rpeCopy(8)).toBe('Muy duro. Te quedaban dos repeticiones.')
     expect(rpeCopy(8)).not.toBe(rpeCopy(9))
+    expect(copy(8, en)).toBe('Very hard. You had two reps left.')
+    expect(copy(undefined, en)).toBe('No effort marked. It is optional.')
+    expect(rpeLevels(en).map((one) => one.value)).toEqual(RPE_LEVELS.map((one) => one.value))
   })
 
   test('un número que la escala no tiene no inventa un peldaño', () => {

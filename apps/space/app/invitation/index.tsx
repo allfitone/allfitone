@@ -56,10 +56,18 @@ import {
 } from '../../src/client/invitation-draft'
 import { deviceTimezone } from '../../src/client/timezone'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
+import type { Dictionary } from '../../src/i18n'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
-const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
-  { value: 'rejected', label: 'No' },
-  { value: 'accepted', label: 'Sí' },
+type InvitationText = Dictionary['invitation']
+// Kept as what went wrong, not as words, so a change of language rewords it.
+type Failure = { readonly kind: 'open' } | { readonly kind: 'decide'; readonly cause: unknown }
+
+const answers = (
+  text: InvitationText,
+): readonly { readonly value: Decision; readonly label: string }[] => [
+  { value: 'rejected', label: text.answer.no },
+  { value: 'accepted', label: text.answer.yes },
 ]
 
 export default function InvitationScreen() {
@@ -67,12 +75,15 @@ export default function InvitationScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id?: string }>()
+  const text = useText()
+  const words = text.invitation
+  const locale = useLocale()
   const flow = useMemo(() => createSpaceInvitationFlow(), [])
   const [draft, setDraft] = useState<InvitationDraft | undefined>(undefined)
   const [gone, setGone] = useState(false)
   const [, redraw] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   useFocusEffect(
     useCallback(() => {
@@ -110,7 +121,7 @@ export default function InvitationScreen() {
             cause instanceof ApiError &&
             (cause.failure === 'not-found' || cause.failure === 'forbidden')
           if (missing) setGone(true)
-          else setFailure('No pudimos abrir la invitación. Revisa tu conexión.')
+          else setFailure({ kind: 'open' })
         })
       return () => {
         active = false
@@ -163,7 +174,8 @@ export default function InvitationScreen() {
             ...(offer
               ? {
                   program: offer.title,
-                  programLine: programOutcomeLine(offer, result.program_proposal, today) ?? '',
+                  programLine:
+                    programOutcomeLine(offer, result.program_proposal, today, words, locale) ?? '',
                 }
               : {}),
           },
@@ -172,7 +184,7 @@ export default function InvitationScreen() {
         router.replace('/today')
       }
     } catch (cause) {
-      setFailure(decisionFailure(cause))
+      setFailure({ kind: 'decide', cause })
     } finally {
       setBusy(false)
     }
@@ -181,9 +193,9 @@ export default function InvitationScreen() {
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="close" accessibilityLabel="Cerrar" onPress={leave} />
+        <IconButton icon="close" accessibilityLabel={words.close} onPress={leave} />
         <Text role="control" size="xl" accessibilityRole="header">
-          Tu invitación
+          {words.title}
         </Text>
       </View>
 
@@ -191,7 +203,13 @@ export default function InvitationScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 150 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={
+              failure.kind === 'open' ? words.openFailed : decisionFailure(failure.cause, words)
+            }
+          />
+        ) : null}
         {draft && invitation ? (
           <>
             <View style={styles.gym}>
@@ -202,8 +220,8 @@ export default function InvitationScreen() {
                 </Text>
                 <Text role="body" size="xs" color="muted">
                   {[
-                    invitation.invited_by ? `Te invita ${invitation.invited_by}` : null,
-                    invitationExpiry(invitation.expires_at),
+                    invitation.invited_by ? words.invitedBy(invitation.invited_by) : null,
+                    invitationExpiry(invitation.expires_at, words, locale),
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -211,23 +229,23 @@ export default function InvitationScreen() {
               </View>
             </View>
             <Text role="body" size="sm" color="secondary">
-              Decide cada cosa. No hay un «aceptar todo».
+              {words.decideEach}
             </Text>
 
             <View style={styles.section}>
               <Text role="control" size="sm" color="muted">
-                La relación
+                {words.relationship}
               </Text>
               <RowCard>
                 <ContentRow
                   icon="organization"
-                  name={`Entrenar con ${invitation.organization.display_name}`}
-                  caption="Incluye Allfit Pro mientras sigas con ellos"
+                  name={words.trainWith(invitation.organization.display_name)}
+                  caption={words.proWhileWith}
                   trailing={{
                     kind: 'choice',
-                    items: ANSWER,
+                    items: answers(words),
                     value: draft.relationship,
-                    accessibilityLabel: 'Entrenar con este gimnasio',
+                    accessibilityLabel: words.trainWithLabel,
                     onChange: (value) => {
                       draft.relationship = decisionOf(value)
                       redraw((tick) => tick + 1)
@@ -235,23 +253,23 @@ export default function InvitationScreen() {
                   }}
                 />
               </RowCard>
-              <Note>Aceptar no comparte ningún dato por sí solo.</Note>
+              <Note>{words.acceptSharesNothing}</Note>
             </View>
 
             <View style={styles.section}>
               <Text role="control" size="sm" color="muted">
-                Lo que pueden ver
+                {words.whatTheySee}
               </Text>
               <View style={draft.relationship === 'rejected' && styles.dimmed}>
                 <RowCard>
                   <ContentRow
                     icon="permissions"
                     iconTone="quiet"
-                    name="Elegir qué compartes"
+                    name={words.chooseShared}
                     caption={
                       draft.relationship === 'rejected'
-                        ? 'Sin relación no se comparte nada'
-                        : sharedSummary(draft.scopes, asked)
+                        ? words.noRelationshipNoSharing
+                        : sharedSummary(draft.scopes, asked, words)
                     }
                     disabled={draft.relationship === 'rejected' || asked === 0}
                     onPress={() => router.push('/invitation/share')}
@@ -264,7 +282,7 @@ export default function InvitationScreen() {
               <ProgramSection
                 title={offer.title}
                 span={
-                  standing === 'off' ? 'Sin relación no hay programa' : programSpan(offer, today)
+                  standing === 'off' ? words.program.off : programSpan(offer, today, words, locale)
                 }
                 standing={standing}
                 decision={draft.program}
@@ -272,8 +290,10 @@ export default function InvitationScreen() {
                   offer,
                   standing,
                   draft.program,
-                  requiredTitle(invitation, offer.required_scope.scope_code),
+                  requiredTitle(invitation, offer.required_scope.scope_code, text.gyms),
                   today,
+                  words,
+                  locale,
                 )}
                 onChange={(value) => {
                   draft.program = value
@@ -285,7 +305,7 @@ export default function InvitationScreen() {
           </>
         ) : !failure ? (
           <Text role="body" size="sm" color="muted">
-            Abriendo tu invitación…
+            {words.opening}
           </Text>
         ) : null}
       </ScrollView>
@@ -297,9 +317,9 @@ export default function InvitationScreen() {
             { paddingBottom: insets.bottom + 14, backgroundColor: theme.color.background.canvas },
           ]}
         >
-          <Button label="Confirmar mis decisiones" loading={busy} onPress={() => void confirm()} />
+          <Button label={words.confirm} loading={busy} onPress={() => void confirm()} />
           <Text role="body" size="xs" color="muted" align="center">
-            Nada se comparte hasta que confirmes.
+            {words.nothingUntilConfirm}
           </Text>
         </View>
       ) : null}
@@ -308,9 +328,13 @@ export default function InvitationScreen() {
 }
 
 /** The permission the program needs, by the name N-8a shows it with. */
-function requiredTitle(invitation: InvitationPresentation, code: string): string {
+function requiredTitle(
+  invitation: InvitationPresentation,
+  code: string,
+  text: Dictionary['gyms'],
+): string {
   const option = invitation.scope_options.find((candidate) => candidate.scope_code === code)
-  return option ? scopeTitle(option) : scopeName(code)
+  return option ? scopeTitle(option, text) : scopeName(code, text)
 }
 
 function ProgramSection({
@@ -330,10 +354,11 @@ function ProgramSection({
   readonly onChange: (value: Decision) => void
   readonly onShare: () => void
 }) {
+  const words = useText().invitation
   return (
     <View style={styles.section}>
       <Text role="control" size="sm" color="muted">
-        El programa que te proponen
+        {words.program.heading}
       </Text>
       <View style={standing === 'off' && styles.dimmed}>
         <RowCard>
@@ -346,12 +371,12 @@ function ProgramSection({
               standing === 'open'
                 ? {
                     kind: 'choice',
-                    items: ANSWER,
+                    items: answers(words),
                     value: decision,
-                    accessibilityLabel: `Empezar ${title}`,
+                    accessibilityLabel: words.program.startLabel(title),
                     onChange: (value) => onChange(decisionOf(value)),
                   }
-                : { kind: 'badge', label: 'Bloqueado', tone: 'neutral' }
+                : { kind: 'badge', label: words.program.locked, tone: 'neutral' }
             }
           />
         </RowCard>
@@ -359,7 +384,7 @@ function ProgramSection({
       {note ? <Note>{note}</Note> : null}
       {standing === 'locked' ? (
         <Button
-          label="Elegir qué compartes"
+          label={words.chooseShared}
           variant="ghost"
           size="sm"
           onPress={onShare}
@@ -374,12 +399,13 @@ function ProgramSection({
 function Unavailable({ onLeave }: { readonly onLeave: () => void }) {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const words = useText().invitation
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="close" accessibilityLabel="Cerrar" onPress={onLeave} />
+        <IconButton icon="close" accessibilityLabel={words.close} onPress={onLeave} />
         <Text role="control" size="xl" accessibilityRole="header">
-          Invitación
+          {words.unavailable.title}
         </Text>
       </View>
       {/* Centred in what the fixed footer leaves visible, not behind it. */}
@@ -388,15 +414,14 @@ function Unavailable({ onLeave }: { readonly onLeave: () => void }) {
           <FoundationIcon name="external" size="lg" color={theme.color.icon.secondary} decorative />
         </View>
         <Text role="control" size="xl" align="center">
-          Esta invitación ya no está disponible
+          {words.unavailable.heading}
         </Text>
         <Text role="body" size="sm" color="secondary" align="center">
-          Puede que haya vencido o que ya se haya usado. Pídele a tu gimnasio que te envíe una
-          nueva.
+          {words.unavailable.body}
         </Text>
       </View>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <Button label="Entrar a Allfit" onPress={onLeave} />
+        <Button label={words.unavailable.enter} onPress={onLeave} />
       </View>
     </Screen>
   )

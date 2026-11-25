@@ -21,6 +21,10 @@ import {
   weeksLabel,
   type ContentTransport,
 } from './content'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.load
+const en = textFor('en').training.load
 
 const TEMPLATE_ID = '019f9000-0000-7000-8000-000000000041'
 const PROGRAM_ID = '019f9000-0000-7000-8000-000000000051'
@@ -303,10 +307,10 @@ describe('opening a programme that already exists', () => {
 
 describe('what a programme amounts to', () => {
   test('T-SP-PROGRAM-20 one line, with every plural agreeing', () => {
-    expect(programLoad(8, { daysPerWeek: 3, sessions: 24 })).toBe(
+    expect(programLoad(8, { daysPerWeek: 3, sessions: 24 }, es)).toBe(
       '8 semanas · 3 días por semana · 24 sesiones',
     )
-    expect(programLoad(1, { daysPerWeek: 1, sessions: 1 })).toBe(
+    expect(programLoad(1, { daysPerWeek: 1, sessions: 1 }, es)).toBe(
       '1 semana · 1 día por semana · 1 sesión',
     )
   })
@@ -314,24 +318,24 @@ describe('what a programme amounts to', () => {
   test('T-SP-PROGRAM-21 a week with nothing in it says so rather than reporting zero', () => {
     // «0 días por semana · 0 sesiones» is arithmetic nobody asked for, and it reads as
     // a programme that is wrong rather than one that is not finished.
-    expect(programLoad(8, { daysPerWeek: 0, sessions: 0 })).toBe(
+    expect(programLoad(8, { daysPerWeek: 0, sessions: 0 }, es)).toBe(
       '8 semanas · sin días puestos todavía',
     )
   })
 
   test('T-SP-PROGRAM-21b with no end it says so, and says nothing about a total', () => {
-    expect(programLoad(null, { daysPerWeek: 3, sessions: null })).toBe(
+    expect(programLoad(null, { daysPerWeek: 3, sessions: null }, es)).toBe(
       'Sin fecha de fin · 3 días por semana',
     )
-    expect(programLoad(null, { daysPerWeek: 0, sessions: null })).toBe(
+    expect(programLoad(null, { daysPerWeek: 0, sessions: null }, es)).toBe(
       'Sin fecha de fin · sin días puestos todavía',
     )
   })
 
   test('T-SP-PROGRAM-22 the duration reads the same wherever it is drawn', () => {
-    expect(weeksLabel(1)).toBe('1 semana')
-    expect(weeksLabel(12)).toBe('12 semanas')
-    expect(weeksLabel(null)).toBe('Sin fecha de fin')
+    expect(weeksLabel(1, es)).toBe('1 semana')
+    expect(weeksLabel(12, es)).toBe('12 semanas')
+    expect(weeksLabel(null, es)).toBe('Sin fecha de fin')
   })
 })
 
@@ -444,5 +448,17 @@ describe('a routine republished while it sits in a week', () => {
 
   test('T-SP-WEEK-12 and never touches a day holding somebody else', () => {
     expect(revisedWeek(week, 'v7', 'v9')).toEqual(week)
+  })
+})
+
+describe('a programme in English (TECH-44)', () => {
+  test('T-SP-CONTENT-19 its length and load read in English, plural included', () => {
+    expect(weeksLabel(1, en)).toBe('1 week')
+    expect(programLoad(8, { daysPerWeek: 3, sessions: 24 }, en)).toBe(
+      '8 weeks · 3 days a week · 24 sessions',
+    )
+    expect(programLoad(null, { daysPerWeek: 0, sessions: null }, en)).toBe(
+      'No end date · no days set yet',
+    )
   })
 })

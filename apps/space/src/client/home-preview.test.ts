@@ -17,6 +17,10 @@ import {
 } from './home-preview'
 import type { Movement, MuscleTerm } from './content'
 import type { WorkingStep } from './routine-draft'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training
+const en = textFor('en').training
 
 const MUSCLES: readonly MuscleTerm[] = [
   { code: 'chest', name: 'Pecho', region: 'upper', body_slug: 'chest' },
@@ -125,30 +129,34 @@ describe('setsPerMuscle', () => {
 
 describe('previewFigures', () => {
   test('says the exercises and the sets', () => {
-    expect(previewFigures([step('m1', 6, 1), step('m2', 4, 2)])).toBe('2 ejercicios · 10 series')
+    expect(
+      previewFigures([step('m1', 6, 1), step('m2', 4, 2)], es.library, es.card.noExercisesYet),
+    ).toBe('2 ejercicios · 10 series')
   })
 
   test('singular when there is one of each', () => {
-    expect(previewFigures([step('m1', 1)])).toBe('1 ejercicio · 1 serie')
+    expect(previewFigures([step('m1', 1)], es.library, es.card.noExercisesYet)).toBe(
+      '1 ejercicio · 1 serie',
+    )
   })
 
   test('says nothing about sets there are none of', () => {
-    expect(previewFigures([step('m1', 0)])).toBe('1 ejercicio')
+    expect(previewFigures([step('m1', 0)], es.library, es.card.noExercisesYet)).toBe('1 ejercicio')
   })
 
   test('an empty routine says so once and not twice', () => {
     // «0 ejercicios · 0 series» dice que está vacía dos veces.
-    expect(previewFigures([])).toBe('Todavía sin ejercicios')
+    expect(previewFigures([], es.library, es.card.noExercisesYet)).toBe('Todavía sin ejercicios')
   })
 })
 
 describe('previewTitle', () => {
   test('a routine with no name still has something to draw', () => {
-    expect(previewTitle('   ')).toBe('Sin nombre')
+    expect(previewTitle('   ', es.card.unnamed)).toBe('Sin nombre')
   })
 
   test('and one with a name is drawn trimmed', () => {
-    expect(previewTitle('  Empuje  ')).toBe('Empuje')
+    expect(previewTitle('  Empuje  ', es.card.unnamed)).toBe('Empuje')
   })
 })
 
@@ -179,5 +187,12 @@ describe('dominantRegion', () => {
 
   test('nothing worked yet still answers something drawable', () => {
     expect(dominantRegion([], REGIONS)).toBe('upper')
+  })
+})
+
+describe('the preview in English (TECH-44)', () => {
+  test('T-SP-ROUTINE-36 the figures and the missing name read in English', () => {
+    expect(previewFigures([], en.library, en.card.noExercisesYet)).toBe('No exercises yet')
+    expect(previewTitle('   ', en.card.unnamed)).toBe('Untitled')
   })
 })

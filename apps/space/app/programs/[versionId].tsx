@@ -57,21 +57,22 @@ import { sessionMinutes, targetLabel, totalExercises } from '../../src/client/pr
 import { readExerciseLibrary } from '../../src/client/exercise-library'
 import { FROM_PROGRAM } from '../../src/client/exercise-pick'
 import { createSpaceContentFlow } from '../../src/client/content-transport'
-import { ZONE_LABEL } from '../../src/components/program-card'
+import { zoneLabel } from '../../src/components/program-card'
 import { DayCard, ExerciseCard, Figure } from '../../src/components/program-detail'
 import { programNutritionCopy } from '../../src/client/program-nutrition'
 import { ProgramNutritionCard } from '../../src/components/program-nutrition-card'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 /** Lo que ocupa la fotografía del programa. La del lienzo, sobre un alto de 844. */
 const HERO = 252
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-const READ_FAILED = 'No pudimos cargar este programa. Inténtalo otra vez.'
-const NOT_FOUND = 'Este programa ya no está disponible.'
-const CHOOSE_FAILED = 'No pudimos guardar tu programa. Inténtalo otra vez.'
-
 export default function ProgramVersion() {
+  const locale = useLocale()
+  const text = useText()
+  const words = text.training.program
+  const units = useUnits()
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -87,7 +88,9 @@ export default function ProgramVersion() {
   const [choosing, setChoosing] = useState(false)
   const [adoptNutrition, setAdoptNutrition] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'expired' | 'read' | 'gone' | 'choose' | undefined>(
+    undefined,
+  )
 
   useEffect(() => {
     if (!versionId) return
@@ -111,12 +114,10 @@ export default function ProgramVersion() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(
-          cause instanceof ApiError && cause.failure === 'not-found' ? NOT_FOUND : READ_FAILED,
-        )
+        setFailure(cause instanceof ApiError && cause.failure === 'not-found' ? 'gone' : 'read')
       })
 
     return () => {
@@ -142,9 +143,9 @@ export default function ProgramVersion() {
       if (upgrade.handled(cause)) return
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(CHOOSE_FAILED)
+        setFailure('choose')
       }
     } finally {
       setChoosing(false)
@@ -152,7 +153,7 @@ export default function ProgramVersion() {
   }
 
   const nutrition = detail?.nutrition
-    ? programNutritionCopy(detail.nutrition, detail.days_per_week)
+    ? programNutritionCopy(detail.nutrition, detail.days_per_week, locale, text.training.nutrition)
     : null
   const days = detail?.days ?? []
   const shown = days[Math.min(openDay, Math.max(0, days.length - 1))]
@@ -185,7 +186,7 @@ export default function ProgramVersion() {
           {detail ? (
             <View style={styles.heading}>
               <Text role="eyebrow" size="2xs" color="accent">
-                PROGRAMA DE ALLFIT
+                {words.eyebrow}
               </Text>
               <Text role="display" size="3xl" uppercase accessibilityRole="header">
                 {detail.title}
@@ -194,18 +195,23 @@ export default function ProgramVersion() {
           ) : null}
         </View>
 
-        {failure ? <InlineAlert message={failure} style={styles.gutter} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={failure === 'expired' ? text.training.expired : words.failure[failure]}
+            style={styles.gutter}
+          />
+        ) : null}
 
         {detail ? (
           <>
             <View style={[styles.figures, styles.gutter]}>
               <Figure
                 value={detail.weeks === null ? '∞' : String(detail.weeks)}
-                unit={detail.weeks === null ? 'Sin fin' : 'Semanas'}
+                unit={detail.weeks === null ? words.endless : words.weeks}
               />
-              <Figure value={String(detail.days_per_week)} unit="Días por semana" />
+              <Figure value={String(detail.days_per_week)} unit={words.daysPerWeek} />
               {sessionMinutes(days) > 0 ? (
-                <Figure value={String(sessionMinutes(days))} unit="Min por sesión" />
+                <Figure value={String(sessionMinutes(days))} unit={words.minutesPerSession} />
               ) : null}
             </View>
 
@@ -217,7 +223,7 @@ export default function ProgramVersion() {
 
             <View style={[styles.zones, styles.gutter]}>
               {detail.emphases.map((zone) => (
-                <Badge key={zone} label={ZONE_LABEL[zone] ?? zone} variant="quiet" />
+                <Badge key={zone} label={zoneLabel(zone, text)} variant="quiet" />
               ))}
             </View>
 
@@ -229,10 +235,10 @@ export default function ProgramVersion() {
 
             <View style={[styles.sectionHead, styles.gutter]}>
               <Text role="eyebrow" size="2xs" color="muted">
-                LOS DÍAS
+                {words.days}
               </Text>
               <Text role="control" size="xs" color="muted">
-                {`${totalExercises(days)} ejercicios en total`}
+                {words.exercisesTotal(totalExercises(days))}
               </Text>
             </View>
 
@@ -258,12 +264,10 @@ export default function ProgramVersion() {
               <>
                 <View style={[styles.sectionHead, styles.gutter]}>
                   <Text role="eyebrow" size="2xs" color="muted">
-                    {`${shown.title.toUpperCase()} · ${shown.steps.length} ${
-                      shown.steps.length === 1 ? 'EJERCICIO' : 'EJERCICIOS'
-                    }`}
+                    {`${shown.title.toUpperCase()} · ${words.exercisesCaps(shown.steps.length)}`}
                   </Text>
                   <Text role="eyebrow" size="2xs" color="muted">
-                    SERIES × REPS
+                    {words.setsByReps}
                   </Text>
                 </View>
 
@@ -277,8 +281,13 @@ export default function ProgramVersion() {
                     return (
                       <ExerciseCard
                         key={step.position}
-                        name={step.movement ?? 'Ejercicio'}
-                        target={targetLabel(step.target)}
+                        name={step.movement ?? words.exercise}
+                        target={targetLabel(
+                          step.target,
+                          text.training.catalogue,
+                          units.distance,
+                          locale,
+                        )}
                         picture={movementId ? (previews.get(movementId) ?? null) : null}
                         // Push, so volver lands back here with the same day open.
                         onPress={
@@ -301,7 +310,7 @@ export default function ProgramVersion() {
 
         {detail === undefined && !failure ? (
           <Text role="body" size="sm" color="muted" style={styles.gutter}>
-            Cargando el programa…
+            {words.loading}
           </Text>
         ) : null}
       </ScrollView>
@@ -311,7 +320,7 @@ export default function ProgramVersion() {
           después del `ScrollView` para quedar encima de él sin pelearse por el orden. */}
       <IconButton
         icon="back"
-        accessibilityLabel="Volver"
+        accessibilityLabel={text.common.back}
         onPress={() => router.back()}
         style={[styles.back, { top: insets.top + 8 }]}
       />
@@ -331,25 +340,21 @@ export default function ProgramVersion() {
                 },
               ]}
             >
-              <Switch
-                label="Usar también su meta de nutrición"
-                value={adoptNutrition}
-                onChange={setAdoptNutrition}
-              />
+              <Switch label={words.adopt} value={adoptNutrition} onChange={setAdoptNutrition} />
               <Text role="body" size="xs" color="muted">
-                Reemplaza tu meta actual; la anterior queda en el historial
+                {words.adoptNote}
               </Text>
             </View>
           ) : null}
           <Button
-            label="Tomar este programa"
+            label={words.take}
             icon="check"
             loading={choosing}
             disabled={sessionExpired}
             onPress={() => void take()}
           />
           <Text role="body" size="sm" color="muted" align="center">
-            Se añade a tu agenda y lo empiezas desde Hoy.
+            {words.takeNote}
           </Text>
         </View>
       ) : null}

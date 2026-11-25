@@ -52,13 +52,19 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { trainedLabel } from '../../src/client/week'
 import { HistoryGroupHeader, HistoryPanel, HistoryRow } from '../../src/components/history-row'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
-import { shortDate } from '../../src/client/pro'
+import { volumeFigure } from '../../src/client/history'
+import type { Dictionary } from '../../src/i18n'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 const PAGE = 20
 const SEARCH_PAUSE_MS = 300
-const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
-const READ_FAILED = 'No pudimos cargar tu historial. Inténtalo otra vez.'
+/** «3 oct» or «Oct 3»: the first day the plan still shows, in the phone's zone. */
+function keptDate(day: string, words: Dictionary['session']): string {
+  const date = new Date(`${day}T12:00:00`)
+  return words.finished.dayMonth(date.getDate(), words.calendar.monthsShort[date.getMonth()] ?? '')
+}
 
 /** Today in the person's zone, and the first day of its month. */
 function localToday(timezone: string): string {
@@ -72,6 +78,9 @@ interface Filters {
 const NO_FILTERS: Filters = { withRecord: false }
 
 export default function HistoryScreen() {
+  const text = useText()
+  const words = text.session
+  const said = words.history
   const router = useRouter()
   const theme = useTheme()
   const timezone = deviceTimezone()
@@ -131,7 +140,7 @@ export default function HistoryScreen() {
         }
         setSummary(read)
       })
-      .catch(() => active && setFailure(READ_FAILED))
+      .catch(() => active && setFailure(said.readFailed))
     return () => {
       active = false
     }
@@ -159,7 +168,7 @@ export default function HistoryScreen() {
         setCursor(page.page.has_more ? page.page.next_cursor : null)
         setKeptBefore(page.window.has_hidden ? page.window.visible_from : null)
       })
-      .catch(() => asked.current === id && setFailure(READ_FAILED))
+      .catch(() => asked.current === id && setFailure(said.readFailed))
     // `request` reads exactly these, so the list is asked again when any of them changes.
   }, [flow, month, day, filters, query, timezone, seen])
 
@@ -174,7 +183,7 @@ export default function HistoryScreen() {
         setItems([...items, ...page.data])
         setCursor(page.page.has_more ? page.page.next_cursor : null)
       })
-      .catch(() => asked.current === id && setFailure(READ_FAILED))
+      .catch(() => asked.current === id && setFailure(said.readFailed))
       .finally(() => setLoadingMore(false))
   }
 
@@ -189,9 +198,9 @@ export default function HistoryScreen() {
     setPickerYear(Number(month.slice(0, 4)))
     setChoosingMonth(true)
   }
-  const grid = monthGrid(pickerYear, summary?.months_available ?? [], firstOfMonth(today))
+  const grid = monthGrid(pickerYear, summary?.months_available ?? [], firstOfMonth(today), words)
 
-  const groups = items ? weekGroups(items, today) : []
+  const groups = items ? weekGroups(items, today, words) : []
   const weekOf = new Map((summary?.weeks ?? []).map((week) => [week.week_starts_on, week]))
   const filtered = filters.withRecord || query.length > 0
 
@@ -203,19 +212,19 @@ export default function HistoryScreen() {
         <View style={styles.top}>
           <IconButton
             icon="back"
-            accessibilityLabel="Volver"
+            accessibilityLabel={text.common.back}
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/today'))}
           />
           <Text role="control" size="xl" accessibilityRole="header" style={styles.title}>
-            Historial
+            {said.title}
           </Text>
-          <IconButton icon="calendar" accessibilityLabel="Elegir mes" onPress={openMonths} />
+          <IconButton icon="calendar" accessibilityLabel={said.pickMonth} onPress={openMonths} />
         </View>
 
         <TextField
-          label="Buscar en el historial"
+          label={said.search}
           hideLabel
-          placeholder="Busca una rutina o un ejercicio"
+          placeholder={said.searchHint}
           value={typed}
           onChangeText={setTyped}
           autoCapitalize="none"
@@ -225,14 +234,14 @@ export default function HistoryScreen() {
 
         <View style={styles.chips}>
           <Chip
-            label={monthName(month)}
+            label={monthName(month, words)}
             icon="expand"
             selected
             onPress={openMonths}
-            accessibilityLabel={`Mes: ${monthName(month)}. Cambiar`}
+            accessibilityLabel={said.monthChip(monthName(month, words))}
           />
           <Chip
-            label="Con récord"
+            label={said.withRecord}
             icon="record"
             selected={filters.withRecord}
             onPress={() => setFilters({ withRecord: !filters.withRecord })}
@@ -262,7 +271,7 @@ export default function HistoryScreen() {
         renderItem={({ item: group }) => {
           const week = weekOf.get(group.weekStartsOn)
           // A picked day is not its week: the week's tally would count what is not shown.
-          const tally = week && !day ? weekTally(week) : undefined
+          const tally = week && !day ? weekTally(week, words) : undefined
           return (
             <View style={styles.group}>
               <HistoryGroupHeader
@@ -294,9 +303,7 @@ export default function HistoryScreen() {
             <ActivityIndicator color={theme.color.icon.accent} style={styles.loading} />
           ) : (
             <Text role="body" size="sm" color="muted" style={styles.empty}>
-              {filtered
-                ? 'Nada de este mes coincide con lo que buscas.'
-                : `${monthName(month)} todavía no tiene entrenos terminados.`}
+              {filtered ? said.noMatch : said.emptyMonth(monthName(month, words))}
             </Text>
           )
         }
@@ -307,8 +314,8 @@ export default function HistoryScreen() {
             <OfferRow
               tone="tonal"
               icon="locked"
-              label={`Lo anterior al ${shortDate(`${keptBefore}T12:00:00`)} sigue guardado`}
-              caption="Con Pro lo vuelves a ver, desde tu primer entreno."
+              label={said.keptBefore(keptDate(keptBefore, words))}
+              caption={said.keptCaption}
               onPress={() => upgrade.offer('training_history_months')}
               style={styles.kept}
             />
@@ -316,12 +323,16 @@ export default function HistoryScreen() {
         }
       />
 
-      <Sheet visible={choosingMonth} onDismiss={() => setChoosingMonth(false)} title="Elige un mes">
+      <Sheet
+        visible={choosingMonth}
+        onDismiss={() => setChoosingMonth(false)}
+        title={said.chooseMonth}
+      >
         <View style={styles.picker}>
           <View style={styles.yearBar}>
             <IconButton
               icon="back"
-              accessibilityLabel="Año anterior"
+              accessibilityLabel={said.previousYear}
               disabled={grid.previous === null}
               onPress={() => grid.previous !== null && setPickerYear(grid.previous)}
             />
@@ -330,7 +341,7 @@ export default function HistoryScreen() {
             </Text>
             <IconButton
               icon="next"
-              accessibilityLabel="Año siguiente"
+              accessibilityLabel={said.nextYear}
               disabled={grid.next === null}
               onPress={() => grid.next !== null && setPickerYear(grid.next)}
             />
@@ -344,7 +355,7 @@ export default function HistoryScreen() {
                   label={choice.label}
                   variant="bare"
                   selected={selected}
-                  accessibilityLabel={`${monthName(choice.month)} ${String(pickerYear)}`}
+                  accessibilityLabel={`${monthName(choice.month, words)} ${String(pickerYear)}`}
                   disabled={!choice.available}
                   onPress={() => pickMonth(choice.month)}
                   style={styles.monthCell}
@@ -371,21 +382,26 @@ function MonthCard({
   readonly picked: string | null
   readonly onPick: (day: string) => void
 }) {
+  const locale = useLocale()
+  const words = useText().session
+  const said = words.history
+  const { mass } = useUnits()
   const theme = useTheme()
   const chosen: HistoryDay | undefined = summary.days.find((entry) => entry.trained_on === picked)
   const weeks = monthCalendar(summary.month, summary.days, today)
   const streak = longestStreak(summary.days)
   // With a day picked, every figure is that day's.
   const scope = chosen ?? summary
-  const kilos = ((chosen ? chosen.volume_kg : summary.total_volume_kg) ?? 0).toLocaleString(
-    'es-CO',
-    { maximumFractionDigits: 0 },
+  const kilos = volumeFigure(
+    (chosen ? chosen.volume_kg : summary.total_volume_kg) ?? 0,
+    mass,
+    locale,
   )
   const figures: readonly (readonly [string, string, boolean])[] = [
-    [trainedLabel(scope.trained_seconds), 'Entrenando', false],
-    [String(scope.work_sets), 'Series', false],
-    [kilos, 'Kg levantados', false],
-    [String(scope.records), 'Récords', true],
+    [trainedLabel(scope.trained_seconds), said.training, false],
+    [String(scope.work_sets), said.sets, false],
+    [kilos, said.lifted(mass), false],
+    [String(scope.records), said.records, true],
   ]
 
   return (
@@ -399,11 +415,11 @@ function MonthCard({
         <View style={styles.cardCount}>
           <View style={styles.scopeLine}>
             <Text role="eyebrow" size="xs" color="accent" uppercase>
-              {chosen ? dayLabel(chosen.trained_on) : monthName(summary.month)}
+              {chosen ? dayLabel(chosen.trained_on, words) : monthName(summary.month, words)}
             </Text>
             {chosen ? (
               <Button
-                label="Ver todo el mes"
+                label={said.wholeMonth}
                 icon="close"
                 variant="ghost"
                 size="sm"
@@ -418,25 +434,23 @@ function MonthCard({
             </Text>
             <Text role="control" size="sm" color="secondary" style={styles.countUnit}>
               {chosen
-                ? chosen.sessions === 1
-                  ? 'Entreno'
-                  : 'Entrenos'
-                : daysTrainedUnit(summary.days.length)}
+                ? said.workouts(chosen.sessions)
+                : daysTrainedUnit(summary.days.length, words)}
             </Text>
           </View>
         </View>
         {streak > 1 && !chosen ? (
           <Text role="eyebrow" size="2xs" color="muted" uppercase style={styles.streak}>
-            {`Racha más larga · ${String(streak)} días`}
+            {said.longestStreak(streak)}
           </Text>
         ) : null}
       </View>
 
       <View style={styles.calendar}>
         <View style={styles.calendarRow}>
-          {WEEKDAYS.map((weekday) => (
+          {words.calendar.initials.map((weekday, column) => (
             <Text
-              key={weekday}
+              key={String(column)}
               role="eyebrow"
               size="2xs"
               color="muted"
@@ -456,7 +470,7 @@ function MonthCard({
                   disabled={!cell.trained}
                   accessible={cell.trained}
                   accessibilityRole="button"
-                  accessibilityLabel={`${dayLabel(cell.date)}${cell.record ? ', con récord' : ''}`}
+                  accessibilityLabel={`${dayLabel(cell.date, words)}${cell.record ? said.withRecordDay : ''}`}
                   accessibilityState={{ selected: cell.date === picked }}
                   onPress={() => onPick(cell.date)}
                   style={[
@@ -509,7 +523,7 @@ function MonthCard({
               ]}
             />
             <Text role="body" size="xs" color="muted">
-              Récord
+              {said.record}
             </Text>
           </View>
         </View>

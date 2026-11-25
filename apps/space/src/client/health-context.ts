@@ -19,6 +19,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import type { Dictionary } from '../i18n'
 import { ApiError } from './api-error'
 
 export type HealthClaim = AllfitV1Schemas['HealthContextClaim']
@@ -30,71 +31,47 @@ export type HealthClaimInput = AllfitV1Schemas['HealthContextClaimCreate']
 
 export const MAX_DESCRIPTION = 500
 
-export const HEALTH_TYPES: readonly {
-  readonly type: HealthType
-  readonly label: string
-  readonly caption: string
-}[] = [
-  { type: 'pain', label: 'Dolor', caption: 'Algo te duele' },
-  { type: 'limitation', label: 'Limitación', caption: 'Algo no puedes hacer' },
-  { type: 'recovery', label: 'Recuperación', caption: 'Vienes de una lesión' },
-]
-
-const TYPE_LABEL: Record<HealthType, string> = {
-  pain: 'Dolor',
-  limitation: 'Limitación',
-  recovery: 'Recuperación',
-}
-
-export const AREA_LABEL: Record<HealthArea, string> = {
-  neck: 'Cuello',
-  shoulder: 'Hombro',
-  chest: 'Pecho',
-  upper_back: 'Espalda alta',
-  arm: 'Brazo',
-  elbow: 'Codo',
-  wrist_hand: 'Muñeca y mano',
-  abdomen: 'Abdomen',
-  lower_back: 'Espalda baja',
-  hip: 'Cadera',
-  thigh: 'Muslo',
-  knee: 'Rodilla',
-  lower_leg: 'Pierna',
-  ankle_foot: 'Tobillo y pie',
-}
+/** The three types, in the order the form offers them; their words are in the dictionary. */
+export const HEALTH_TYPES: readonly HealthType[] = ['pain', 'limitation', 'recovery']
 
 export const AREA_GROUPS: readonly {
-  readonly title: string
+  readonly group: keyof Dictionary['health']['areaGroups']
   readonly areas: readonly HealthArea[]
 }[] = [
   {
-    title: 'Tren superior',
+    group: 'upper',
     areas: ['neck', 'shoulder', 'chest', 'upper_back', 'arm', 'elbow', 'wrist_hand'],
   },
-  { title: 'Tronco', areas: ['abdomen', 'lower_back', 'hip'] },
-  { title: 'Tren inferior', areas: ['thigh', 'knee', 'lower_leg', 'ankle_foot'] },
+  { group: 'trunk', areas: ['abdomen', 'lower_back', 'hip'] },
+  { group: 'lower', areas: ['thigh', 'knee', 'lower_leg', 'ankle_foot'] },
 ]
 
-export function typeLabel(type: HealthType): string {
-  return TYPE_LABEL[type]
+export const HEALTH_AREAS: readonly HealthArea[] = AREA_GROUPS.flatMap((group) => group.areas)
+
+export function typeLabel(type: HealthType, text: Dictionary['health']): string {
+  return text.types[type].label
 }
 
 /** What a row is called: its area, or its type when she named no area. */
-export function claimTitle(claim: Pick<HealthClaim, 'context_type' | 'body_area'>): string {
-  return claim.body_area ? AREA_LABEL[claim.body_area] : TYPE_LABEL[claim.context_type]
+export function claimTitle(
+  claim: Pick<HealthClaim, 'context_type' | 'body_area'>,
+  text: Dictionary['health'],
+): string {
+  return claim.body_area ? text.areas[claim.body_area] : typeLabel(claim.context_type, text)
 }
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const monthOf = (date: Date, text: Dictionary) => text.common.months[date.getMonth()] ?? ''
 
 /** «9 oct», with the year only when it is not this one. */
-export function dayLine(date: Date, now: Date): string {
-  const day = `${String(date.getDate())} ${MONTHS[date.getMonth()] ?? ''}`
-  return date.getFullYear() === now.getFullYear() ? day : `${day} ${String(date.getFullYear())}`
+export function dayLine(date: Date, now: Date, text: Dictionary): string {
+  return date.getFullYear() === now.getFullYear()
+    ? text.health.dayMonth(date.getDate(), monthOf(date, text))
+    : fullDayLine(date, text)
 }
 
 /** «9 oct 2026», always with its year: what the wheel and the detail show. */
-export function fullDayLine(date: Date): string {
-  return `${String(date.getDate())} ${MONTHS[date.getMonth()] ?? ''} ${String(date.getFullYear())}`
+export function fullDayLine(date: Date, text: Dictionary): string {
+  return text.common.date(date.getDate(), monthOf(date, text), date.getFullYear())
 }
 
 export function hasEnded(claim: Pick<HealthClaim, 'valid_to'>, now: Date): boolean {
@@ -102,11 +79,17 @@ export function hasEnded(claim: Pick<HealthClaim, 'valid_to'>, now: Date): boole
 }
 
 /** What a row says under its title. */
-export function claimCaption(claim: HealthClaim, now: Date): string {
+export function claimCaption(claim: HealthClaim, now: Date, text: Dictionary): string {
   if (claim.valid_to && hasEnded(claim, now)) {
-    return `${TYPE_LABEL[claim.context_type]} · terminó el ${dayLine(new Date(claim.valid_to), now)}`
+    return text.health.caption.ended(
+      typeLabel(claim.context_type, text.health),
+      dayLine(new Date(claim.valid_to), now, text),
+    )
   }
-  return `Desde el ${dayLine(new Date(claim.valid_from), now)} · ${claim.description}`
+  return text.health.caption.since(
+    dayLine(new Date(claim.valid_from), now, text),
+    claim.description,
+  )
 }
 
 export interface HealthSections {
@@ -142,12 +125,7 @@ export function daysBetween(from: Date, to: Date): number {
 
 export type SinceChoice = 'today' | 'week' | 'month' | 'other'
 
-export const SINCE_CHOICES: readonly { readonly choice: SinceChoice; readonly label: string }[] = [
-  { choice: 'today', label: 'Hoy' },
-  { choice: 'week', label: 'Esta semana' },
-  { choice: 'month', label: 'Este mes' },
-  { choice: 'other', label: 'Otra fecha' },
-]
+export const SINCE_CHOICES: readonly SinceChoice[] = ['today', 'week', 'month', 'other']
 
 export function sinceDate(choice: Exclude<SinceChoice, 'other'>, now: Date): Date {
   const today = startOfDay(now)
@@ -158,11 +136,11 @@ export function sinceDate(choice: Exclude<SinceChoice, 'other'>, now: Date): Dat
 }
 
 /** «Hoy», «Hace 33 días», «Mañana», «En 12 días». */
-export function relativeDayLine(offset: number): string {
-  if (offset === 0) return 'Hoy'
-  if (offset === -1) return 'Ayer'
-  if (offset === 1) return 'Mañana'
-  return offset < 0 ? `Hace ${String(-offset)} días` : `En ${String(offset)} días`
+export function relativeDayLine(offset: number, text: Dictionary['health']): string {
+  if (offset === 0) return text.relative.today
+  if (offset === -1) return text.relative.yesterday
+  if (offset === 1) return text.relative.tomorrow
+  return offset < 0 ? text.relative.ago(-offset) : text.relative.ahead(offset)
 }
 
 /** The wheel's run of days: two years back for a start, one year ahead for an end. */
@@ -241,26 +219,26 @@ export function claimInput(draft: HealthDraft, now: Date): HealthClaimInput | un
 
 // ---------------------------------------------------------------- refusals
 
-export function saveFailure(cause: unknown): string {
-  if (cause instanceof ApiError && cause.failure === 'conflict') {
-    return 'Ahora no se puede cambiar: una retención legal mantiene tus datos de salud como están.'
-  }
-  if (cause instanceof ApiError && cause.failure === 'not-found') {
-    return 'Ese registro ya no está. Vuelve a tu lista.'
-  }
+export function saveFailure(cause: unknown, text: Dictionary): string {
+  if (cause instanceof ApiError && cause.failure === 'conflict') return text.health.failure.held
+  if (cause instanceof ApiError && cause.failure === 'not-found') return text.health.failure.gone
   if (cause instanceof ApiError && cause.failure === 'unavailable') {
-    return 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
+    return text.health.failure.offline
   }
-  return 'No pudimos guardarlo. Inténtalo otra vez.'
+  return text.common.saveFailed
 }
 
 /** Undefined when the claim is gone; otherwise why it stays. */
-export function deletionNote(deletion: HealthDeletion, now: Date): string | undefined {
+export function deletionNote(
+  deletion: HealthDeletion,
+  now: Date,
+  text: Dictionary,
+): string | undefined {
   if (deletion.status === 'deleted') return undefined
   if (deletion.status === 'suspended' && deletion.hold) {
-    return `Una retención legal mantiene tus datos de salud hasta el ${dayLine(new Date(deletion.hold.valid_to), now)}. Lo eliminamos en cuanto termine.`
+    return text.health.deletion.held(dayLine(new Date(deletion.hold.valid_to), now, text))
   }
-  return 'Lo eliminamos en unos minutos.'
+  return text.health.deletion.soon
 }
 
 // ---------------------------------------------------------------- choices that travel back

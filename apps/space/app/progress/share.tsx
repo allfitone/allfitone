@@ -67,16 +67,15 @@ import {
   copyImage,
   openStory,
   saveFile,
-  SAVE_FAILED,
   shareFile,
   ShareActionRow,
-  SHARE_FAILED,
   useShareMode,
   useShareRun,
   type ShareAction,
   type ShareMode,
 } from '../../src/components/share-actions'
 import { CARD_HEIGHT, CARD_WIDTH, Scaled } from '../../src/components/share-card'
+import { useText } from '../../src/i18n/use-text'
 
 /** The same six periods «Progreso» reads, so a load's trend has the same shape. */
 const PERIODS = 6
@@ -91,10 +90,6 @@ const STORY_INKS = { top: '#0D1D28', bottom: color.ink.void } as const
 const STICKER_CAPTURE = 2
 /** The width a sticker takes over the preview photograph. */
 const PREVIEW_WIDTH = 260
-
-const LOAD_FAILED = 'No pudimos preparar tus tarjetas. Inténtalo otra vez.'
-const STICKER_HELP =
-  'Copia el sticker y pégalo sobre tu foto en Instagram, o guárdalo sin fondo en tu galería.'
 
 /** Every session of the week, read from the history of the month or two it spans. */
 async function weekSessions(startsOn: string, timezone: string, free: boolean) {
@@ -119,6 +114,9 @@ export default function ShareProgressScreen() {
   const offset = Number(params.offset ?? '0') || 0
   const program = params.program ? params.program : null
   const router = useRouter()
+  const text = useText()
+  const words = text.progress.share
+  const said = text.session.share
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const reduceMotion = useReducedMotion()
@@ -155,16 +153,17 @@ export default function ShareProgressScreen() {
         // The history lists every programme at once: the receipt is not one programme's.
         if (kind !== 'week' || !startsOn || (program !== null && program !== 'free')) return
         const items = await weekSessions(startsOn, timezone, program === 'free').catch(() => [])
-        if (active && items.length > 0) setReceipt(receiptRows(items, startsOn))
+        if (active && items.length > 0)
+          setReceipt(receiptRows(items, startsOn, text.progress.poster))
       })
       .catch(() => active && setFailed(true))
     return () => {
       active = false
     }
-  }, [kind, offset, program, timezone])
+  }, [kind, offset, program, timezone, text])
 
   const index = comparison ? comparison.periods.length - 1 - offset : -1
-  const facts = comparison && index >= 0 ? shareFacts(comparison, index) : undefined
+  const facts = comparison && index >= 0 ? shareFacts(comparison, index, text) : undefined
   const cards = facts ? cardsFor(facts, receipt.length > 0) : []
   const stickers = facts ? stickersFor(facts) : []
   const count = mode === 'image' ? cards.length : stickers.length
@@ -195,15 +194,15 @@ export default function ShareProgressScreen() {
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/progress'))
 
-  const title = kind === 'week' ? 'Comparte tu semana' : 'Comparte tu mes'
+  const title = words.title[kind]
   const chosen =
     program === null
       ? null
       : program === 'free'
-        ? 'Libres'
+        ? text.progress.programs.free
         : (comparison?.programs.find((one) => one.assignment_id === program)?.title ?? null)
   const startsOn = comparison?.periods[index]?.starts_on
-  const subtitle = [startsOn ? periodLabel(startsOn, kind) : null, chosen]
+  const subtitle = [startsOn ? periodLabel(startsOn, kind, text) : null, chosen]
     .filter((part): part is string => part !== null)
     .join(' · ')
 
@@ -231,24 +230,24 @@ export default function ShareProgressScreen() {
           : await stickerImage('base64')
       const background = mode === 'sticker' ? (picked ?? undefined) : undefined
       return (await openStory({ sticker: png, inks: STORY_INKS, background })) ? undefined : sheet()
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
   const save = () =>
     run(
       async () =>
         mode === 'image'
-          ? saveFile(await image('tmpfile'), 'Guardada en Fotos.')
-          : saveFile(await stickerImage('tmpfile'), 'Sticker guardado sin fondo en Fotos.'),
-      SAVE_FAILED,
+          ? saveFile(await image('tmpfile'), words.savedImage, said.noPermission)
+          : saveFile(await stickerImage('tmpfile'), words.savedSticker, said.noPermission),
+      said.saveFailed,
     )
 
   const copy = () =>
     run(
       async () =>
         mode === 'image'
-          ? copyImage(await image('base64'), 'Imagen copiada.')
-          : copyImage(await stickerImage('base64'), 'Sticker copiado. Pégalo en tu historia.'),
-      SHARE_FAILED,
+          ? copyImage(await image('base64'), words.copiedImage)
+          : copyImage(await stickerImage('base64'), words.copiedSticker),
+      said.shareFailed,
     )
 
   // The system picker needs no permission: it hands back only the picture chosen.
@@ -258,17 +257,17 @@ export default function ShareProgressScreen() {
       const uri = result.canceled ? undefined : result.assets[0]?.uri
       if (uri) setPicked(uri)
       return undefined
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
   if (failed || !facts) {
     return (
       <Screen edges={['top', 'bottom']} padded={false}>
         <View style={styles.header}>
-          <IconButton icon="close" accessibilityLabel="Cerrar" onPress={close} />
+          <IconButton icon="close" accessibilityLabel={text.progress.close} onPress={close} />
         </View>
         <View style={styles.waiting}>
           {failed ? (
-            <InlineAlert message={LOAD_FAILED} />
+            <InlineAlert message={words.loadFailed} />
           ) : (
             <ActivityIndicator color={theme.color.icon.accent} />
           )}
@@ -280,16 +279,16 @@ export default function ShareProgressScreen() {
   const actions: readonly ShareAction[] =
     mode === 'image'
       ? [
-          { label: 'Historias', icon: 'instagram', onPress: story },
-          { label: 'Guardar', icon: 'download', onPress: save },
-          { label: 'Copiar', icon: 'duplicate', onPress: copy },
-          { label: 'Más', icon: 'more', onPress: () => run(sheet, SHARE_FAILED) },
+          { label: words.stories, icon: 'instagram', onPress: story },
+          { label: words.save, icon: 'download', onPress: save },
+          { label: words.copy, icon: 'duplicate', onPress: copy },
+          { label: words.more, icon: 'more', onPress: () => run(sheet, said.shareFailed) },
         ]
       : [
-          { label: 'Copiar', icon: 'duplicate', onPress: copy, primary: true },
-          { label: 'Guardar', icon: 'download', onPress: save },
-          { label: 'Historias', icon: 'instagram', onPress: story },
-          { label: 'Más', icon: 'more', onPress: () => run(sheet, SHARE_FAILED) },
+          { label: words.copy, icon: 'duplicate', onPress: copy, primary: true },
+          { label: words.save, icon: 'download', onPress: save },
+          { label: words.stories, icon: 'instagram', onPress: story },
+          { label: words.more, icon: 'more', onPress: () => run(sheet, said.shareFailed) },
         ]
 
   const previewScale = (kindOf: keyof typeof STICKER_SIZE) =>
@@ -298,7 +297,7 @@ export default function ShareProgressScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="close" accessibilityLabel="Cerrar" onPress={close} />
+        <IconButton icon="close" accessibilityLabel={text.progress.close} onPress={close} />
         <View style={styles.titles}>
           <Text role="control" size="lg" align="center" accessibilityRole="header">
             {title}
@@ -313,12 +312,12 @@ export default function ShareProgressScreen() {
       <SegmentedControl
         size="sm"
         items={[
-          { value: 'image', label: 'Imagen' },
-          { value: 'sticker', label: 'Sticker' },
+          { value: 'image', label: words.image },
+          { value: 'sticker', label: words.sticker },
         ]}
         value={mode}
         onChange={switchTo}
-        accessibilityLabel="Compartir como"
+        accessibilityLabel={words.shareAs}
         style={styles.switch}
         testID="share-mode"
       />
@@ -339,14 +338,14 @@ export default function ShareProgressScreen() {
       >
         {mode === 'image'
           ? cards.map((kindOf) => (
-              <View key={kindOf} accessible accessibilityLabel={`Tarjeta ${kindOf}`}>
+              <View key={kindOf} accessible accessibilityLabel={words.cardLabel(kindOf)}>
                 <Scaled scale={scale}>
                   <ProgressCard kind={kindOf} facts={facts} receipt={receipt} muscles={muscles} />
                 </Scaled>
               </View>
             ))
           : stickers.map((kindOf) => (
-              <View key={kindOf} accessible accessibilityLabel={`Sticker ${kindOf}`}>
+              <View key={kindOf} accessible accessibilityLabel={words.stickerLabel(kindOf)}>
                 <Scaled scale={scale}>
                   <View style={styles.preview}>
                     <Image
@@ -370,7 +369,7 @@ export default function ShareProgressScreen() {
 
       {mode === 'sticker' ? (
         <Chip
-          label={picked ? 'Vista sobre tu foto · Cambiar' : 'Vista sobre una foto · Cambiar'}
+          label={picked ? words.onYourPhoto : words.onAPhoto}
           icon="image"
           selected={false}
           onPress={pick}
@@ -383,7 +382,7 @@ export default function ShareProgressScreen() {
         count={count}
         active={page}
         at={at}
-        accessibilityLabel={mode === 'image' ? 'Tarjetas' : 'Stickers'}
+        accessibilityLabel={mode === 'image' ? words.cards : words.stickers}
         reduceMotion={reduceMotion}
         style={styles.dots}
       />
@@ -392,7 +391,7 @@ export default function ShareProgressScreen() {
 
       {mode === 'sticker' ? (
         <Text role="body" size="xs" color="muted" align="center" style={styles.help}>
-          {STICKER_HELP}
+          {words.stickerHelp}
         </Text>
       ) : null}
 

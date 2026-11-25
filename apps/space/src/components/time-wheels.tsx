@@ -15,6 +15,10 @@ import { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { fromTwelve, rangeLabel, toTwelve, twelveHour } from '../client/finished'
+import type { Dictionary } from '../i18n'
+import { useText } from '../i18n/use-text'
+
+type Periods = Dictionary['session']['time']
 
 const HOURS = Array.from({ length: 12 }, (_, index) => index + 1)
 const PERIODS = [0, 1]
@@ -29,12 +33,13 @@ export interface Clock {
 export const clockText = (clock: Clock) => `${two(clock.hour)}:${two(clock.minute)}`
 
 /** «6:02 p. m.», for a label; `clockText` stays the value the clock is compared by. */
-export function clockShown(clock: Clock): string {
-  const { time, period } = twelveHour(clockText(clock))
+export function clockShown(clock: Clock, periods: Periods): string {
+  const { time, period } = twelveHour(clockText(clock), periods)
   return `${time} ${period}`
 }
 
-export const clockRange = (start: Clock, end: Clock) => rangeLabel(clockText(start), clockText(end))
+export const clockRange = (start: Clock, end: Clock, periods: Periods) =>
+  rangeLabel(clockText(start), clockText(end), periods)
 
 /** Hour, minutes and half of the day, turning one clock. */
 export function ClockWheels({
@@ -46,6 +51,7 @@ export function ClockWheels({
   readonly onChange: (clock: Clock) => void
   readonly label: { readonly hour: string; readonly minute: string; readonly period: string }
 }) {
+  const periods = useText().session.time
   const twelve = toTwelve(clock.hour)
   return (
     <View style={styles.wheels}>
@@ -71,7 +77,7 @@ export function ClockWheels({
         values={PERIODS}
         value={twelve.pm ? 1 : 0}
         onChange={(period) => onChange({ ...clock, hour: fromTwelve(twelve.hour, period === 1) })}
-        formatValue={(period) => (period === 1 ? 'p. m.' : 'a. m.')}
+        formatValue={(period) => (period === 1 ? periods.pm : periods.am)}
         accessibilityLabel={label.period}
         style={styles.wheel}
       />
@@ -94,6 +100,7 @@ export function TimeWheels({
   readonly end: Clock
   readonly onChange: (next: { readonly start: Clock; readonly end: Clock }) => void
 }) {
+  const text = useText().session
   const [turning, setTurning] = useState<'start' | 'end'>('start')
   const shown = turning === 'start' ? start : end
   const set = (clock: Clock) =>
@@ -102,10 +109,10 @@ export function TimeWheels({
   return (
     <View style={styles.wrap}>
       <SegmentedControl
-        accessibilityLabel="Qué hora cambias"
+        accessibilityLabel={text.wheels.which}
         items={[
-          { value: 'start', label: `Empezó · ${clockShown(start)}` },
-          { value: 'end', label: `Terminó · ${clockShown(end)}` },
+          { value: 'start', label: text.wheels.started(clockShown(start, text.time)) },
+          { value: 'end', label: text.wheels.ended(clockShown(end, text.time)) },
         ]}
         value={turning}
         onChange={setTurning}
@@ -114,15 +121,7 @@ export function TimeWheels({
         key={turning}
         clock={shown}
         onChange={set}
-        label={
-          turning === 'start'
-            ? {
-                hour: 'Hora de inicio',
-                minute: 'Minutos de inicio',
-                period: 'Mañana o tarde, inicio',
-              }
-            : { hour: 'Hora de fin', minute: 'Minutos de fin', period: 'Mañana o tarde, fin' }
-        }
+        label={turning === 'start' ? text.wheels.start : text.wheels.end}
       />
     </View>
   )

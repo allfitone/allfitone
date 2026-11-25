@@ -34,12 +34,13 @@ import { readBodyPhotos, recordBodyPhoto } from '../../src/client/body-transport
 import { deviceTimezone } from '../../src/client/timezone'
 import { preparePhoto } from '../../src/components/prepare-photo'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
-
-const SAVE_FAILED = 'No pudimos guardar tu foto. Inténtalo otra vez.'
+import { useText } from '../../src/i18n/use-text'
 const TIMER_SECONDS = 3
 
 export default function BodyPhotoScreen() {
   const router = useRouter()
+  const text = useText()
+  const words = text.progress.photo
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const features = usePlan()
@@ -112,7 +113,7 @@ export default function BodyPhotoScreen() {
       await recordBodyPhoto(today, taken.base64)
       router.back()
     } catch (cause) {
-      if (!upgrade.handled(cause)) setFailure(SAVE_FAILED)
+      if (!upgrade.handled(cause)) setFailure(words.saveFailed)
       setSaving(false)
     }
   }
@@ -132,15 +133,15 @@ export default function BodyPhotoScreen() {
             decorative
           />
           <Text role="body" size="md" color="secondary" align="center">
-            Para tomar tu foto de progreso, Allfit necesita la cámara.
+            {words.needCamera}
           </Text>
           <Button
-            label="Permitir la cámara"
+            label={words.allowCamera}
             variant="secondary"
             onPress={() => void requestPermission()}
           />
           <Button
-            label="Elegir de la galería"
+            label={words.fromGallery}
             variant="ghost"
             onPress={() => void pickFromGallery()}
           />
@@ -166,19 +167,19 @@ export default function BodyPhotoScreen() {
         <View style={styles.topRow}>
           <IconButton
             icon={taken ? 'back' : 'close'}
-            accessibilityLabel={taken ? 'Repetir la foto' : 'Cerrar sin guardar'}
+            accessibilityLabel={taken ? words.retake : words.closeUnsaved}
             onPress={() => (taken ? setTaken(undefined) : router.back())}
           />
           <Text role="control" size="lg" style={styles.title}>
-            Foto de progreso
+            {words.title}
           </Text>
           {!taken ? (
             <Chip
-              label={`${String(TIMER_SECONDS)} s`}
+              label={words.seconds(TIMER_SECONDS)}
               icon="countdown"
               selected={timer}
               onPress={() => setTimer(!timer)}
-              accessibilityLabel={`Temporizador de ${String(TIMER_SECONDS)} segundos`}
+              accessibilityLabel={words.timer(TIMER_SECONDS)}
             />
           ) : (
             <View style={styles.side} />
@@ -187,11 +188,11 @@ export default function BodyPhotoScreen() {
         {!taken && last ? (
           <View style={styles.hint}>
             <Chip
-              label={ghost ? `Alinea con tu foto del ${shortDay(last.taken_on)}` : 'Guía apagada'}
+              label={ghost ? words.alignWith(shortDay(last.taken_on, text)) : words.guideOff}
               icon="image"
               selected={ghost}
               onPress={() => setGhost(!ghost)}
-              accessibilityLabel={`Mostrar tu foto del ${shortDay(last.taken_on)} para alinearte`}
+              accessibilityLabel={words.showLast(shortDay(last.taken_on, text))}
             />
           </View>
         ) : null}
@@ -210,13 +211,13 @@ export default function BodyPhotoScreen() {
         {taken ? (
           <View style={styles.review}>
             <Button
-              label="Repetir"
+              label={words.again}
               variant="secondary"
               onPress={() => setTaken(undefined)}
               style={styles.grow}
             />
             <Button
-              label="Guardar foto"
+              label={words.save}
               loading={saving}
               onPress={() => void save()}
               style={styles.grow}
@@ -225,13 +226,13 @@ export default function BodyPhotoScreen() {
         ) : (
           <>
             <Text role="body" size="xs" color="secondary" align="center">
-              Misma luz, misma distancia y la cámara a la altura del pecho.
+              {words.tip}
             </Text>
             <View style={styles.controls}>
               <CoverTile
                 size="md"
                 onPress={() => void pickFromGallery()}
-                accessibilityLabel="Elegir de la galería"
+                accessibilityLabel={words.fromGallery}
                 hint={
                   <FoundationIcon
                     name="image"
@@ -251,7 +252,7 @@ export default function BodyPhotoScreen() {
               </CoverTile>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Tomar la foto"
+                accessibilityLabel={words.shoot}
                 disabled={!permission?.granted || counting !== undefined}
                 onPress={() => void shoot()}
                 style={[
@@ -263,12 +264,12 @@ export default function BodyPhotoScreen() {
               </Pressable>
               <IconButton
                 icon="flip"
-                accessibilityLabel="Cambiar de cámara"
+                accessibilityLabel={words.flip}
                 onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
               />
             </View>
             <Note icon="locked" align="center" style={styles.private}>
-              Solo tú la ves
+              {words.onlyYou}
             </Note>
           </>
         )}

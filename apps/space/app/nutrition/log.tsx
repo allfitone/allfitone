@@ -49,7 +49,6 @@ import {
   formFromMeal,
   formTotals,
   itemsFromForm,
-  MEAL_NAMES,
   MEAL_TYPES,
   type Extra,
   type FormItem,
@@ -62,26 +61,22 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { FIGURE_TRACKING, macroColor, MacroDots } from '../../src/components/nutrition-ui'
 import { SheetChoice } from '../../src/components/sheet-choice'
 import { ClockWheels } from '../../src/components/time-wheels'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
-const SAVE_FAILED = 'No pudimos guardar la comida. Inténtalo otra vez.'
-const PHOTO_FAILED =
-  'La comida quedó guardada, pero la foto no subió. Puedes añadirla desde su detalle.'
-const READ_FAILED = 'No pudimos abrir esta comida. Inténtalo otra vez.'
 const HEADER_HEIGHT = 330
 
 const CELLS: readonly {
-  readonly code: NutrientCode
-  readonly label: string
+  readonly code: 'energy' | 'protein' | 'carbohydrates' | 'fat'
   readonly unit: string
 }[] = [
-  { code: 'energy', label: 'KCAL', unit: '' },
-  { code: 'protein', label: 'PROT.', unit: 'g' },
-  { code: 'carbohydrates', label: 'CARBOS', unit: 'g' },
-  { code: 'fat', label: 'GRASA', unit: 'g' },
+  { code: 'energy', unit: '' },
+  { code: 'protein', unit: 'g' },
+  { code: 'carbohydrates', unit: 'g' },
+  { code: 'fat', unit: 'g' },
 ]
-const EXTRAS: readonly { readonly code: Extra; readonly label: string; readonly unit: string }[] = [
-  { code: 'fiber', label: 'FIBRA', unit: 'g' },
-  { code: 'water', label: 'AGUA', unit: 'ml' },
+const EXTRAS: readonly { readonly code: Extra; readonly unit: string }[] = [
+  { code: 'fiber', unit: 'g' },
+  { code: 'water', unit: 'ml' },
 ]
 
 const two = (value: number) => String(value).padStart(2, '0')
@@ -102,6 +97,8 @@ export default function LogMealScreen() {
   } = useLocalSearchParams<{ mealId?: string; day?: string; type?: string }>()
   const router = useRouter()
   const theme = useTheme()
+  const locale = useLocale()
+  const { nutrition: text, session } = useText()
   const insets = useSafeAreaInsets()
   const timeZone = useMemo(() => deviceTimezone(), [])
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
@@ -145,7 +142,7 @@ export default function LogMealScreen() {
     setRead(meal)
     setMealType(meal.meal_type)
     setOccurredAt(meal.occurred_at)
-    const form = formFromMeal(meal)
+    const form = formFromMeal(meal, locale)
     setItems(form.items)
     setOpenKey(form.items[0]?.key)
     setNote(meal.note ?? '')
@@ -158,7 +155,7 @@ export default function LogMealScreen() {
     flow
       .readMeal(mealId)
       .then((meal) => active && fill(meal))
-      .catch(() => active && setFailure(READ_FAILED))
+      .catch(() => active && setFailure(text.mealReadFailed))
     return () => {
       active = false
     }
@@ -242,7 +239,7 @@ export default function LogMealScreen() {
               photo: { content_type: photo.type, content: photo.base64 },
             })
           } catch {
-            setFailure(PHOTO_FAILED)
+            setFailure(text.log.photoFailed)
             setSaving(false)
             return
           }
@@ -256,16 +253,19 @@ export default function LogMealScreen() {
         setAsking('conflict')
         return
       }
-      setFailure(SAVE_FAILED)
+      setFailure(text.mealSaveFailed)
     }
   }
 
   const time = clockOf(occurredAt, timeZone)
-  const timeShown = clockLabel(occurredAt, timeZone)
+  const timeShown = clockLabel(occurredAt, timeZone, session.time)
   const dayLabel =
     (read?.local_date ?? day) === today
-      ? 'Hoy'
-      : (read?.local_date ?? day).slice(5).split('-').reverse().join('/')
+      ? text.today
+      : text.log.shortDate(
+          (read?.local_date ?? day).slice(8),
+          (read?.local_date ?? day).slice(5, 7),
+        )
 
   return (
     <Screen edges={[]} padded={false}>
@@ -322,7 +322,7 @@ export default function LogMealScreen() {
                   decorative
                 />
                 <Text role="body" size="xs" color="secondary">
-                  La hora y el día no cambian al corregir
+                  {text.log.timeLocked}
                 </Text>
               </View>
             ) : null}
@@ -342,7 +342,7 @@ export default function LogMealScreen() {
                     kcal
                   </Text>
                   <Text role="body" size="xs" color="secondary">
-                    se suman a medida que escribes
+                    {text.log.addingUp}
                   </Text>
                 </View>
               </View>
@@ -387,7 +387,7 @@ export default function LogMealScreen() {
                   ]}
                 >
                   <Text role="control" size="sm" color={one === mealType ? 'inverse' : 'secondary'}>
-                    {MEAL_NAMES[one]}
+                    {text.meals[one]}
                   </Text>
                 </Pressable>
               ))}
@@ -395,10 +395,10 @@ export default function LogMealScreen() {
 
             <View style={styles.sectionHead}>
               <Text role="control" size="lg">
-                Qué comiste
+                {text.whatYouAte}
               </Text>
               <Text role="body" size="sm" color="muted">
-                {`${String(named.length)} ${named.length === 1 ? 'ítem' : 'ítems'}`}
+                {text.items(named.length)}
               </Text>
             </View>
 
@@ -418,11 +418,11 @@ export default function LogMealScreen() {
                 >
                   <View style={styles.itemHead}>
                     <TextInput
-                      accessibilityLabel="Nombre del alimento"
+                      accessibilityLabel={text.log.foodName}
                       testID="item-name"
                       value={item.name}
                       onChangeText={(name) => editItem(item.key, { name })}
-                      placeholder="Pechuga de pollo"
+                      placeholder={text.log.foodExample}
                       placeholderTextColor={theme.color.text.muted}
                       style={[styles.name, { color: theme.color.text.primary }]}
                     />
@@ -433,7 +433,7 @@ export default function LogMealScreen() {
                       ]}
                     >
                       <TextInput
-                        accessibilityLabel="Gramos"
+                        accessibilityLabel={text.log.grams}
                         testID="item-grams"
                         maxLength={6}
                         value={item.quantity}
@@ -450,7 +450,7 @@ export default function LogMealScreen() {
                     {items.length > 1 ? (
                       <IconButton
                         icon="remove"
-                        accessibilityLabel="Quitar el alimento"
+                        accessibilityLabel={text.log.removeFood}
                         onPress={() => removeItem(item.key)}
                       />
                     ) : null}
@@ -478,7 +478,7 @@ export default function LogMealScreen() {
                           />
                           <View style={styles.cellValue}>
                             <TextInput
-                              accessibilityLabel={cell.label}
+                              accessibilityLabel={text.log.cells[cell.code]}
                               testID={`cell-${cell.code}`}
                               maxLength={6}
                               value={item.values[cell.code] ?? ''}
@@ -495,7 +495,7 @@ export default function LogMealScreen() {
                             ) : null}
                           </View>
                           <Text role="eyebrow" size="2xs" color="muted">
-                            {cell.label}
+                            {text.log.cells[cell.code]}
                           </Text>
                         </View>
                       ),
@@ -516,12 +516,12 @@ export default function LogMealScreen() {
                           decorative
                         />
                         <Text role="control" size="sm" color="secondary">
-                          {extra.code === 'fiber' ? 'Fibra' : 'Agua'}
+                          {text.nutrients[extra.code]}
                         </Text>
                       </Pressable>
                     ))}
                     <Text role="body" size="xs" color="muted" style={styles.grow}>
-                      lo que no escribas queda vacío, no en cero
+                      {text.log.blankStaysBlank}
                     </Text>
                   </View>
                 </View>
@@ -539,7 +539,7 @@ export default function LogMealScreen() {
                   ]}
                 >
                   <Text role="control" size="md" numberOfLines={1} style={styles.grow}>
-                    {item.name.trim() || 'Alimento sin nombre'}
+                    {item.name.trim() || text.log.unnamed}
                     {item.quantity ? (
                       <Text role="body" size="sm" color="muted">{`  ${item.quantity} g`}</Text>
                     ) : null}
@@ -555,7 +555,7 @@ export default function LogMealScreen() {
               ),
             )}
 
-            <Button label="Añadir alimento" icon="add" variant="secondary" onPress={addItem} />
+            <Button label={text.log.addFood} icon="add" variant="secondary" onPress={addItem} />
 
             <View
               style={[
@@ -569,14 +569,14 @@ export default function LogMealScreen() {
               <FoundationIcon name="edit" size="sm" color={theme.color.icon.secondary} decorative />
               <View style={styles.grow}>
                 <Text role="eyebrow" size="2xs" color="muted" uppercase>
-                  Nota · opcional
+                  {text.log.note}
                 </Text>
                 <TextInput
-                  accessibilityLabel="Nota"
+                  accessibilityLabel={text.log.noteLabel}
                   testID="note"
                   value={note}
                   onChangeText={setNote}
-                  placeholder="Después del entreno, con más arroz"
+                  placeholder={text.log.noteExample}
                   placeholderTextColor={theme.color.text.muted}
                   maxLength={1000}
                   multiline
@@ -598,9 +598,7 @@ export default function LogMealScreen() {
             ]}
           >
             <Button
-              label={
-                correcting ? 'Guardar corrección' : `Guardar ${MEAL_NAMES[mealType].toLowerCase()}`
-              }
+              label={correcting ? text.log.saveCorrection : text.saveMeal(mealType)}
               icon="check"
               loading={saving}
               disabled={named.length === 0}
@@ -612,15 +610,15 @@ export default function LogMealScreen() {
       <View style={[styles.heroTop, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
         <IconButton
           icon="close"
-          accessibilityLabel="Cerrar sin guardar"
+          accessibilityLabel={text.closeUnsaved}
           onPress={() => router.back()}
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
             correcting
-              ? `${dayLabel} ${timeShown}, no cambia al corregir`
-              : `Hora: ${dayLabel} ${timeShown}. Cambiar`
+              ? text.log.timeLockedLabel(dayLabel, timeShown)
+              : text.log.timeLabel(dayLabel, timeShown)
           }
           disabled={correcting}
           onPress={() => {
@@ -643,7 +641,7 @@ export default function LogMealScreen() {
         </Pressable>
         <IconButton
           icon="camera"
-          accessibilityLabel="Foto de la comida"
+          accessibilityLabel={text.log.photo}
           onPress={() => setAsking('photo')}
         />
       </View>
@@ -651,14 +649,14 @@ export default function LogMealScreen() {
       <Sheet
         visible={asking === 'photo'}
         onDismiss={() => setAsking(undefined)}
-        title="Foto de la comida"
+        title={text.log.photo}
       >
         <View style={styles.sheet}>
-          <SheetChoice name="Tomar foto" onPress={() => void pick('camera')} />
-          <SheetChoice name="Elegir de la galería" onPress={() => void pick('library')} />
+          <SheetChoice name={text.log.takePhoto} onPress={() => void pick('camera')} />
+          <SheetChoice name={text.log.fromLibrary} onPress={() => void pick('library')} />
           {shownPhoto ? (
             <SheetChoice
-              name="Quitar la foto"
+              name={text.log.removePhoto}
               destructive
               onPress={() => {
                 setPhoto(read?.photo ? 'remove' : undefined)
@@ -672,16 +670,12 @@ export default function LogMealScreen() {
       <Sheet
         visible={asking === 'time'}
         onDismiss={() => setAsking(undefined)}
-        title="Hora de la comida"
+        title={text.log.time}
       >
         <View style={styles.sheet}>
-          <ClockWheels
-            clock={clock}
-            onChange={setClock}
-            label={{ hour: 'Hora', minute: 'Minutos', period: 'Mañana o tarde' }}
-          />
+          <ClockWheels clock={clock} onChange={setClock} label={text.log.wheels} />
           <Button
-            label="Listo"
+            label={text.done}
             onPress={() => {
               const next = withClock(
                 occurredAt,
@@ -698,7 +692,7 @@ export default function LogMealScreen() {
       <Sheet
         visible={asking === 'conflict'}
         onDismiss={() => setAsking(undefined)}
-        title="Esta comida cambió en otro dispositivo"
+        title={text.log.conflictTitle}
         hideTitle
       >
         <View style={styles.sheet}>
@@ -716,24 +710,23 @@ export default function LogMealScreen() {
             />
           </View>
           <Text role="control" size="xl" align="center" accessibilityRole="header">
-            Esta comida cambió en otro dispositivo
+            {text.log.conflictTitle}
           </Text>
           <Text role="body" size="md" color="secondary" align="center">
-            Mientras corregías, se guardó otra versión. No la sobrescribimos: revísala y vuelve a
-            aplicar tu corrección si sigue haciendo falta.
+            {text.log.conflictBody}
           </Text>
           <Button
-            label="Ver la versión guardada"
+            label={text.log.seeSaved}
             onPress={() => {
               setAsking(undefined)
               if (correcting)
                 void flow
                   .readMeal(mealId)
                   .then(fill)
-                  .catch(() => setFailure(READ_FAILED))
+                  .catch(() => setFailure(text.mealReadFailed))
             }}
           />
-          <Button label="Descartar mi corrección" variant="ghost" onPress={() => router.back()} />
+          <Button label={text.log.discard} variant="ghost" onPress={() => router.back()} />
         </View>
       </Sheet>
     </Screen>

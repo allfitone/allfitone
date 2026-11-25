@@ -18,6 +18,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 
 export type MyRelationship = AllfitV1Schemas['SpaceRelationship']
 export type RelationshipPage = AllfitV1Schemas['SpaceRelationshipPage']
@@ -120,21 +121,26 @@ export function payableRelationships(
  */
 const MINOR_UNIT_EXPONENT = 2
 
-export function formatPrice(amountMinor: number, currencyCode: string): string {
-  return new Intl.NumberFormat('es-CO', {
+export function formatPrice(amountMinor: number, currencyCode: string, locale: Locale): string {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: 'currency',
     currency: currencyCode,
   }).format(amountMinor / 10 ** MINOR_UNIT_EXPONENT)
 }
 
-export function periodLabel(billingPeriod: PlanOffer['billing_period']): string {
-  return billingPeriod === 'month' ? 'al mes' : 'al año'
+type GymPlansText = Dictionary['plans']['gym']
+
+export function periodLabel(
+  billingPeriod: PlanOffer['billing_period'],
+  text: GymPlansText,
+): string {
+  return billingPeriod === 'month' ? text.perMonth : text.perYear
 }
 
-export function statusLabel(status: Subscription['status']): string {
-  if (status === 'active') return 'Al día'
-  if (status === 'suspended') return 'En pausa'
-  return 'Terminada'
+export function statusLabel(status: Subscription['status'], text: GymPlansText): string {
+  if (status === 'active') return text.status.active
+  if (status === 'suspended') return text.status.suspended
+  return text.status.ended
 }
 
 /**
@@ -144,8 +150,8 @@ export function statusLabel(status: Subscription['status']): string {
  * still her gym. What stops is the training going forward. Saying only "en pausa" leaves
  * her to guess, and the guess people make is that they lost everything.
  */
-export function pausedExplanation(organizationName: string): string {
-  return `${organizationName} pausó tu plan por un pago pendiente. Tus sesiones futuras con ellos quedan en pausa, pero no se borró nada: tu historial está completo y los permisos que diste siguen en pie. Cuando el pago se resuelva, todo vuelve sin que tengas que aceptar nada otra vez.`
+export function pausedExplanation(organizationName: string, text: GymPlansText): string {
+  return text.paused(organizationName)
 }
 
 /**
@@ -155,8 +161,8 @@ export function pausedExplanation(organizationName: string): string {
  * telling her that cancelling also cuts the gym's access would be telling her something
  * false about her own data.
  */
-export function cancellationExplanation(organizationName: string): string {
-  return `Dejas de pagarle a ${organizationName}. Tu Fitness ID, tu historial y lo que registraste siguen siendo tuyos. Cancelar el pago no termina tu vínculo con el gimnasio ni le retira los permisos que le diste: si además quieres eso, se decide aparte.`
+export function cancellationExplanation(organizationName: string, text: GymPlansText): string {
+  return text.cancellation(organizationName)
 }
 
 export type SubscribeRefusal = 'not-offered' | 'cannot-charge' | 'already-paying' | 'unavailable'
@@ -177,23 +183,16 @@ export function subscribeRefusalFor(failure: string): SubscribeRefusal {
 export function subscribeRefusalMessage(
   refusal: SubscribeRefusal,
   organizationName: string,
+  text: GymPlansText,
 ): string {
-  if (refusal === 'not-offered') {
-    return 'Este plan ya no está disponible. Vuelve a cargar los planes del gimnasio para ver los que sí.'
-  }
-  if (refusal === 'cannot-charge') {
-    return `${organizationName} todavía no tiene cómo recibir el pago, o ya tienes un plan con ellos. Habla con el gimnasio: no es algo que puedas resolver desde aquí.`
-  }
-  if (refusal === 'already-paying') {
-    return `Ya tienes un plan con ${organizationName}.`
-  }
-  return 'No pudimos crear el plan. No se te cobró nada, así que puedes intentarlo otra vez.'
+  if (refusal === 'not-offered') return text.refusal.notOffered
+  if (refusal === 'cannot-charge') return text.refusal.cannotCharge(organizationName)
+  if (refusal === 'already-paying') return text.refusal.alreadyPaying(organizationName)
+  return text.refusal.unavailable
 }
 
-export function cancelRefusalMessage(failure: string): string {
-  if (failure === 'not-found') {
-    return 'Este plan ya no está. Vuelve a cargar tus planes para ver cómo están ahora.'
-  }
+export function cancelRefusalMessage(failure: string, text: GymPlansText): string {
+  if (failure === 'not-found') return text.cancelRefusal.notFound
   // Nothing was written, which is what makes offering a retry honest.
-  return 'No pudimos cancelar el plan. No se cambió nada, así que puedes intentarlo otra vez.'
+  return text.cancelRefusal.unavailable
 }

@@ -1,18 +1,20 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   canSubmitExperience,
   chooseLevel,
-  EXPERIENCE_LEVELS,
+  experienceLevels,
   experienceStops,
   levelDefinition,
-  NOT_A_LABEL_BODY,
-  NOT_A_LABEL_TITLE,
-  PICK_A_LEVEL,
   readLevel,
   TRAINING_EXPERIENCE,
   type TrainingExperience,
 } from './experience-form'
+
+const es = textFor('es').fitness.experience
+const en = textFor('en').fitness.experience
+const EXPERIENCE_LEVELS = experienceLevels(es)
 
 describe('EXPERIENCE_LEVELS', () => {
   test('offers the three simple terms the story names', () => {
@@ -46,24 +48,36 @@ describe('EXPERIENCE_LEVELS', () => {
   })
 
   test('the notice is one sentence about labels and one about the loads moving', () => {
-    expect(NOT_A_LABEL_TITLE).toContain('etiqueta')
-    expect(NOT_A_LABEL_BODY).toContain('primera semana')
+    expect(es.notALabelTitle).toContain('etiqueta')
+    expect(es.notALabelBody).toContain('primera semana')
   })
 
   test('the lede asks for an answer before it explains why', () => {
     // Sin el «marca» delante, tres círculos huecos se leen como una explicación.
-    expect(PICK_A_LEVEL.startsWith('Marca')).toBe(true)
-    expect(PICK_A_LEVEL).toContain('principiante')
+    expect(es.pickALevel.startsWith('Marca')).toBe(true)
+    expect(es.pickALevel).toContain('principiante')
   })
 })
 
 describe('levelDefinition', () => {
   test('answers the definition of a level', () => {
-    expect(levelDefinition('some_practice')?.name).toBe('Tengo algo de práctica')
+    expect(levelDefinition('some_practice', es)?.name).toBe('Tengo algo de práctica')
   })
 
   test('answers nothing for a code it cannot draw rather than throwing', () => {
-    expect(levelDefinition('advanced' as never)).toBeUndefined()
+    expect(levelDefinition('advanced' as never, es)).toBeUndefined()
+  })
+})
+
+describe('the levels in English (TECH-44)', () => {
+  test('T-SPC-UNIT-453 they keep the order and never use the gym vocabulary either', () => {
+    expect(levelDefinition('some_practice', en)?.name).toBe('I have some practice')
+    const words = experienceStops(undefined, en)
+      .map((stop) => stop.entry.name.toLowerCase())
+      .join(' ')
+    for (const banned of ['beginner', 'intermediate', 'advanced']) {
+      expect(words).not.toContain(banned)
+    }
   })
 })
 
@@ -86,7 +100,7 @@ describe('chooseLevel', () => {
 describe('experienceStops', () => {
   test('marks the chosen stop and only the chosen stop', () => {
     // La línea no cuenta nada: lo único que cambia al marcar es su círculo.
-    expect(experienceStops('some_practice').map((stop) => stop.chosen)).toEqual([
+    expect(experienceStops('some_practice', es).map((stop) => stop.chosen)).toEqual([
       false,
       true,
       false,
@@ -96,18 +110,22 @@ describe('experienceStops', () => {
   test('draws the whole track cold while nothing is chosen, rather than hiding it', () => {
     // La escala tiene que verse antes de contestar: si apareciera al elegir, sólo la
     // vería quien ya decidió.
-    const stops = experienceStops(undefined)
+    const stops = experienceStops(undefined, es)
 
     expect(stops).toHaveLength(3)
     expect(stops.some((stop) => stop.chosen)).toBe(false)
   })
 
   test('marks only the last stop as last, so one thread never dangles', () => {
-    expect(experienceStops('experienced').map((stop) => stop.last)).toEqual([false, false, true])
+    expect(experienceStops('experienced', es).map((stop) => stop.last)).toEqual([
+      false,
+      false,
+      true,
+    ])
   })
 
   test('answers a cold track for a code it cannot draw rather than throwing', () => {
-    expect(experienceStops('advanced' as never).every((stop) => !stop.chosen)).toBe(true)
+    expect(experienceStops('advanced' as never, es).every((stop) => !stop.chosen)).toBe(true)
   })
 })
 

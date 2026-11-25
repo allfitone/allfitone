@@ -6,6 +6,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   declaredExperience,
   declaredFocus,
@@ -16,6 +17,9 @@ import {
   versionsOf,
 } from './fitness-edit'
 import type { FitnessProfile, ProfileEntry } from './fitness-profile'
+
+const es = textFor('es').fitness
+const en = textFor('en').fitness
 
 const entry = (over: Partial<ProfileEntry>): ProfileEntry => ({
   attribute_code: 'primary_training_goal',
@@ -114,7 +118,7 @@ describe('the versions of one datum', () => {
         ],
       }),
     ])
-    const versions = versionsOf(read, 'primary_training_goal')
+    const versions = versionsOf(read, 'primary_training_goal', es, 'es')
     expect(versions?.title).toBe('Objetivo')
     expect(versions?.reason).toBe('Mostramos «Construir músculo» porque lo declaraste tú.')
     expect(versions?.versions.map((one) => [one.line, one.current])).toEqual([
@@ -122,6 +126,24 @@ describe('the versions of one datum', () => {
       ['Bajar de peso', false],
     ])
     expect(versions?.versions[1]?.origin).toStartWith('Observado por tu coach · ')
+  })
+
+  test('T-SPC-UNIT-450 in English the versions read in English, the date included', () => {
+    const read = profile([
+      entry({
+        alternatives: [
+          {
+            values: ['lose_weight'],
+            provenance: 'professional_observation',
+            valid_from: '2026-09-10T09:00:00.000Z',
+          },
+        ],
+      }),
+    ])
+    const versions = versionsOf(read, 'primary_training_goal', en, 'en')
+    expect(versions?.title).toBe('Goal')
+    expect(versions?.reason).toBe('We show “Build muscle” because you declared it.')
+    expect(versions?.versions[1]?.origin).toBe('Observed by your coach · Sep 10')
   })
 
   test('T-SPC-UNIT-FE-08 the most recent says so, and an absent datum has none', () => {
@@ -133,10 +155,10 @@ describe('the versions of one datum', () => {
         selected_because: 'most_recent',
       }),
     ])
-    expect(versionsOf(read, 'training_days_per_week')?.reason).toBe(
+    expect(versionsOf(read, 'training_days_per_week', es, 'es')?.reason).toBe(
       'Mostramos «4 días» porque es la versión más reciente.',
     )
-    expect(versionsOf(read, 'session_duration')).toBeUndefined()
-    expect(versionsOf(read, 'not_a_row')).toBeUndefined()
+    expect(versionsOf(read, 'session_duration', es, 'es')).toBeUndefined()
+    expect(versionsOf(read, 'not_a_row', es, 'es')).toBeUndefined()
   })
 })

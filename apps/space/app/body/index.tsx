@@ -45,6 +45,7 @@ import {
   daysApart,
   decimal,
   latestOf,
+  massTenths,
   measureChange,
   monthTicks,
   seriesOf,
@@ -63,10 +64,13 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { BodyFigure } from '../../src/components/body-figure'
 import { CardGlow, FIGURE_TRACKING } from '../../src/components/nutrition-ui'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import type { Dictionary, Locale } from '../../src/i18n'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { massLabel, type MassUnit } from '../../src/units/units'
+import { useUnits } from '../../src/units/use-units'
 
 /** A frame past the sheet's exit, so its modal is gone before the next thing appears. */
 const SHEET_SETTLE_MS = 60
-const READ_FAILED = 'No pudimos cargar tus medidas. Inténtalo otra vez.'
 const CHART_HEIGHT = 110
 const FIGURE_SCALE = 0.78
 const FIGURE_WIDTH = 200 * FIGURE_SCALE
@@ -97,25 +101,24 @@ const SAMPLE_MEASURES: readonly BodyRecord[] = (
 )
 
 type Range = '1' | '3' | '6' | '12'
-const RANGES: readonly { value: Range; label: string; accessibilityLabel: string }[] = [
-  { value: '1', label: '1M', accessibilityLabel: 'Un mes' },
-  { value: '3', label: '3M', accessibilityLabel: 'Tres meses' },
-  { value: '6', label: '6M', accessibilityLabel: 'Seis meses' },
-  { value: '12', label: '1A', accessibilityLabel: 'Un año' },
-]
+const RANGES = [
+  ['1', 'one'],
+  ['3', 'three'],
+  ['6', 'six'],
+  ['12', 'twelve'],
+] as const
 
 /** Where each measure is taken, as a share of the figure's box; and which side it reads on. */
 const CALLOUTS: readonly {
-  readonly code: BodyMetric
-  readonly label: string
+  readonly code: Extract<BodyMetric, 'chest' | 'arm' | 'waist' | 'hip' | 'thigh'>
   readonly at: readonly [number, number]
   readonly side: 'left' | 'right'
 }[] = [
-  { code: 'chest', label: 'Pecho', at: [0.42, 0.27], side: 'left' },
-  { code: 'arm', label: 'Brazo', at: [0.25, 0.36], side: 'left' },
-  { code: 'waist', label: 'Cintura', at: [0.36, 0.4], side: 'left' },
-  { code: 'hip', label: 'Cadera', at: [0.64, 0.5], side: 'right' },
-  { code: 'thigh', label: 'Muslo', at: [0.6, 0.6], side: 'right' },
+  { code: 'chest', at: [0.42, 0.27], side: 'left' },
+  { code: 'arm', at: [0.25, 0.36], side: 'left' },
+  { code: 'waist', at: [0.36, 0.4], side: 'left' },
+  { code: 'hip', at: [0.64, 0.5], side: 'right' },
+  { code: 'thigh', at: [0.6, 0.6], side: 'right' },
 ]
 
 function localToday(timezone: string): string {
@@ -124,6 +127,10 @@ function localToday(timezone: string): string {
 
 export default function BodyScreen() {
   const router = useRouter()
+  const locale = useLocale()
+  const text = useText()
+  const words = text.progress.body
+  const { mass } = useUnits()
   const today = localToday(deviceTimezone())
   const features = usePlan()
   const upgrade = useUpgradeSheet(features)
@@ -144,7 +151,7 @@ export default function BodyScreen() {
       readBodyRecords()
         .then((read) => active && setRecords(read))
         .catch((cause: unknown) => {
-          if (active && !handled(cause)) setFailure(READ_FAILED)
+          if (active && !handled(cause)) setFailure(words.readFailed)
         })
       readBodyPhotos()
         .then((read) => active && setPhotos(read))
@@ -152,7 +159,7 @@ export default function BodyScreen() {
       return () => {
         active = false
       }
-    }, [handled]),
+    }, [handled, words]),
   )
 
   const record = (path: '/body/weight' | '/body/measures' | '/body/photo', feature?: string) => {
@@ -175,16 +182,16 @@ export default function BodyScreen() {
       <View style={styles.header}>
         <IconButton
           icon="back"
-          accessibilityLabel="Volver"
+          accessibilityLabel={text.common.back}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))}
         />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.title}>
-          Cuerpo
+          {words.title}
         </Text>
         <IconButton
           icon="add"
           variant="solid"
-          accessibilityLabel="Registrar"
+          accessibilityLabel={words.record}
           onPress={() => setChoosing(true)}
         />
       </View>
@@ -194,28 +201,28 @@ export default function BodyScreen() {
           <>
             <WeightCard records={records} today={today} onRecord={() => record('/body/weight')} />
             <SectionTitle
-              title="Medidas"
-              extra={measuresOpen ? measuredLine(records) : 'Peso y estatura gratis'}
+              title={words.measures}
+              extra={measuresOpen ? measuredLine(records, text) : words.freeMeasures}
             />
             {measuresOpen ? (
               <MeasuresCard records={records} onRecord={() => record('/body/measures')} />
             ) : (
               <Locked
                 icon="target"
-                title="Todas tus medidas"
-                body="Con Gratis registras tu peso y tu estatura. Con Pro, también pecho, cintura, brazo, cadera y más."
+                title={words.lockedMeasures.title}
+                body={words.lockedMeasures.body}
                 onUpgrade={() => router.push('/pro/plans')}
                 preview={<MeasuresCard records={SAMPLE_MEASURES} onRecord={() => undefined} />}
               />
             )}
-            {photosOpen ? null : <SectionTitle title="Fotos" />}
+            {photosOpen ? null : <SectionTitle title={words.photos} />}
             {photosOpen ? (
               <PhotosCard photos={photos} onNew={() => record('/body/photo', 'body_photos')} />
             ) : (
               <Locked
                 icon="camera"
-                title="Mírate cambiar"
-                body="Guarda fotos de tu progreso y compáralas lado a lado. Solo para ti."
+                title={words.lockedPhotos.title}
+                body={words.lockedPhotos.body}
                 onUpgrade={() => router.push('/pro/plans')}
                 preview={<PhotoPreview />}
               />
@@ -224,28 +231,28 @@ export default function BodyScreen() {
         ) : null}
       </ScrollView>
 
-      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title="Registrar">
+      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title={words.record}>
         <View style={styles.choices}>
           <Choice
             icon="weight"
-            title="Peso"
-            caption={weightCaption(records)}
+            title={words.weight}
+            caption={weightCaption(records, mass, locale, text)}
             tone="strength"
             onPress={() => record('/body/weight')}
           />
           <Choice
             icon="target"
-            title="Medidas"
-            caption="Pecho, brazo, cintura, cadera, muslo y grasa"
+            title={words.measures}
+            caption={words.measuresCaption}
             tone="highIntensity"
             pro={!measuresOpen}
             onPress={() => record('/body/measures', 'body_measurements')}
           />
           <Choice
             icon="camera"
-            title="Foto de progreso"
+            title={words.progressPhoto}
             caption={
-              photos[0] ? `Última: ${shortDay(photos[0].taken_on)}` : 'Alinea tu cuerpo y compárate'
+              photos[0] ? words.lastPhoto(shortDay(photos[0].taken_on, text)) : words.firstPhoto
             }
             tone="rhythm"
             pro={!photosOpen}
@@ -258,17 +265,25 @@ export default function BodyScreen() {
   )
 }
 
-function weightCaption(records: readonly BodyRecord[] | undefined): string {
+function weightCaption(
+  records: readonly BodyRecord[] | undefined,
+  mass: MassUnit,
+  locale: Locale,
+  text: Dictionary,
+): string {
   const latest = records ? latestOf(records, 'body_weight') : undefined
   return latest
-    ? `Último: ${tenths(latest.value)} kg · ${shortDay(latest.measured_on)}`
-    : 'Tu primer registro'
+    ? text.progress.body.lastWeight(
+        `${tenths(massTenths(latest.value, mass), locale)} ${mass}`,
+        shortDay(latest.measured_on, text),
+      )
+    : text.progress.body.firstRecord
 }
 
-function measuredLine(records: readonly BodyRecord[]): string | undefined {
+function measuredLine(records: readonly BodyRecord[], text: Dictionary): string | undefined {
   const dates = CALLOUTS.flatMap((callout) => latestOf(records, callout.code)?.measured_on ?? [])
   const newest = dates.sort().at(-1)
-  return newest ? `Último: ${shortDay(newest)}` : undefined
+  return newest ? text.progress.body.lastMeasured(shortDay(newest, text)) : undefined
 }
 
 function SectionTitle({
@@ -321,6 +336,10 @@ function WeightCard({
   readonly onRecord: () => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const text = useText()
+  const words = text.progress.body
+  const { mass } = useUnits()
   const [range, setRange] = useState<Range>('3')
   const [width, setWidth] = useState(0)
   const months = Number(range)
@@ -335,18 +354,22 @@ function WeightCard({
       <CardGlow />
       <View style={styles.heroTop}>
         <Text role="control" size="2xs" color="muted" uppercase tracking={0.12}>
-          Peso
+          {words.weight}
         </Text>
         {latest ? (
           <SegmentedControl
             size="sm"
-            items={RANGES}
+            items={RANGES.map(([value, key]) => ({
+              value,
+              label: words.ranges[key].label,
+              accessibilityLabel: words.ranges[key].spoken,
+            }))}
             value={range}
             onChange={(next) => {
               selectionTick()
               setRange(next)
             }}
-            accessibilityLabel="Periodo"
+            accessibilityLabel={words.range}
             style={styles.centered}
           />
         ) : null}
@@ -355,10 +378,10 @@ function WeightCard({
         <>
           <View style={styles.figure}>
             <Text role="display" tracking={FIGURE_TRACKING} size="6xl">
-              {tenths(latest.value)}
+              {tenths(massTenths(latest.value, mass), locale)}
             </Text>
             <Text role="control" size="lg" color="secondary" style={styles.unit}>
-              kg
+              {mass}
             </Text>
           </View>
           {change !== null && first ? (
@@ -370,12 +393,15 @@ function WeightCard({
                 decorative
               />
               <Text role="control" size="xs" color="accent">
-                {`${change > 0 ? '+' : change < 0 ? '−' : ''}${decimal(Math.abs(change))} kg desde el ${shortDay(first.measured_on)}`}
+                {words.changeSince(
+                  `${change > 0 ? '+' : change < 0 ? '−' : ''}${massLabel(Math.abs(change), mass, locale)}`,
+                  shortDay(first.measured_on, text),
+                )}
               </Text>
             </View>
           ) : (
             <Text role="body" size="xs" color="muted">
-              {`Registrado el ${shortDay(latest.measured_on)}. Con el próximo verás cómo cambia.`}
+              {words.recordedOn(shortDay(latest.measured_on, text))}
             </Text>
           )}
           <View onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
@@ -386,7 +412,7 @@ function WeightCard({
               />
             ) : null}
             <View style={styles.axis}>
-              {monthTicks(months, today).map((month, index, all) => (
+              {monthTicks(months, today, text.common.months).map((month, index, all) => (
                 <Text
                   key={`${month}-${String(index)}`}
                   role="control"
@@ -403,9 +429,9 @@ function WeightCard({
       ) : (
         <>
           <Text role="body" size="sm" color="secondary">
-            Registra tu peso para ver cómo cambia con el tiempo.
+            {words.noWeight}
           </Text>
-          <Button label="Registrar peso" onPress={onRecord} />
+          <Button label={words.recordWeight} onPress={onRecord} />
         </>
       )}
     </Card>
@@ -490,26 +516,34 @@ function MeasuresCard({
   readonly onRecord: () => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const text = useText()
+  const words = text.progress.body
+  const { mass } = useUnits()
   const [width, setWidth] = useState(0)
   const taken = CALLOUTS.filter((callout) => latestOf(records, callout.code))
+  const reading = (value: number, code: 'body_height' | 'body_fat' | 'muscle_mass') =>
+    code === 'muscle_mass'
+      ? massLabel(value, mass, locale)
+      : `${decimal(value, locale)} ${code === 'body_fat' ? '%' : 'cm'}`
   const extras = (
     [
-      ['body_height', 'Estatura', 'cm'],
-      ['body_fat', 'Grasa', '%'],
-      ['muscle_mass', 'Masa muscular', 'kg'],
+      ['body_height', words.height],
+      ['body_fat', words.fat],
+      ['muscle_mass', words.muscleMass],
     ] as const
-  ).flatMap(([code, label, unit]) => {
+  ).flatMap(([code, label]) => {
     const latest = latestOf(records, code)
-    return latest ? [`${label} ${decimal(latest.value)} ${unit}`] : []
+    return latest ? [`${label} ${reading(latest.value, code)}`] : []
   })
 
   if (taken.length === 0) {
     return (
       <Card>
         <Text role="body" size="sm" color="secondary">
-          Mide tu pecho, tu cintura o tu brazo y verás aquí cómo cambian.
+          {words.noMeasures}
         </Text>
-        <Button label="Registrar medidas" variant="secondary" onPress={onRecord} />
+        <Button label={words.recordMeasures} variant="secondary" onPress={onRecord} />
       </Card>
     )
   }
@@ -572,11 +606,12 @@ function MeasuresCard({
           const latest = latestOf(records, callout.code)
           const change = measureChange(records, callout.code)
           if (!latest) return null
+          const label = text.progress.measures.each[callout.code].label
           return (
             <View
               key={callout.code}
               accessible
-              accessibilityLabel={`${callout.label}: ${decimal(latest.value)} centímetros`}
+              accessibilityLabel={words.centimetres(label, decimal(latest.value, locale))}
               style={[
                 styles.callout,
                 { top: labelTop(callout, taken) },
@@ -584,11 +619,11 @@ function MeasuresCard({
               ]}
             >
               <Text role="control" size="2xs" color="muted" uppercase tracking={0.08}>
-                {callout.label}
+                {label}
               </Text>
               <View style={styles.calloutValue}>
                 <Text role="poster" tracking={FIGURE_TRACKING} size="xl">
-                  {decimal(latest.value)}
+                  {decimal(latest.value, locale)}
                 </Text>
                 <Text role="body" size="2xs" color="secondary">
                   cm
@@ -596,7 +631,7 @@ function MeasuresCard({
               </View>
               {change && change.change !== 0 ? (
                 <Text role="control" size="2xs" color="accent">
-                  {`${change.change > 0 ? '▲' : '▼'} ${decimal(Math.abs(change.change))} cm`}
+                  {`${change.change > 0 ? '▲' : '▼'} ${decimal(Math.abs(change.change), locale)} cm`}
                 </Text>
               ) : null}
             </View>
@@ -631,6 +666,8 @@ function PhotosCard({
   readonly onNew: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.progress.body
   const [chosen, setChosen] = useState<string[]>([])
   const [mode, setMode] = useState<'slide' | 'side'>('slide')
   const pair = comparedPhotos(photos, chosen)
@@ -644,21 +681,21 @@ function PhotosCard({
     <View style={styles.photos}>
       {/* The switch sits on the title row, off the photo: over a picture it was easy to miss. */}
       <SectionTitle
-        title="Fotos"
+        title={words.photos}
         control={
           pair.length === 2 ? (
             <SegmentedControl
               size="sm"
               items={[
-                { value: 'slide', label: 'Deslizar' },
-                { value: 'side', label: 'Lado a lado' },
+                { value: 'slide', label: words.slide },
+                { value: 'side', label: words.sideBySide },
               ]}
               value={mode}
               onChange={(next) => {
                 selectionTick()
                 setMode(next)
               }}
-              accessibilityLabel="Cómo comparar"
+              accessibilityLabel={words.howToCompare}
               style={styles.centered}
             />
           ) : undefined
@@ -668,15 +705,15 @@ function PhotosCard({
         <Card style={styles.emptyPhotos}>
           <FoundationIcon name="camera" size="lg" color={theme.color.icon.accent} decorative />
           <Text role="body" size="sm" color="secondary" align="center">
-            Tu primera foto es el punto de partida. La próxima la comparas con ella.
+            {words.noPhotos}
           </Text>
-          <Button label="Tomar foto" onPress={onNew} />
+          <Button label={words.takePhoto} onPress={onNew} />
         </Card>
       ) : (
         <View style={[styles.compare, { borderColor: theme.color.border.subtle }]}>
           {pair[0] && pair[1] ? (
             <Badge
-              label={daysApart(pair[0].taken_on, pair[1].taken_on)}
+              label={daysApart(pair[0].taken_on, pair[1].taken_on, words)}
               variant="quiet"
               style={styles.days}
             />
@@ -720,7 +757,7 @@ function PhotosCard({
           <CoverTile
             size="md"
             onPress={onNew}
-            accessibilityLabel="Nueva foto"
+            accessibilityLabel={words.newPhoto}
             hint={
               <FoundationIcon name="camera" size="md" color={theme.color.icon.accent} decorative />
             }
@@ -734,10 +771,10 @@ function PhotosCard({
             {photos.map((one) => (
               <SelectableTile
                 key={one.id}
-                name={shortDay(one.taken_on)}
+                name={shortDay(one.taken_on, text)}
                 selected={pair.some((shown) => shown.id === one.id)}
                 onPress={() => choose(one.id)}
-                accessibilityLabel={`Foto del ${shortDay(one.taken_on)}`}
+                accessibilityLabel={words.photoOf(shortDay(one.taken_on, text))}
                 style={styles.thumb}
               >
                 <Image
@@ -752,11 +789,11 @@ function PhotosCard({
       ) : null}
       {photos.length > 2 ? (
         <Text role="body" size="xs" color="muted">
-          Toca dos fotos para compararlas.
+          {words.pickTwo}
         </Text>
       ) : null}
       <Note icon="locked" accent outlined>
-        Tus fotos son solo tuyas: ni tu gimnasio ni tu entrenador pueden verlas.
+        {words.private}
       </Note>
     </View>
   )
@@ -771,6 +808,7 @@ function PhotoDate({
   readonly accent: boolean
   readonly align: 'left' | 'right'
 }) {
+  const text = useText()
   return (
     <View style={[styles.photoDate, align === 'left' ? styles.dateLeft : styles.dateRight]}>
       <Text
@@ -780,7 +818,7 @@ function PhotoDate({
         uppercase
         color={accent ? 'accent' : 'primary'}
       >
-        {shortDay(photo.taken_on)}
+        {shortDay(photo.taken_on, text)}
       </Text>
     </View>
   )
@@ -795,6 +833,7 @@ function SlideCompare({
   readonly newer: BodyPhoto | undefined
 }) {
   const theme = useTheme()
+  const text = useText()
   const [width, setWidth] = useState(0)
   const split = useSharedValue(0.5)
   const from = useSharedValue(0.5)
@@ -823,7 +862,10 @@ function SlideCompare({
         style={styles.slide}
         onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
         accessible
-        accessibilityLabel={`Comparación del ${shortDay(older.taken_on)} y el ${shortDay(newer.taken_on)}`}
+        accessibilityLabel={text.progress.body.comparing(
+          shortDay(older.taken_on, text),
+          shortDay(newer.taken_on, text),
+        )}
       >
         <Image
           source={{ uri: older.photo.url }}
@@ -875,6 +917,7 @@ function Locked({
   readonly preview: ReactNode
 }) {
   const theme = useTheme()
+  const words = useText().progress.body
   return (
     <View style={[styles.locked, { borderColor: theme.color.border.accent }]}>
       <View
@@ -910,7 +953,7 @@ function Locked({
         <Text role="body" size="sm" color="secondary" align="center">
           {body}
         </Text>
-        <Button label="Hazte Pro" size="sm" onPress={onUpgrade} style={styles.centered} />
+        <Button label={words.upgrade} size="sm" onPress={onUpgrade} style={styles.centered} />
       </View>
     </View>
   )
@@ -956,6 +999,7 @@ function Choice({
   readonly pro?: boolean
   readonly onPress: () => void
 }) {
+  const words = useText().progress.body
   return (
     <OfferRow
       tone="muted"
@@ -965,7 +1009,7 @@ function Choice({
       caption={caption}
       {...(pro ? { badge: 'Pro' } : {})}
       onPress={onPress}
-      accessibilityLabel={pro ? `${title}. ${caption}. Con Pro` : `${title}. ${caption}`}
+      accessibilityLabel={pro ? words.withPro(title, caption) : words.plain(title, caption)}
     />
   )
 }
