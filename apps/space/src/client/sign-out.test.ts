@@ -103,3 +103,49 @@ describe('an unsynced workout stops it once', () => {
     expect(calls).toEqual(['revoke', 'clear'])
   })
 })
+
+describe('the phone stops receiving push on the way out (TECH-44)', () => {
+  test('T-SPC-UNIT-760 retires the push device first, while the session still holds', async () => {
+    const calls: string[] = []
+    const { flow } = harness({
+      transport: {
+        revoke: async () => {
+          calls.push('revoke')
+        },
+      },
+      clearSession: async () => {
+        calls.push('clear')
+      },
+      retirePushDevice: async () => {
+        calls.push('push')
+      },
+    })
+
+    expect((await flow.signOut()).state).toBe('signed-out')
+    expect(calls).toEqual(['push', 'revoke', 'clear'])
+  })
+
+  test('T-SPC-UNIT-761 a push retirement that fails never keeps her signed in', async () => {
+    const { flow, calls } = harness({
+      retirePushDevice: async () => {
+        throw new Error('offline')
+      },
+    })
+
+    expect((await flow.signOut()).state).toBe('signed-out')
+    expect(calls).toEqual(['revoke', 'clear'])
+  })
+
+  test('T-SPC-UNIT-762 an unsynced workout stops it before push is touched', async () => {
+    let retired = false
+    const { flow } = harness({
+      openExecutionId: async () => EXECUTION_ID,
+      retirePushDevice: async () => {
+        retired = true
+      },
+    })
+
+    expect((await flow.signOut()).state).toBe('unsynced-workout')
+    expect(retired).toBe(false)
+  })
+})

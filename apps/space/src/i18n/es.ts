@@ -17,10 +17,22 @@ import { common } from './es/common'
 import { fitness } from './es/fitness'
 import { health } from './es/health'
 import { identity } from './es/identity'
+import { notices } from './es/notices'
 import { password } from './es/password'
+import { preferences } from './es/preferences'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
 
-export const es = { common, fitness, health, identity, password, pro, profile }
+export const es = {
+  common,
+  fitness,
+  health,
+  identity,
+  notices,
+  password,
+  preferences,
+  pro,
+  profile,
+}
 
 export type Dictionary = typeof es
