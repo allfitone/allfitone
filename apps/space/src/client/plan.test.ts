@@ -2,6 +2,10 @@ import { describe, expect, test } from 'bun:test'
 
 import { comparisonRows, limitOf, opens, upgradeCopy, visibleFrom } from './plan'
 import type { ProFeature } from './pro'
+import { textFor } from '../i18n'
+
+const es = textFor('es').plans
+const en = textFor('en').plans
 
 const feature = (code: string, enabled: boolean, limit_value: number | null): ProFeature => ({
   code,
@@ -51,21 +55,29 @@ describe('what a plan opens', () => {
 
 describe('the upgrade sheet', () => {
   test('T-SPC-UNIT-PLAN-14 says what Pro opens for the function that was refused', () => {
-    expect(upgradeCopy('own_routines', FREE)).toEqual({
+    expect(upgradeCopy('own_routines', FREE, es)).toEqual({
       title: 'Rutinas sin límite',
       body: 'Con Gratis guardas hasta 3 rutinas propias. Con Pro, las que quieras: las que ya tienes se quedan.',
     })
-    expect(upgradeCopy('training_history_months', FREE).body).toContain('sigue guardado')
+    expect(upgradeCopy('training_history_months', FREE, es).body).toContain('sigue guardado')
+    expect(upgradeCopy('own_routines', FREE, en)).toEqual({
+      title: 'Unlimited routines',
+      body: 'On Free you keep up to 3 routines of your own. With Pro, as many as you like: the ones you have stay.',
+    })
+    expect(upgradeCopy('training_history_months', FREE, en).body).toBe(
+      'On Free you see the last month. Everything older is still kept: with Pro you see it again.',
+    )
   })
 
   test('T-SPC-UNIT-PLAN-15 a function the app does not know yet still gets a sentence', () => {
-    expect(upgradeCopy('partner_programs', FREE).title).toBe('Esto es parte de Pro')
+    expect(upgradeCopy('partner_programs', FREE, es).title).toBe('Esto es parte de Pro')
+    expect(upgradeCopy('partner_programs', FREE, en).title).toBe('This is part of Pro')
   })
 })
 
 describe('the comparison', () => {
   test('T-SPC-UNIT-PLAN-16 every row says what each plan gives, from the catalogue', () => {
-    const rows = comparisonRows(FREE, PRO)
+    const rows = comparisonRows(FREE, PRO, es)
     const history = rows.find((row) => row.key === 'training_history_months')
     const routines = rows.find((row) => row.key === 'own_routines')
     expect(history).toEqual({
@@ -80,10 +92,16 @@ describe('the comparison', () => {
       free: 'Hasta 3',
       pro: 'Sin límite',
     })
+    expect(comparisonRows(FREE, PRO, en).find((row) => row.key === 'own_routines')).toEqual({
+      key: 'own_routines',
+      label: 'Routines of your own',
+      free: 'Up to 3',
+      pro: 'Unlimited',
+    })
   })
 
   test('T-SPC-UNIT-PLAN-17 what is always free reads as included in both', () => {
-    const privacy = comparisonRows(FREE, PRO).find((row) => row.key === 'privacy')
+    const privacy = comparisonRows(FREE, PRO, es).find((row) => row.key === 'privacy')
     expect(privacy).toEqual({
       key: 'privacy',
       label: 'Privacidad y tus datos',

@@ -13,14 +13,32 @@
  * area here and in `en.ts`, and two batches never edit the same file.
  */
 
+import { access } from './es/access'
 import { common } from './es/common'
 import { fitness } from './es/fitness'
+import { gyms } from './es/gyms'
 import { health } from './es/health'
 import { identity } from './es/identity'
+import { onboarding } from './es/onboarding'
 import { password } from './es/password'
+import { plans } from './es/plans'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
+import { sharing } from './es/sharing'
 
-export const es = { common, fitness, health, identity, password, pro, profile }
+export const es = {
+  access,
+  common,
+  fitness,
+  gyms,
+  health,
+  identity,
+  onboarding,
+  password,
+  plans,
+  pro,
+  profile,
+  sharing,
+}
 
 export type Dictionary = typeof es

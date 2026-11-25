@@ -47,6 +47,7 @@ import {
   staggerDelays,
 } from '../../src/client/motion'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import { goalsFor } from '../../src/client/discipline-form'
@@ -65,20 +66,21 @@ import { GOAL_ARTWORK as GOALS } from '../../src/components/goal-artwork'
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
-const UNREACHABLE = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
+type Failure = 'expired' | 'saveFailed'
 
 export default function OnboardingTrainingGoal() {
   const router = useRouter()
   const { height } = useWindowDimensions()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [rowWidth, setRowWidth] = useState(0)
   const [goal, setGoal] = useState<TrainingGoal | undefined>(undefined)
   const [declaredSex, setDeclaredSex] = useState<'male' | 'female' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
   const reduceMotion = useReducedMotion()
   const [entering, setEntering] = useState(false)
 
@@ -137,10 +139,10 @@ export default function OnboardingTrainingGoal() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(UNREACHABLE)
+        setFailure('saveFailed')
       })
 
     return () => {
@@ -161,13 +163,18 @@ export default function OnboardingTrainingGoal() {
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(UNREACHABLE)
+        setFailure('saveFailed')
       }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const failures: Record<Failure, string> = {
+    expired: words.expired,
+    saveFailed: words.saveFailed,
   }
 
   return (
@@ -181,10 +188,10 @@ export default function OnboardingTrainingGoal() {
       >
         <Animated.View {...(entering && entrances[0] ? { entering: entrances[0] } : {})}>
           <Text role="display" size="4xl" uppercase accessibilityRole="header">
-            ¿Qué quieres{'\n'}lograr?
+            {words.goal.title}
           </Text>
           <Text role="body" size="md" color="secondary" style={styles.lede}>
-            Elige uno. Es la dirección que toma tu entrenamiento, y puedes cambiarlo cuando quieras.
+            {words.goal.lede}
           </Text>
         </Animated.View>
 
@@ -193,7 +200,7 @@ export default function OnboardingTrainingGoal() {
             <GoalStage
               width={stage.width}
               height={stage.height}
-              entry={goal ? GOALS[goal] : undefined}
+              entry={goal ? text.fitness.goals[goal] : undefined}
               showing={goal}
               gallery={gallery}
               neutral={GOALS.maintain[bodyVariant(declaredSex, 'maintain')].before}
@@ -208,8 +215,8 @@ export default function OnboardingTrainingGoal() {
             {offered.map((option, index) => (
               <GoalRow
                 key={option}
-                name={GOALS[option].name}
-                why={GOALS[option].why}
+                name={text.fitness.goals[option].name}
+                why={text.fitness.goals[option].why}
                 chosen={option === goal}
                 first={index === 0}
                 pressable={pressable}
@@ -225,10 +232,10 @@ export default function OnboardingTrainingGoal() {
           button inside it slid down on every selection, which read as the
           whole screen lurching. */}
       <View style={styles.footer}>
-        {failure ? <InlineAlert message={failure} style={styles.alert} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} style={styles.alert} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!submittable}
           loading={submitting}
           onPress={submit}
@@ -237,7 +244,7 @@ export default function OnboardingTrainingGoal() {
 
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
             style={styles.signIn}

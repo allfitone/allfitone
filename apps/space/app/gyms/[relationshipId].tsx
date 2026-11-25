@@ -31,6 +31,7 @@ import {
 import { shortDate } from '../../src/client/pro'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
 import type { IconName } from '@allfitone/icons'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 const EVENT_ICON: Record<string, IconName> = {
   relationship_started: 'check',
@@ -48,12 +49,15 @@ export default function RelationshipHistory() {
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const text = useText()
+  const locale = useLocale()
+  const words = text.gyms.relationship
   const { relationshipId } = useLocalSearchParams<{ relationshipId: string }>()
   const [relationship, setRelationship] = useState<MyRelationship | undefined>()
   const [events, setEvents] = useState<HistoryPage['data']>([])
   const [asking, setAsking] = useState(false)
   const [ending, setEnding] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'loadFailed' | 'endFailed' | undefined>(undefined)
 
   const load = useCallback(async () => {
     const [page, history] = await Promise.all([gyms.list(), gyms.history(relationshipId)])
@@ -63,7 +67,7 @@ export default function RelationshipHistory() {
 
   useFocusEffect(
     useCallback(() => {
-      load().catch(() => setFailure('No pudimos cargar esta relación. Revisa tu conexión.'))
+      load().catch(() => setFailure('loadFailed'))
     }, [load]),
   )
 
@@ -76,7 +80,7 @@ export default function RelationshipHistory() {
       await load()
     } catch {
       setAsking(false)
-      setFailure('No pudimos terminar la relación. Inténtalo de nuevo.')
+      setFailure('endFailed')
     } finally {
       setEnding(false)
     }
@@ -88,7 +92,11 @@ export default function RelationshipHistory() {
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header" numberOfLines={1}>
           {name}
         </Text>
@@ -98,22 +106,24 @@ export default function RelationshipHistory() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={words[failure]} /> : null}
         {relationship ? (
           <View style={styles.summary}>
             <GymMark name={name} />
             <View style={styles.grow}>
               <Text role="control" size="lg">
                 {active
-                  ? `Activa desde el ${shortDate(relationship.started_at)}`
-                  : `Terminó el ${shortDate(relationship.ended_at ?? relationship.started_at)}`}
+                  ? words.activeSince(shortDate(relationship.started_at, locale))
+                  : words.endedOn(
+                      shortDate(relationship.ended_at ?? relationship.started_at, locale),
+                    )}
               </Text>
               <Text role="body" size="xs" color="muted">
                 {active
                   ? relationship.holder_name
-                    ? `Tu coach: ${relationship.holder_name}`
-                    : 'Todavía sin coach asignado'
-                  : 'Ya no ven nada nuevo'}
+                    ? words.yourCoach(relationship.holder_name)
+                    : text.gyms.noCoach
+                  : words.seesNothingNew}
               </Text>
             </View>
           </View>
@@ -122,7 +132,7 @@ export default function RelationshipHistory() {
         {events.length > 0 ? (
           <View style={styles.section}>
             <Text role="control" size="sm" color="muted">
-              Lo que ha pasado
+              {words.whatHappened}
             </Text>
             <RowCard>
               {events.map((event, index) => (
@@ -131,17 +141,14 @@ export default function RelationshipHistory() {
                   icon={EVENT_ICON[event.type] ?? 'history'}
                   iconTone="quiet"
                   name={historyLine(event)}
-                  caption={shortDate(event.occurred_at)}
+                  caption={shortDate(event.occurred_at, locale)}
                 />
               ))}
             </RowCard>
           </View>
         ) : null}
 
-        <Note>
-          Este registro no se edita ni se borra. Si el gimnasio declara un motivo al terminar, no lo
-          ves, igual que ellos no ven el tuyo.
-        </Note>
+        <Note>{words.note}</Note>
       </ScrollView>
 
       {active ? (
@@ -151,23 +158,17 @@ export default function RelationshipHistory() {
             { paddingBottom: insets.bottom + 14, backgroundColor: theme.color.background.canvas },
           ]}
         >
-          <Button label="Terminar la relación" variant="danger" onPress={() => setAsking(true)} />
+          <Button label={words.end} variant="danger" onPress={() => setAsking(true)} />
         </View>
       ) : null}
 
-      <Sheet visible={asking} onDismiss={() => setAsking(false)} title={`¿Terminar con ${name}?`}>
+      <Sheet visible={asking} onDismiss={() => setAsking(false)} title={words.endWith(name)}>
         <View style={styles.sheet}>
           <Text role="body" size="sm" color="secondary">
-            Desde hoy no reciben nada nuevo de ti. Lo que ya compartiste hasta hoy queda congelado,
-            y tu historial sigue siendo tuyo.
+            {words.endBody}
           </Text>
-          <Button
-            label="Terminar la relación"
-            variant="danger"
-            loading={ending}
-            onPress={() => void end()}
-          />
-          <Button label="Seguir con ellos" variant="secondary" onPress={() => setAsking(false)} />
+          <Button label={words.end} variant="danger" loading={ending} onPress={() => void end()} />
+          <Button label={words.stay} variant="secondary" onPress={() => setAsking(false)} />
         </View>
       </Sheet>
     </Screen>

@@ -18,15 +18,14 @@ import {
   purchaseOf,
   type StoreOffer,
 } from '../client/pro-store'
+import { useText } from '../i18n/use-text'
 
-const NOT_TAKEN =
-  'La tienda cobró, pero no pudimos confirmar tu compra. Vuelve a intentarlo con «Restaurar compras»; no se te cobrará otra vez.'
-const STORE_FAILED = 'La tienda no pudo completar la compra. Inténtalo de nuevo en un momento.'
-const NOTHING_TO_RESTORE = 'No encontramos compras de Allfit Pro en esta cuenta de la tienda.'
+type PurchaseFailure = 'notTaken' | 'storeFailed' | 'nothingToRestore'
 
 export function useProPurchase(flow: ProFlow, onPro: (status: ProStatus) => void) {
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const words = useText().plans.purchase
+  const [failure, setFailure] = useState<PurchaseFailure | undefined>(undefined)
   const done = useRef(onPro)
   done.current = onPro
 
@@ -42,7 +41,7 @@ export function useProPurchase(flow: ProFlow, onPro: (status: ProStatus) => void
         done.current(status)
       } catch {
         // Left unfinished on purpose: the store hands it back and it is presented again.
-        setFailure(NOT_TAKEN)
+        setFailure('notTaken')
       } finally {
         setBusy(false)
       }
@@ -51,14 +50,14 @@ export function useProPurchase(flow: ProFlow, onPro: (status: ProStatus) => void
       onPurchase: (purchase) => void take(purchase),
       onFailure: () => {
         setBusy(false)
-        setFailure(STORE_FAILED)
+        setFailure('storeFailed')
       },
     })
   }, [flow])
 
   return {
     busy,
-    failure,
+    failure: failure ? words[failure] : undefined,
     async subscribe(offer: StoreOffer, accountToken: string) {
       setFailure(undefined)
       setBusy(true)
@@ -66,7 +65,7 @@ export function useProPurchase(flow: ProFlow, onPro: (status: ProStatus) => void
         await buy(offer, accountToken)
       } catch {
         setBusy(false)
-        setFailure(STORE_FAILED)
+        setFailure('storeFailed')
       }
     },
     async restore() {
@@ -82,9 +81,9 @@ export function useProPurchase(flow: ProFlow, onPro: (status: ProStatus) => void
           await finish(purchase)
         }
         if (last) done.current(last)
-        else setFailure(NOTHING_TO_RESTORE)
+        else setFailure('nothingToRestore')
       } catch {
-        setFailure(NOT_TAKEN)
+        setFailure('notTaken')
       } finally {
         setBusy(false)
       }

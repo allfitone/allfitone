@@ -47,6 +47,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { OnboardingBack } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceInvitationFlow } from '../../src/client/gym-affiliation-transport'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { lastRevisitableStep, TODAY } from '../../src/client/onboarding-steps'
@@ -73,10 +74,7 @@ const VEIL_SHARE = 0.66
  */
 const VEIL_CLOSE = PHOTO_SHARE / VEIL_SHARE
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para terminar.'
-const READ_FAILED = 'No pudimos leer tus respuestas. Inténtalo otra vez.'
-const ACTIVATE_FAILED = 'No pudimos activar tu Fitness ID. Inténtalo otra vez.'
-const ACTIVATED = 'Tu Fitness ID está activo. Tu primer día de historial empieza hoy.'
+type Failure = 'expired' | 'readFailed' | 'activateFailed'
 
 export default function OnboardingContinues() {
   const router = useRouter()
@@ -86,6 +84,8 @@ export default function OnboardingContinues() {
   // copy rather than an edge on the screen.
   const insets = useSafeAreaInsets()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
   const invitations = useMemo(() => createSpaceInvitationFlow(), [])
   const back = lastRevisitableStep()
 
@@ -95,7 +95,7 @@ export default function OnboardingContinues() {
   const [activating, setActivating] = useState(false)
   const [activated, setActivated] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -118,10 +118,10 @@ export default function OnboardingContinues() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(READ_FAILED)
+        setFailure('readFailed')
       })
 
     return () => {
@@ -144,17 +144,24 @@ export default function OnboardingContinues() {
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
       } else {
-        setFailure(ACTIVATE_FAILED)
+        setFailure('activateFailed')
       }
     } finally {
       setActivating(false)
     }
   }
 
-  const week = useMemo(() => weekFromToday(new Date()), [])
+  const today = useMemo(() => new Date(), [])
+  const week = useMemo(() => weekFromToday(today), [today])
   const canvas = theme.color.background.canvas
+
+  const failures: Record<Failure, string> = {
+    expired: words.continues.expired,
+    readFailed: words.readFailed,
+    activateFailed: words.continues.activateFailed,
+  }
 
   return (
     <Screen edges={['bottom']} dots padded={false}>
@@ -186,23 +193,23 @@ export default function OnboardingContinues() {
 
         <View style={styles.content}>
           <Text role="eyebrow" size="xs" color="accent">
-            {username ? `PERFIL LISTO · @${username.toUpperCase()}` : 'PERFIL LISTO'}
+            {username ? words.continues.readyAs(username.toUpperCase()) : words.continues.ready}
           </Text>
 
           <Text role="display" size="5xl" uppercase accessibilityRole="header">
-            Aquí empieza{'\n'}tu historial
+            {words.continues.title}
           </Text>
 
           <View style={styles.week}>
             <Text role="eyebrow" size="xs" color="muted">
-              TU PRIMERA SEMANA
+              {words.continues.firstWeek}
             </Text>
             <View
               style={styles.days}
               accessibilityRole="text"
-              accessibilityLabel="Tu primera semana empieza hoy. Todavía no hay sesiones programadas."
+              accessibilityLabel={words.continues.firstWeekLabel}
             >
-              {week.map((day) => (
+              {week.map((day, offset) => (
                 <View
                   key={day.key}
                   style={[
@@ -220,22 +227,24 @@ export default function OnboardingContinues() {
                     color="muted"
                     style={day.today ? { color: theme.color.action.onPrimary } : null}
                   >
-                    {day.today ? 'HOY' : day.letter}
+                    {day.today
+                      ? words.continues.today
+                      : words.continues.weekLetters.charAt((today.getDay() + offset) % 7)}
                   </Text>
                 </View>
               ))}
             </View>
           </View>
 
-          {failure ? <InlineAlert message={failure} /> : null}
+          {failure ? <InlineAlert message={failures[failure]} /> : null}
           {activated ? (
             <Text role="body" size="sm" color="secondary">
-              {ACTIVATED}
+              {words.continues.activated}
             </Text>
           ) : null}
 
           <Button
-            label={sessionExpired ? 'Iniciar sesión' : 'Empezar hoy'}
+            label={sessionExpired ? words.signIn : words.continues.start}
             loading={activating}
             disabled={!canActivate({ identity, activating, activated, sessionExpired })}
             onPress={sessionExpired ? () => router.replace('/sign-in') : start}

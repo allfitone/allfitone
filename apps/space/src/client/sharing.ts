@@ -12,6 +12,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import type { Dictionary, Locale } from '../i18n'
 import { accessLevelLabel, scopeName } from './gym-affiliation'
 import { shortDate } from './pro'
 
@@ -75,16 +76,19 @@ export function groupConsents(consents: readonly Consent[]): SharingGroup[] {
   )
 }
 
-export function consentLine(consent: Consent): string {
+type SharingText = Dictionary['sharing']
+
+export function consentLine(consent: Consent, text: SharingText, locale: Locale): string {
+  const date = (instant: string | null) => shortDate(instant ?? consent.decided_at, locale)
   switch (consent.grant_status) {
     case 'active':
-      return `${accessLevelLabel(consent.access_level)} · desde el ${shortDate(consent.granted_at ?? consent.decided_at)}`
+      return text.line.active(accessLevelLabel(consent.access_level), date(consent.granted_at))
     case 'frozen':
-      return `Aún pueden ver lo compartido hasta el ${shortDate(consent.frozen_at ?? consent.decided_at)}`
+      return text.line.frozen(date(consent.frozen_at))
     case 'revoked':
-      return `Dejaste de compartirlo el ${shortDate(consent.revoked_at ?? consent.decided_at)}`
+      return text.line.revoked(date(consent.revoked_at))
     default:
-      return 'Elegiste no compartirlo'
+      return text.line.declined
   }
 }
 
@@ -92,28 +96,29 @@ export function consentLine(consent: Consent): string {
 export const canRevoke = (consent: Consent): boolean =>
   consent.grant_status === 'active' || consent.grant_status === 'frozen'
 
-export function groupCaption(group: SharingGroup): string {
+export function groupCaption(group: SharingGroup, text: SharingText, locale: Locale): string {
   if (group.status !== 'active') {
-    return `Terminó el ${shortDate(group.endedAt ?? group.startedAt)} · ya no ven nada nuevo`
+    return text.caption.ended(shortDate(group.endedAt ?? group.startedAt, locale))
   }
   const all = [...group.training, ...group.nutrition]
   const shared = all.filter((item) => item.grant_status === 'active').length
-  return `Activa desde el ${shortDate(group.startedAt)} · ${String(shared)} de ${String(all.length)} categorías`
+  return text.caption.active(shortDate(group.startedAt, locale), shared, all.length)
 }
 
 const inSentence = (title: string) => title.charAt(0).toLowerCase() + title.slice(1)
 
-export function revokeCopy(consent: Consent): { title: string; lines: string[] } {
+export function revokeCopy(
+  consent: Consent,
+  text: SharingText,
+): { title: string; lines: string[] } {
   const what = inSentence(scopeName(consent.scope_code))
   return {
-    title: `¿Dejar de compartir ${what} con ${consent.organization_name}?`,
+    title: text.revoke.title(what, consent.organization_name),
     lines: [
-      consent.grant_status === 'frozen'
-        ? `Dejan de conservar ${what}, también lo que ya les compartiste.`
-        : `Dejan de ver ${what} ahora mismo.`,
-      'Lo demás que compartes no cambia: cada permiso es aparte.',
-      'No se borra nada tuyo. Sigue en tu Fitness ID.',
-      'No se puede deshacer: para volver a compartir hará falta un permiso nuevo.',
+      consent.grant_status === 'frozen' ? text.revoke.kept(what) : text.revoke.seen(what),
+      text.revoke.apart,
+      text.revoke.nothingDeleted,
+      text.revoke.final,
     ],
   }
 }

@@ -8,12 +8,30 @@
  */
 
 import type { Dictionary } from './es'
+import { access } from './en/access'
 import { common } from './en/common'
 import { fitness } from './en/fitness'
+import { gyms } from './en/gyms'
 import { health } from './en/health'
 import { identity } from './en/identity'
+import { onboarding } from './en/onboarding'
 import { password } from './en/password'
+import { plans } from './en/plans'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
+import { sharing } from './en/sharing'
 
-export const en: Dictionary = { common, fitness, health, identity, password, pro, profile }
+export const en: Dictionary = {
+  access,
+  common,
+  fitness,
+  gyms,
+  health,
+  identity,
+  onboarding,
+  password,
+  plans,
+  pro,
+  profile,
+  sharing,
+}

@@ -12,6 +12,7 @@ import {
   money,
   productFor,
   renewalLine,
+  shortDate,
   sourceLine,
   type ProPlan,
   type ProPlanCatalogue,
@@ -46,6 +47,8 @@ const status = (over: Partial<ProStatus>): ProStatus => ({
 })
 
 const es = textFor('es').pro
+const plans = textFor('es').plans
+const english = textFor('en').plans
 
 describe('what the screens say', () => {
   test('T-SPC-UNIT-288 the source line names who pays, or that nobody does', () => {
@@ -60,26 +63,39 @@ describe('what the screens say', () => {
   })
 
   test('T-SPC-UNIT-289 the end of the paid period says whether it renews, and grace says until when', () => {
-    expect(renewalLine(subscription)).toMatch(/^Renueva el \d+ oct$/)
-    expect(renewalLine({ ...subscription, auto_renews: false })).toMatch(
+    expect(renewalLine(subscription, plans, 'es')).toMatch(/^Renueva el \d+ oct$/)
+    expect(renewalLine({ ...subscription, auto_renews: false }, plans, 'es')).toMatch(
       /^Termina el \d+ oct, no se renueva$/,
     )
     expect(
-      renewalLine({ ...subscription, status: 'grace', grace_until: '2026-10-09T15:00:00Z' }),
+      renewalLine(
+        { ...subscription, status: 'grace', grace_until: '2026-10-09T15:00:00Z' },
+        plans,
+        'es',
+      ),
     ).toMatch(/^No pudimos renovar: sigues con Pro hasta el \d+ oct$/)
-    expect(renewalLine({ ...subscription, status: 'suspended' })).toBe(
+    expect(renewalLine({ ...subscription, status: 'suspended' }, plans, 'es')).toBe(
       'Cobro pendiente: Pro está en pausa',
     )
+    expect(renewalLine(subscription, english, 'en')).toMatch(/^Renews on Oct \d+$/)
+    expect(renewalLine({ ...subscription, auto_renews: false }, english, 'en')).toMatch(
+      /^Ends on Oct \d+, won't renew$/,
+    )
+    expect(shortDate('2026-10-15T15:00:00Z')).toBe('15 oct')
+    expect(shortDate('2026-10-15T15:00:00Z', 'en')).toBe('Oct 15')
   })
 
   test('T-SPC-UNIT-290 whoever has Pro through a gym is told before paying', () => {
-    expect(gymWarning(status({ effective_source: 'organization', sources: [gym] }))).toBe(
+    expect(gymWarning(status({ effective_source: 'organization', sources: [gym] }), plans)).toBe(
       'Ya tienes Pro por Bodytech Chicó. Pagarlo solo te sirve para no depender de esa afiliación.',
     )
     expect(
-      gymWarning(status({ effective_source: 'subscription', sources: [subscription, gym] })),
+      gymWarning(status({ effective_source: 'subscription', sources: [subscription, gym] }), plans),
     ).toBe(undefined)
-    expect(gymWarning(status({}))).toBe(undefined)
+    expect(gymWarning(status({}), plans)).toBe(undefined)
+    expect(gymWarning(status({ effective_source: 'organization', sources: [gym] }), english)).toBe(
+      'You already have Pro through Bodytech Chicó. Paying for it only means you no longer depend on that membership.',
+    )
   })
 
   test('T-SPC-UNIT-291 each function reads as one sentence, at its limit or without one', () => {
@@ -90,28 +106,35 @@ describe('what the screens say', () => {
       enabled,
       limit_value: limit,
     })
-    expect(featureSentence(f('active_personal_programs', 1))).toBe(
+    expect(featureSentence(f('active_personal_programs', 1), plans)).toBe(
       'Máximo 1 programa propio activo',
     )
-    expect(featureSentence(f('active_personal_programs', null))).toBe(
+    expect(featureSentence(f('active_personal_programs', null), plans)).toBe(
       'Programas propios sin límite',
     )
-    expect(featureSentence(f('own_routines', 3))).toBe('Máximo 3 rutinas propias')
-    expect(featureSentence(f('training_history_months', 1))).toBe('Historial del último mes')
-    expect(featureSentence(f('training_history_months', 3))).toBe(
+    expect(featureSentence(f('own_routines', 3), plans)).toBe('Máximo 3 rutinas propias')
+    expect(featureSentence(f('training_history_months', 1), plans)).toBe('Historial del último mes')
+    expect(featureSentence(f('training_history_months', 3), plans)).toBe(
       'Historial de los últimos 3 meses',
     )
-    expect(featureSentence(f('training_history_months', null))).toBe('Todo tu historial')
-    expect(featureSentence(f('meal_photo_recognition', null, false))).toBe(
+    expect(featureSentence(f('training_history_months', null), plans)).toBe('Todo tu historial')
+    expect(featureSentence(f('meal_photo_recognition', null, false), plans)).toBe(
       'Comidas por búsqueda de alimentos',
     )
-    expect(featureSentence(f('meal_photo_recognition', null))).toBe('Comidas por foto con IA')
-    expect(featureSentence(f('something_new', 2))).toBe('Función: máximo 2')
+    expect(featureSentence(f('meal_photo_recognition', null), plans)).toBe(
+      'Comidas por foto con IA',
+    )
+    expect(featureSentence(f('something_new', 2), plans)).toBe('Función: máximo 2')
     // What a plan leaves out is not listed as if it were included: it says nothing.
-    expect(featureSentence(f('body_photos', null, false))).toBeUndefined()
-    expect(featureSentence(f('routine_duplication', null, false))).toBeUndefined()
-    expect(featureSentence(f('something_new', null, false))).toBeUndefined()
-    expect(featureSentence(f('body_measurements', null, false))).toBe('Peso y estatura')
+    expect(featureSentence(f('body_photos', null, false), plans)).toBeUndefined()
+    expect(featureSentence(f('routine_duplication', null, false), plans)).toBeUndefined()
+    expect(featureSentence(f('something_new', null, false), plans)).toBeUndefined()
+    expect(featureSentence(f('body_measurements', null, false), plans)).toBe('Peso y estatura')
+    expect(featureSentence(f('own_routines', 1), english)).toBe('Up to 1 routine of your own')
+    expect(featureSentence(f('training_history_months', 3), english)).toBe(
+      'History from the last 3 months',
+    )
+    expect(featureSentence(f('something_new', null), english)).toBe('Función, unlimited')
     expect(featureIcon('own_routines')).toBe('checklist')
     expect(featureIcon('something_new')).toBe('check')
   })
@@ -124,15 +147,19 @@ describe('what the screens say', () => {
         { version_id: 'yearly', billing_period: 'year' },
       ],
     } as ProPlanCatalogue
-    expect(billingOf(catalogue, 'monthly')).toEqual({ fee: 'Cuota mensual', per: '/mes' })
-    expect(billingOf(catalogue, 'yearly')).toEqual({ fee: 'Cuota anual', per: '/año' })
-    expect(billingOf(catalogue, 'unknown')).toEqual({ fee: 'Cuota', per: '' })
+    expect(billingOf(catalogue, 'monthly', plans)).toEqual({ fee: 'Cuota mensual', per: '/mes' })
+    expect(billingOf(catalogue, 'yearly', plans)).toEqual({ fee: 'Cuota anual', per: '/año' })
+    expect(billingOf(catalogue, 'unknown', plans)).toEqual({ fee: 'Cuota', per: '' })
+    expect(billingOf(catalogue, 'yearly', english)).toEqual({ fee: 'Yearly fee', per: '/year' })
   })
 
   test('T-SPC-UNIT-292 money is shown as on a receipt', () => {
     expect(money(2_490_000, 'COP')).toBe('$24.900')
     expect(money(999, 'USD')).toBe('$9,99 USD')
     expect(money(null, 'COP')).toBe(undefined)
+    expect(money(2_490_000, 'COP', 'en')).toBe('$24,900')
+    expect(money(999, 'USD', 'en')).toBe('$9.99 USD')
+    expect(money(1050, 'USD')).toBe('$10,50 USD')
   })
 
   test('T-SPC-UNIT-293 Pro is sold only where Allfit has a product for it', () => {

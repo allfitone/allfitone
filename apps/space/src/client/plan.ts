@@ -8,6 +8,7 @@
  * published before the function existed never promised a limit on it.
  */
 
+import type { Dictionary } from '../i18n'
 import type { ProFeature } from './pro'
 
 const find = (features: readonly ProFeature[], code: string) =>
@@ -37,65 +38,42 @@ export function visibleFrom(
 
 // ———————————————————————————————————————— the sheet that offers Pro
 
-const months = (count: number | null) =>
-  count === 1 ? 'el último mes' : `los últimos ${String(count ?? 1)} meses`
+type PlansText = Dictionary['plans']
+type Copy = { title: string; body: string }
 
 const UPGRADE: Readonly<
-  Record<string, (free: readonly ProFeature[]) => { title: string; body: string }>
+  Record<string, (free: readonly ProFeature[], text: PlansText['upgrade']) => Copy>
 > = {
-  training_history_months: (free) => ({
-    title: 'Todo tu historial, con Pro',
-    body: `Con Gratis ves ${months(limitOf(free, 'training_history_months'))}. Lo anterior sigue guardado: con Pro lo vuelves a ver.`,
+  training_history_months: (free, text) => ({
+    title: text.training_history_months.title,
+    body: text.training_history_months.body(text.window(limitOf(free, 'training_history_months'))),
   }),
-  nutrition_history_months: (free) => ({
-    title: 'Todas tus comidas, con Pro',
-    body: `Con Gratis ves ${months(limitOf(free, 'nutrition_history_months'))} de comidas. Lo anterior sigue guardado: con Pro lo vuelves a ver.`,
+  nutrition_history_months: (free, text) => ({
+    title: text.nutrition_history_months.title,
+    body: text.nutrition_history_months.body(
+      text.window(limitOf(free, 'nutrition_history_months')),
+    ),
   }),
-  active_personal_programs: (free) => ({
-    title: 'Varios programas a la vez',
-    body: `Con Gratis sigues ${String(limitOf(free, 'active_personal_programs') ?? 1)} programa propio a la vez. Con Pro, los que quieras. Los de tu gimnasio nunca cuentan.`,
+  active_personal_programs: (free, text) => ({
+    title: text.active_personal_programs.title,
+    body: text.active_personal_programs.body(limitOf(free, 'active_personal_programs') ?? 1),
   }),
-  own_routines: (free) => ({
-    title: 'Rutinas sin límite',
-    body: `Con Gratis guardas hasta ${String(limitOf(free, 'own_routines') ?? 3)} rutinas propias. Con Pro, las que quieras: las que ya tienes se quedan.`,
+  own_routines: (free, text) => ({
+    title: text.own_routines.title,
+    body: text.own_routines.body(limitOf(free, 'own_routines') ?? 3),
   }),
-  routine_duplication: () => ({
-    title: 'Duplica tus rutinas',
-    body: 'Con Pro copias una rutina tuya y la cambias sin tocar la original.',
-  }),
-  full_program_catalogue: () => ({
-    title: 'Todo el catálogo de Allfit',
-    body: 'Con Gratis tienes una selección para empezar. Con Pro, todos los programas según tu objetivo y tu nivel.',
-  }),
-  period_analysis: () => ({
-    title: 'Compara tus periodos',
-    body: 'Con Pro ves tus cargas, tu volumen y tu constancia semana a semana o mes a mes.',
-  }),
-  body_measurements: () => ({
-    title: 'Todas tus medidas',
-    body: 'Con Gratis registras tu peso y tu estatura. Con Pro, también cintura, brazo, grasa corporal y más.',
-  }),
-  body_photos: () => ({
-    title: 'Fotos de tu progreso',
-    body: 'Con Pro guardas fotos de tu cuerpo, solo para ti, y las comparas en el tiempo.',
-  }),
-  meal_photo_recognition: () => ({
-    title: 'Registra con una foto',
-    body: 'Con Pro tomas una foto de tu plato y la app reconoce lo que comes. Buscar alimentos sigue siendo gratis.',
-  }),
+  routine_duplication: (_free, text) => text.routine_duplication,
+  full_program_catalogue: (_free, text) => text.full_program_catalogue,
+  period_analysis: (_free, text) => text.period_analysis,
+  body_measurements: (_free, text) => text.body_measurements,
+  body_photos: (_free, text) => text.body_photos,
+  meal_photo_recognition: (_free, text) => text.meal_photo_recognition,
 }
 
 /** What Pro opens for the function that was refused. */
-export function upgradeCopy(
-  code: string,
-  free: readonly ProFeature[],
-): { title: string; body: string } {
-  return (
-    UPGRADE[code]?.(free) ?? {
-      title: 'Esto es parte de Pro',
-      body: 'Tu plan no incluye esta función. Con Pro la tienes, junto con todo lo demás.',
-    }
-  )
+export function upgradeCopy(code: string, free: readonly ProFeature[], text: PlansText): Copy {
+  const copy = UPGRADE[code]?.(free, text.upgrade) ?? text.upgrade.other
+  return { title: copy.title, body: copy.body }
 }
 
 // ———————————————————————————————————————— the comparison, side by side
@@ -108,80 +86,73 @@ export interface ComparisonRow {
   readonly pro: string | true
 }
 
-type Cell = (features: readonly ProFeature[]) => string | true
+type Cells = PlansText['cells']
+type Cell = (features: readonly ProFeature[], text: Cells) => string | true
 
 const historyWindow =
   (code: string): Cell =>
-  (features) => {
+  (features, text) => {
     const limit = limitOf(features, code)
-    if (!opens(features, code)) return 'No incluido'
-    if (limit === null) return 'Completo'
-    return limit === 1 ? 'Último mes' : `Últimos ${String(limit)} meses`
+    if (!opens(features, code)) return text.notIncluded
+    if (limit === null) return text.complete
+    return limit === 1 ? text.lastMonth : text.lastMonths(limit)
   }
 
 const count =
-  (code: string, unlimited: string, prefix = 'Hasta '): Cell =>
-  (features) => {
+  (code: string, prefixed = true): Cell =>
+  (features, text) => {
     const limit = limitOf(features, code)
-    if (!opens(features, code)) return 'No incluido'
-    return limit === null ? unlimited : limit === 1 ? '1' : `${prefix}${String(limit)}`
+    if (!opens(features, code)) return text.notIncluded
+    if (limit === null) return text.unlimited
+    return limit === 1 || !prefixed ? String(limit) : text.upTo(limit)
   }
 
+/** The cells that are plain words, not counts. */
+type Word = { [K in keyof Cells]: Cells[K] extends string ? K : never }[keyof Cells]
+
 const either =
-  (code: string, without: string, withIt: string): Cell =>
-  (features) =>
-    opens(features, code) ? withIt : without
+  (code: string, without: Word, withIt: Word): Cell =>
+  (features, text) =>
+    opens(features, code) ? text[withIt] : text[without]
 
 const always: Cell = () => true
 
-const ROWS: readonly (readonly [string, string, Cell])[] = [
-  ['sessions', 'Sesiones, cargas y sin conexión', always],
-  [
-    'full_program_catalogue',
-    'Programas de Allfit',
-    either('full_program_catalogue', 'Selección básica', 'Catálogo completo'),
-  ],
-  ['training_history_months', 'Historial', historyWindow('training_history_months')],
-  [
-    'period_analysis',
-    'Análisis',
-    either('period_analysis', 'Resumen de la sesión', 'Cargas, volumen y constancia'),
-  ],
+const ROWS: readonly (readonly [keyof PlansText['rows'], Cell])[] = [
+  ['sessions', always],
+  ['full_program_catalogue', either('full_program_catalogue', 'basicSelection', 'fullCatalogue')],
+  ['training_history_months', historyWindow('training_history_months')],
+  ['period_analysis', either('period_analysis', 'sessionSummary', 'loadsVolumeConsistency')],
   [
     'body_measurements',
-    'Evolución corporal',
-    (features) =>
+    (features, text) =>
       opens(features, 'body_photos')
-        ? 'Medidas y fotos'
+        ? text.measuresAndPhotos
         : opens(features, 'body_measurements')
-          ? 'Medidas'
-          : 'Peso',
+          ? text.measures
+          : text.weight,
   ],
-  [
-    'meal_photo_recognition',
-    'Nutrición',
-    either('meal_photo_recognition', 'Registro y metas', 'Registro, metas y fotos con IA'),
-  ],
-  ['nutrition_history_months', 'Historial de comidas', historyWindow('nutrition_history_months')],
-  [
-    'active_personal_programs',
-    'Programas propios activos',
-    count('active_personal_programs', 'Sin límite', ''),
-  ],
-  ['own_routines', 'Rutinas propias', count('own_routines', 'Sin límite')],
+  ['meal_photo_recognition', either('meal_photo_recognition', 'logAndGoals', 'logGoalsAndPhotos')],
+  ['nutrition_history_months', historyWindow('nutrition_history_months')],
+  ['active_personal_programs', count('active_personal_programs', false)],
+  ['own_routines', count('own_routines')],
   [
     'routine_duplication',
-    'Duplicar rutinas',
-    (features) => (opens(features, 'routine_duplication') ? true : 'No incluido'),
+    (features, text) => (opens(features, 'routine_duplication') ? true : text.notIncluded),
   ],
-  ['organization', 'Programas de tu gimnasio', always],
-  ['privacy', 'Privacidad y tus datos', always],
+  ['organization', always],
+  ['privacy', always],
 ]
 
 /** Every row of the table, from what each plan declares. */
 export function comparisonRows(
   free: readonly ProFeature[],
   pro: readonly ProFeature[],
+  text: PlansText,
 ): ComparisonRow[] {
-  return ROWS.map(([key, label, cell]) => ({ key, label, free: cell(free), pro: cell(pro) }))
+  return ROWS.map(([key, cell]) => ({
+    key,
+    label: text.rows[key],
+    free: cell(free, text.cells),
+    pro: cell(pro, text.cells),
+  }))
 }

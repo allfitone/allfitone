@@ -20,6 +20,7 @@ import { ApiError } from '../client/api-error'
 import { upgradeCopy } from '../client/plan'
 import type { ProFeature } from '../client/pro'
 import { createSpaceProFlow } from '../client/pro-transport'
+import { useText } from '../i18n/use-text'
 
 /** The functions of the person's plan; empty until read, which limits nothing. */
 export function usePlan(): readonly ProFeature[] {
@@ -72,7 +73,8 @@ export function UpgradeSheet({
   readonly onDismiss: () => void
 }) {
   const router = useRouter()
-  const copy = upgradeCopy(code ?? '', features)
+  const text = useText().plans
+  const copy = upgradeCopy(code ?? '', features, text)
   return (
     <Sheet visible={code !== undefined} onDismiss={onDismiss} title={copy.title}>
       <View style={styles.stack}>
@@ -80,14 +82,14 @@ export function UpgradeSheet({
           {copy.body}
         </Note>
         <Button
-          label="Comparar Gratis y Pro"
+          label={text.upgrade.compare}
           onPress={() => {
             onDismiss()
             // After the sheet has left: iOS leaves a closing modal over the new screen.
             setTimeout(() => router.push('/pro/plans'), semanticMotion.exit.duration + 60)
           }}
         />
-        <Button label="Ahora no" variant="ghost" onPress={onDismiss} />
+        <Button label={text.upgrade.notNow} variant="ghost" onPress={onDismiss} />
       </View>
     </Sheet>
   )

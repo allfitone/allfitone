@@ -45,6 +45,7 @@ import Animated, {
 
 import { durationFor, easingFor } from '../client/motion'
 import { stepPosition, type OnboardingStepRoute } from '../client/onboarding-steps'
+import { useText } from '../i18n/use-text'
 import { WaitingGym } from './gym-ui'
 
 const CURRENT_SEGMENT_OPACITY = 0.6
@@ -60,12 +61,13 @@ export interface OnboardingHeaderProps {
  */
 export function OnboardingBack({ to }: { readonly to: OnboardingStepRoute }) {
   const router = useRouter()
+  const text = useText()
 
   return (
     <IconButton
       icon="back"
       variant="plain"
-      accessibilityLabel="Volver al paso anterior"
+      accessibilityLabel={text.onboarding.backStep}
       onPress={() => router.replace(to)}
     />
   )

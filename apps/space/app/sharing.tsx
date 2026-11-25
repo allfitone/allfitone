@@ -38,6 +38,7 @@ import {
 } from '../src/client/sharing'
 import { consents } from '../src/client/sharing-transport'
 import { GymMark, RowCard, scopeIcon } from '../src/components/gym-ui'
+import { useLocale, useText } from '../src/i18n/use-text'
 
 const SHEET_ICONS: readonly IconName[] = ['locked', 'permissions', 'history', 'info']
 
@@ -45,10 +46,12 @@ export default function Sharing() {
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const text = useText()
+  const words = text.sharing
   const [groups, setGroups] = useState<readonly SharingGroup[] | undefined>(undefined)
   const [asking, setAsking] = useState<Consent | undefined>(undefined)
   const [revoking, setRevoking] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'loadFailed' | 'revokeFailed' | undefined>(undefined)
 
   const load = useCallback(async () => {
     setGroups(groupConsents(await consents.list()))
@@ -56,7 +59,7 @@ export default function Sharing() {
 
   useFocusEffect(
     useCallback(() => {
-      load().catch(() => setFailure('No pudimos cargar lo que compartes. Revisa tu conexión.'))
+      load().catch(() => setFailure('loadFailed'))
     }, [load]),
   )
 
@@ -70,7 +73,7 @@ export default function Sharing() {
       await load()
     } catch {
       setAsking(undefined)
-      setFailure('No pudimos dejar de compartirlo. Inténtalo de nuevo.')
+      setFailure('revokeFailed')
     } finally {
       setRevoking(false)
     }
@@ -78,14 +81,18 @@ export default function Sharing() {
 
   const active = groups?.filter((group) => group.status === 'active') ?? []
   const ended = groups?.filter((group) => group.status !== 'active') ?? []
-  const copy = asking ? revokeCopy(asking) : undefined
+  const copy = asking ? revokeCopy(asking, words) : undefined
 
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Lo que compartes
+          {words.title}
         </Text>
       </View>
 
@@ -93,11 +100,11 @@ export default function Sharing() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={words[failure]} /> : null}
 
         {groups && groups.length === 0 ? (
           <Text role="body" size="sm" color="secondary">
-            No compartes nada con ningún gimnasio. Cuando uno te invite, decides aquí qué ve.
+            {words.none}
           </Text>
         ) : null}
 
@@ -109,12 +116,7 @@ export default function Sharing() {
           <Gym key={group.relationshipId} group={group} onRevoke={setAsking} ended />
         ))}
 
-        {ended.length > 0 ? (
-          <Note>
-            Aunque terminaste, aún pueden ver lo que les compartiste hasta esa fecha. Quítalo si no
-            quieres que lo sigan viendo.
-          </Note>
-        ) : null}
+        {ended.length > 0 ? <Note>{words.endedNote}</Note> : null}
       </ScrollView>
 
       <Sheet
@@ -137,18 +139,14 @@ export default function Sharing() {
             </View>
           ))}
           <Button
-            label="Dejar de compartir"
+            label={words.stop}
             variant="danger"
             loading={revoking}
             onPress={() => {
               if (asking) void revoke(asking)
             }}
           />
-          <Button
-            label="Seguir compartiendo"
-            variant="secondary"
-            onPress={() => setAsking(undefined)}
-          />
+          <Button label={words.keep} variant="secondary" onPress={() => setAsking(undefined)} />
         </View>
       </Sheet>
     </Screen>
@@ -164,6 +162,8 @@ function Gym({
   readonly onRevoke: (consent: Consent) => void
   readonly ended?: boolean
 }) {
+  const text = useText().sharing
+  const locale = useLocale()
   return (
     <View style={styles.gym}>
       <View style={[styles.gymHead, ended && styles.muted]}>
@@ -173,7 +173,7 @@ function Gym({
             {group.organizationName}
           </Text>
           <Text role="body" size="xs" color="muted">
-            {groupCaption(group)}
+            {groupCaption(group, text, locale)}
           </Text>
         </View>
       </View>
@@ -187,7 +187,7 @@ function Gym({
       {group.nutrition.length > 0 ? (
         <>
           <Text role="control" size="xs" color="muted" style={styles.label}>
-            Alimentación · {group.organizationName}
+            {text.nutrition(group.organizationName)}
           </Text>
           <RowCard>
             {group.nutrition.map((consent) => (
@@ -207,22 +207,24 @@ function Category({
   readonly consent: Consent
   readonly onRevoke: (consent: Consent) => void
 }) {
+  const text = useText().sharing
+  const locale = useLocale()
   const title = scopeName(consent.scope_code)
   return (
     <ContentRow
       icon={scopeIcon(consent.scope_code)}
       iconTone="quiet"
       name={title}
-      caption={consentLine(consent)}
+      caption={consentLine(consent, text, locale)}
       trailing={
         canRevoke(consent)
           ? {
               kind: 'button',
-              label: 'Quitar',
-              accessibilityLabel: `Dejar de compartir ${title}`,
+              label: text.remove,
+              accessibilityLabel: text.removeLabel(title),
               onPress: () => onRevoke(consent),
             }
-          : { kind: 'badge', label: 'No compartes' }
+          : { kind: 'badge', label: text.notShared }
       }
     />
   )
