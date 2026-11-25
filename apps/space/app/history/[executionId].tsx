@@ -64,6 +64,7 @@ import { ActionRow } from '../../src/components/action-row'
 import { BodyFigure } from '../../src/components/body-figure'
 import { INERT_SLUGS } from '../../src/client/focus-form'
 import type { ShareCatalogue } from '../../src/components/share-card'
+import { PendingCorrections } from '../../src/components/corrections-ui'
 import { volumeFigure } from '../../src/client/history'
 import { useLocale, useText } from '../../src/i18n/use-text'
 import { useUnits } from '../../src/units/use-units'
@@ -191,6 +192,8 @@ export default function FinishedSessionScreen() {
       {detail ? (
         <ScrollView contentContainerStyle={styles.content}>
           <Hero detail={detail} catalogue={catalogue} timeZone={timeZone} />
+          {/* Corrections a coach proposed for this session and still waiting on her. */}
+          <PendingCorrections executionId={executionId} />
           {failure ? <InlineAlert message={failure} /> : null}
           <View style={styles.sectionHead}>
             <Text role="eyebrow" size="xs" color="muted" uppercase>
