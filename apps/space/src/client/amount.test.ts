@@ -49,12 +49,14 @@ describe('an amount, typed as a number or a fraction, in a unit the food allows'
   })
 
   test('T-SPC-UNIT-234 an amount is written as a number, or as the fraction it nearly is', () => {
-    expect(formatAmount(1.5, 'number')).toBe('1,5')
-    expect(formatAmount(2, 'number')).toBe('2')
-    expect(formatAmount(1.5, 'fraction')).toBe('1 ½')
-    expect(formatAmount(0.333, 'fraction')).toBe('⅓')
-    expect(formatAmount(3, 'fraction')).toBe('3')
-    expect(formatAmount(0.4, 'fraction')).toBe('0,4')
+    expect(formatAmount(1.5, 'number', 'es')).toBe('1,5')
+    expect(formatAmount(2, 'number', 'es')).toBe('2')
+    expect(formatAmount(1.5, 'fraction', 'es')).toBe('1 ½')
+    expect(formatAmount(0.333, 'fraction', 'es')).toBe('⅓')
+    expect(formatAmount(3, 'fraction', 'es')).toBe('3')
+    expect(formatAmount(0.4, 'fraction', 'es')).toBe('0,4')
+    expect(formatAmount(1.5, 'number', 'en')).toBe('1.5')
+    expect(formatAmount(1250, 'number', 'en')).toBe('1250')
   })
 
   test('T-SPC-UNIT-235 the units are the food’s own measures, then mass, then volume when it is poured', () => {
@@ -87,9 +89,10 @@ describe('an amount, typed as a number or a fraction, in a unit the food allows'
     if (!cup || !ml) throw new Error('milk has cups and millilitres')
     expect(toGrams(1.5, cup)).toBe(366)
     expect(toGrams(210, ml)).toBe(216.5)
-    expect(servingText(1.5, cup, 'fraction')).toBe('1 ½ tazas')
-    expect(servingText(1, cup, 'number')).toBe('1 taza')
-    expect(servingText(210, ml, 'number')).toBe('210 ml')
+    expect(servingText(1.5, cup, 'fraction', 'es')).toBe('1 ½ tazas')
+    expect(servingText(1, cup, 'number', 'es')).toBe('1 taza')
+    expect(servingText(210, ml, 'number', 'es')).toBe('210 ml')
+    expect(servingText(1.5, cup, 'number', 'en')).toBe('1.5 tazas')
   })
 
   test('T-SPC-UNIT-243 a measure is named with a capital, a unit symbol never', () => {

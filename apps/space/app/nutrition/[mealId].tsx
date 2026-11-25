@@ -42,9 +42,6 @@ import {
   deletionHeldNote,
   goalValue,
   mealTotals,
-  MEAL_NAMES,
-  mealWithArticle,
-  NUTRIENT_NAMES,
   type DailySummary,
   type GoalTarget,
   type NutrientCode,
@@ -62,12 +59,9 @@ import {
   MealThumb,
   Ring,
 } from '../../src/components/nutrition-ui'
-import { useLocale } from '../../src/i18n/use-text'
+import { useLocale, useText } from '../../src/i18n/use-text'
 import { intlLocale } from '../../src/i18n'
 
-const READ_FAILED = 'No pudimos abrir esta comida. Inténtalo otra vez.'
-const PHOTO_FAILED = 'No pudimos guardar la foto. Inténtalo otra vez.'
-const DELETE_FAILED = 'No pudimos eliminarla. Inténtalo otra vez.'
 const HERO = 340
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1)
@@ -81,6 +75,7 @@ const localDay = (timeZone: string) =>
 
 export default function MealDetailScreen() {
   const locale = useLocale()
+  const { common, nutrition: text } = useText()
   const { mealId } = useLocalSearchParams<{ mealId: string }>()
   const router = useRouter()
   const theme = useTheme()
@@ -112,11 +107,11 @@ export default function MealDetailScreen() {
           setDay(days.data[0])
           setGoal(goals.active?.targets ?? [])
         })
-        .catch(() => active && setFailure(READ_FAILED))
+        .catch(() => active && setFailure(text.mealReadFailed))
       return () => {
         active = false
       }
-    }, [flow, mealId, timeZone]),
+    }, [flow, mealId, timeZone, text]),
   )
 
   const totals = meal ? mealTotals(meal.items) : {}
@@ -147,7 +142,7 @@ export default function MealDetailScreen() {
     flow
       .reviseMeal(meal, { photo: { content_type: type, content: asset.base64 } })
       .then(setMeal)
-      .catch(() => setFailure(PHOTO_FAILED))
+      .catch(() => setFailure(text.meal.photoFailed))
       .finally(() => setBusy(false))
   }
 
@@ -174,7 +169,7 @@ export default function MealDetailScreen() {
       })
       .catch(() => {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-        setFailure(DELETE_FAILED)
+        setFailure(text.meal.deleteFailed)
       })
       .finally(() => setBusy(false))
   }
@@ -193,8 +188,8 @@ export default function MealDetailScreen() {
     )
   }
 
-  const name = MEAL_NAMES[meal.meal_type]
-  const when = `${dayTitle(meal.local_date, today)} · ${clockLabel(meal.occurred_at, timeZone)}`
+  const name = text.meals[meal.meal_type]
+  const when = `${dayTitle(meal.local_date, today, locale)} · ${clockLabel(meal.occurred_at, timeZone)}`
   const energyShare = shareOfDay('energy')
   const after = dayAfterDeleting(day, meal)
 
@@ -226,10 +221,14 @@ export default function MealDetailScreen() {
             ]}
           />
           <View style={[styles.heroTop, { paddingTop: insets.top + 8 }]}>
-            <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+            <IconButton
+              icon="back"
+              accessibilityLabel={common.back}
+              onPress={() => router.back()}
+            />
             <IconButton
               icon="more"
-              accessibilityLabel="Más opciones"
+              accessibilityLabel={text.meal.more}
               onPress={() => {
                 setBack(false)
                 setSheet('menu')
@@ -254,7 +253,7 @@ export default function MealDetailScreen() {
                   {name}
                 </Text>
                 <Text role="body" size="sm" color="secondary">
-                  {`${String(meal.items.length)} ${meal.items.length === 1 ? 'ítem' : 'ítems'}${meal.photo ? ' · con foto' : ''}`}
+                  {`${text.items(meal.items.length)}${meal.photo ? text.meal.withPhoto : ''}`}
                 </Text>
               </View>
               {totals.energy !== undefined ? (
@@ -272,7 +271,7 @@ export default function MealDetailScreen() {
                   </Text>
                   {energyShare !== null ? (
                     <Text role="control" size="sm" color="accent">
-                      {`${String(Math.round(energyShare * 100))} % de tu día`}
+                      {text.meal.shareOfYourDay(Math.round(energyShare * 100))}
                     </Text>
                   ) : null}
                 </View>
@@ -299,7 +298,7 @@ export default function MealDetailScreen() {
                 >
                   <View style={styles.macroTop}>
                     <Text role="eyebrow" size="2xs" color="muted" uppercase>
-                      {code === 'carbohydrates' ? 'Carbos' : NUTRIENT_NAMES[code]}
+                      {text.nutrientsShort[code]}
                     </Text>
                     <Ring size={28} stroke={3} share={share ?? 0} color={macroColor(theme, code)} />
                   </View>
@@ -309,7 +308,7 @@ export default function MealDetailScreen() {
                       : `${String(Math.round(totals[code] ?? 0))} g`}
                   </Text>
                   <Text role="body" size="xs" style={{ color: macroColor(theme, code) }}>
-                    {share === null ? 'Sin meta' : `${String(Math.round(share * 100))} % del día`}
+                    {share === null ? text.noGoal : text.meal.shareOfDay(Math.round(share * 100))}
                   </Text>
                 </View>
               )
@@ -317,7 +316,7 @@ export default function MealDetailScreen() {
           </View>
 
           <Text role="control" size="lg">
-            Qué comiste
+            {text.whatYouAte}
           </Text>
           <View
             style={[
@@ -333,7 +332,7 @@ export default function MealDetailScreen() {
               const parts = (['protein', 'carbohydrates', 'fat'] as const).map((code) =>
                 own[code] === undefined
                   ? null
-                  : `${String(Math.round(own[code] ?? 0))}${code === 'protein' ? 'P' : code === 'fat' ? 'G' : 'C'}`,
+                  : `${String(Math.round(own[code] ?? 0))}${text.macroLetters[code]}`,
               )
               return (
                 <View
@@ -371,7 +370,7 @@ export default function MealDetailScreen() {
                       ) : null}
                     </Text>
                     <Text role="body" size="xs" color="muted">
-                      {parts.filter(Boolean).join(' · ') || 'Sin macros registrados'}
+                      {parts.filter(Boolean).join(' · ') || text.meal.noMacros}
                     </Text>
                   </View>
                   {own.energy !== undefined ? (
@@ -389,7 +388,7 @@ export default function MealDetailScreen() {
 
           <NutritionFacts
             values={totals}
-            portion={`Toda la comida (${String(Math.round(mealGrams(meal.items)))} g)`}
+            portion={text.meal.whole(Math.round(mealGrams(meal.items)))}
             targets={goal}
             estimated={false}
           />
@@ -398,7 +397,7 @@ export default function MealDetailScreen() {
             <View style={styles.noteRow}>
               <FoundationIcon name="edit" size="sm" color={theme.color.icon.secondary} decorative />
               <Text role="body" size="sm" color="secondary" style={styles.grow}>
-                {`«${meal.note}»`}
+                {text.quoted(meal.note)}
               </Text>
             </View>
           ) : null}
@@ -416,7 +415,7 @@ export default function MealDetailScreen() {
       >
         <View style={styles.grow}>
           <Button
-            label="Cambiar foto"
+            label={text.meal.changePhoto}
             icon="camera"
             variant="secondary"
             loading={busy}
@@ -425,7 +424,7 @@ export default function MealDetailScreen() {
         </View>
         <View style={styles.grow}>
           <Button
-            label="Corregir"
+            label={text.meal.correct}
             icon="edit"
             onPress={() => router.push({ pathname: '/nutrition/log', params: { mealId: meal.id } })}
           />
@@ -437,9 +436,9 @@ export default function MealDetailScreen() {
         onDismiss={() => setSheet(undefined)}
         title={
           sheet === 'deleted'
-            ? 'Comida eliminada'
+            ? text.meal.deleted
             : sheet === 'delete'
-              ? `¿Eliminar ${mealWithArticle(meal.meal_type)}?`
+              ? text.deleteMeal(meal.meal_type)
               : `${name} · ${when}`
         }
         hideTitle={sheet === 'delete'}
@@ -462,7 +461,7 @@ export default function MealDetailScreen() {
                 />
               </Animated.View>
               <Text role="body" size="md" color="secondary" align="center">
-                Tu día ya no la cuenta.
+                {text.meal.deletedBody}
               </Text>
             </Animated.View>
           ) : sheet === 'delete' ? (
@@ -471,22 +470,22 @@ export default function MealDetailScreen() {
                 <MealThumb meal={meal} size={64} />
                 <View style={styles.grow}>
                   <Text role="control" size="xl" accessibilityRole="header">
-                    {`¿Eliminar ${mealWithArticle(meal.meal_type)}?`}
+                    {text.deleteMeal(meal.meal_type)}
                   </Text>
                   <Text role="body" size="sm" color="secondary">
-                    {`${when} · ${String(meal.items.length)} ${meal.items.length === 1 ? 'ítem' : 'ítems'}${totals.energy !== undefined ? ` · ${String(Math.round(totals.energy))} kcal` : ''}`}
+                    {`${when} · ${text.items(meal.items.length)}${totals.energy !== undefined ? ` · ${String(Math.round(totals.energy))} kcal` : ''}`}
                   </Text>
                 </View>
               </View>
               <Text role="body" size="md" color="secondary">
-                Se borran la comida, sus ítems, sus nutrientes y la foto. No queda ninguna copia.
+                {text.meal.deleteBody}
               </Text>
               {after.energy || after.protein ? (
                 <View
                   style={[styles.after, { backgroundColor: theme.color.background.surfaceMuted }]}
                 >
                   <Text role="eyebrow" size="xs" color="muted" uppercase>
-                    Tu día queda así
+                    {text.meal.dayAfter}
                   </Text>
                   {after.energy ? (
                     <View style={styles.afterRow}>
@@ -513,7 +512,7 @@ export default function MealDetailScreen() {
                         style={[styles.swatch, { backgroundColor: macroColor(theme, 'protein') }]}
                       />
                       <Text role="control" size="sm">
-                        {`Proteína ${String(after.protein.before)} → ${String(after.protein.after)} g`}
+                        {text.meal.proteinAfter(after.protein.before, after.protein.after)}
                       </Text>
                     </View>
                   ) : null}
@@ -522,7 +521,7 @@ export default function MealDetailScreen() {
               <View style={styles.choices}>
                 <View style={styles.grow}>
                   <Button
-                    label="Cancelar"
+                    label={common.cancel}
                     variant="secondary"
                     disabled={busy}
                     onPress={() => {
@@ -534,7 +533,7 @@ export default function MealDetailScreen() {
                 </View>
                 <View style={styles.grow}>
                   <Button
-                    label="Eliminar"
+                    label={text.meal.delete}
                     icon="remove"
                     variant="danger"
                     loading={busy}
@@ -551,8 +550,8 @@ export default function MealDetailScreen() {
             >
               <ActionRow
                 icon="edit"
-                name="Corregir"
-                detail="Cambia los alimentos, sus valores o la nota"
+                name={text.meal.correct}
+                detail={text.meal.correctDetail}
                 onPress={() => {
                   setSheet(undefined)
                   router.push({ pathname: '/nutrition/log', params: { mealId: meal.id } })
@@ -560,14 +559,14 @@ export default function MealDetailScreen() {
               />
               <ActionRow
                 icon="camera"
-                name="Cambiar foto"
-                detail="Elige otra de tu galería"
+                name={text.meal.changePhoto}
+                detail={text.meal.changePhotoDetail}
                 onPress={() => void changePhoto()}
               />
               <ActionRow
                 icon="remove"
-                name="Eliminar comida"
-                detail="Se borra de tu día y no se puede recuperar"
+                name={text.meal.deleteMeal}
+                detail={text.meal.deleteMealDetail}
                 danger
                 onPress={() => {
                   void Haptics.selectionAsync()

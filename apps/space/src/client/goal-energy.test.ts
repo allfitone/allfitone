@@ -87,11 +87,13 @@ describe('the goal in grams and kilocalories', () => {
 
 describe('what each kind of target is called', () => {
   test('T-SPC-UNIT-271 the field says what kind of target it holds, capitalised', () => {
-    expect(modeCaption('minimum', 'low')).toBe('Al menos')
-    expect(modeCaption('maximum', 'high')).toBe('Como máximo')
-    expect(modeCaption('exact', 'low')).toBe('Exactamente')
-    expect(modeCaption('range', 'low')).toBe('Desde')
-    expect(modeCaption('range', 'high')).toBe('Hasta')
+    expect(modeCaption('minimum', 'low', 'es')).toBe('Al menos')
+    expect(modeCaption('maximum', 'high', 'es')).toBe('Como máximo')
+    expect(modeCaption('exact', 'low', 'es')).toBe('Exactamente')
+    expect(modeCaption('range', 'low', 'es')).toBe('Desde')
+    expect(modeCaption('range', 'high', 'es')).toBe('Hasta')
+    expect(modeCaption('minimum', 'low', 'en')).toBe('At least')
+    expect(modeCaption('range', 'high', 'en')).toBe('To')
   })
 
   test('T-SPC-UNIT-272 a target moved to another kind keeps what it can of its value', () => {

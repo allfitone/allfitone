@@ -14,6 +14,7 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import { nutrientValue } from '@allfitone/contracts/nutrients'
 
+import type { Locale } from '../i18n'
 import { choiceFor, servingText, toGrams, type AmountMode, type UnitChoice } from './amount'
 import type { MealCreate, MealType, NutrientCode } from './nutrition'
 
@@ -171,8 +172,8 @@ export function captureTotals(items: readonly CaptureItem[]): Values {
 }
 
 /** How the amount reads: «1 ½ tazas», «210 ml», «75 g». */
-export const portionText = (item: CaptureItem): string =>
-  servingText(item.amount, item.unit, item.mode)
+export const portionText = (item: CaptureItem, locale: Locale): string =>
+  servingText(item.amount, item.unit, item.mode, locale)
 
 /** The meal as `OP-NUT-001` takes it: each item with its origin, food, grams and values. */
 export function mealFromCapture(input: {
@@ -181,6 +182,8 @@ export function mealFromCapture(input: {
   readonly occurredAt: string
   readonly timezone: string
   readonly recognizedBy: string | null
+  /** How the serving is written, as the person read it. */
+  readonly locale: Locale
 }): MealCreate {
   return {
     occurred_at: input.occurredAt,
@@ -192,7 +195,7 @@ export function mealFromCapture(input: {
       name: item.name,
       quantity: item.grams,
       quantity_unit: 'g',
-      serving: portionText(item),
+      serving: portionText(item, input.locale),
       origin: item.origin,
       food_id: item.food && item.food.kind !== 'product' ? item.food.id : null,
       product_id: item.food?.kind === 'product' ? item.food.id : null,

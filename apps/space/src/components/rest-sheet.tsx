@@ -22,9 +22,11 @@ export function RestSheetBody({
   readonly onChange: (seconds: number) => void
 }) {
   const theme = useTheme()
-  const text = useText().session.rest
+  const words = useText()
+  const text = words.session.rest
   // «Ninguno» is a choice and the only word; any other rest reads as a clock.
-  const shown = (seconds: number) => (seconds === 0 ? text.none : restLabel(seconds))
+  const shown = (seconds: number) =>
+    seconds === 0 ? text.none : restLabel(seconds, words.training.sets)
 
   return (
     <View style={styles.sheet}>

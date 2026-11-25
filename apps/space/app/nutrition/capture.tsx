@@ -65,22 +65,18 @@ import {
   type FrequentFood,
 } from '../../src/client/capture'
 import { clockLabel, withClock } from '../../src/client/finished'
-import { MEAL_NAMES, MEAL_TYPES, type GoalTarget, type MealType } from '../../src/client/nutrition'
+import { MEAL_TYPES, type GoalTarget, type MealType } from '../../src/client/nutrition'
 import { createSpaceNutritionFlow } from '../../src/client/nutrition-transport'
 import { openItem, takeItemOutcome } from '../../src/client/item-handover'
 import { handOverSavedMeal } from '../../src/client/saved-meal'
 import { deviceTimezone } from '../../src/client/timezone'
 import { sendMealPhoto } from '../../src/client/meal-photos'
-import {
-  CONSENT_TEXTS,
-  ConsentSheet,
-  FoodTile,
-  MealMenu,
-} from '../../src/components/capture-sheets'
+import { ConsentSheet, FoodTile, MealMenu } from '../../src/components/capture-sheets'
 import { FIGURE_TRACKING, macroColor, MEAL_ICON } from '../../src/components/nutrition-ui'
 import { preparePhoto } from '../../src/components/prepare-photo'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
 import { opens } from '../../src/client/plan'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 type Tab = 'photo' | 'foods'
 type Phase = 'camera' | 'recognizing' | 'review'
@@ -89,21 +85,12 @@ interface Photo {
   readonly base64: string
 }
 
-const RECOGNITION_FAILED =
-  'No pudimos reconocer la foto. Búscalos en «Alimentos»; la foto se queda con la comida.'
-const CONSENT_TEXT_MISSING =
-  'Actualiza la app para reconocer tu comida con una foto. Mientras tanto, búscala en «Alimentos».'
-const SAVE_FAILED = 'No pudimos guardar la comida. Inténtalo otra vez.'
 // A label is about this size (tile, name, kcal); the gap keeps two from touching.
 const LABEL_SIZE = { width: 200, height: 52 }
 const LABEL_GAP = 8
 // The meal pill's height and the gap under it: the labels start below both.
 const HEADER_CLEARANCE = 56
-const MACROS = [
-  { code: 'protein', name: 'proteína' },
-  { code: 'carbohydrates', name: 'carbos' },
-  { code: 'fat', name: 'grasa' },
-] as const
+const MACROS = ['protein', 'carbohydrates', 'fat'] as const
 
 const localDay = (timeZone: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date())
@@ -125,6 +112,8 @@ export default function CaptureScreen() {
   const { day: dayParam, type } = useLocalSearchParams<{ day?: string; type?: string }>()
   const router = useRouter()
   const theme = useTheme()
+  const locale = useLocale()
+  const text = useText().nutrition
   const insets = useSafeAreaInsets()
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
   const timeZone = useMemo(() => deviceTimezone(), [])
@@ -171,7 +160,6 @@ export default function CaptureScreen() {
   const attempt = useRef(0)
   const draft = useRef(`capture-${String(Date.now())}`)
 
-  const mealName = MEAL_NAMES[mealType].toLowerCase()
   const totals = captureTotals(items)
 
   // The label measures against the person's goal; without one, against the norm.
@@ -219,13 +207,13 @@ export default function CaptureScreen() {
     setPhase('recognizing')
     const mine = (attempt.current += 1)
     try {
-      const ask = consentToAsk(await flow.readConsent(), CONSENT_TEXTS)
+      const ask = consentToAsk(await flow.readConsent(), text.consent.texts)
       if (ask !== 'accepted') {
         if (mine !== attempt.current) return
         if (ask === 'unknown') {
           setPhase('camera')
           setTab('foods')
-          setFailure(CONSENT_TEXT_MISSING)
+          setFailure(text.capture.consentMissing)
         } else {
           setConsent(ask)
           setConsentAsked(true)
@@ -248,7 +236,7 @@ export default function CaptureScreen() {
       if (mine !== attempt.current) return
       setPhase('camera')
       setTab('foods')
-      if (!upgrade.handled(cause)) setFailure(RECOGNITION_FAILED)
+      if (!upgrade.handled(cause)) setFailure(text.capture.recognitionFailed)
     }
   }
 
@@ -262,7 +250,7 @@ export default function CaptureScreen() {
       setPhoto(taken)
       await recognise(taken)
     } catch {
-      setFailure(RECOGNITION_FAILED)
+      setFailure(text.capture.recognitionFailed)
     }
   }
 
@@ -291,7 +279,7 @@ export default function CaptureScreen() {
       setConsentAsked(false)
       if (photo) await recognise(photo)
     } catch {
-      setFailure(RECOGNITION_FAILED)
+      setFailure(text.capture.recognitionFailed)
       setConsentAsked(false)
       setPhase('camera')
       setTab('foods')
@@ -371,6 +359,7 @@ export default function CaptureScreen() {
           occurredAt,
           timezone: timeZone,
           recognizedBy: photo ? recognizedBy : null,
+          locale,
         }),
       )
       handOverSavedMeal({
@@ -384,7 +373,7 @@ export default function CaptureScreen() {
       router.back()
     } catch {
       setSaving(false)
-      setFailure(SAVE_FAILED)
+      setFailure(text.mealSaveFailed)
     }
   }
 
@@ -410,10 +399,10 @@ export default function CaptureScreen() {
               decorative
             />
             <Text role="body" size="md" color="secondary" align="center">
-              Para fotografiar tu comida, Allfit necesita la cámara.
+              {text.capture.cameraNeeded}
             </Text>
             <Button
-              label="Permitir la cámara"
+              label={text.capture.allowCamera}
               variant="secondary"
               onPress={() => void requestPermission()}
             />
@@ -435,7 +424,7 @@ export default function CaptureScreen() {
       <View style={[styles.header, { paddingTop: pillTop }]} pointerEvents="box-none">
         <IconButton
           icon={reviewing ? 'back' : 'close'}
-          accessibilityLabel={reviewing ? 'Volver a la cámara' : 'Cerrar sin guardar'}
+          accessibilityLabel={reviewing ? text.capture.backToCamera : text.closeUnsaved}
           onPress={() => {
             if (!reviewing) router.back()
             // What the photo found is work: it is never thrown away on a single touch.
@@ -445,7 +434,10 @@ export default function CaptureScreen() {
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${MEAL_NAMES[mealType]}, ${clockLabel(occurredAt, timeZone)}. Cambiar la comida`}
+          accessibilityLabel={text.capture.changeMeal(
+            text.meals[mealType],
+            clockLabel(occurredAt, timeZone),
+          )}
           onPress={() => setMenu(true)}
         >
           <GlassPanel radius="action" material="chip" style={styles.pill}>
@@ -458,7 +450,7 @@ export default function CaptureScreen() {
             <Text
               role="control"
               size="md"
-            >{`${MEAL_NAMES[mealType]} · ${clockLabel(occurredAt, timeZone)}`}</Text>
+            >{`${text.meals[mealType]} · ${clockLabel(occurredAt, timeZone)}`}</Text>
             <FoundationIcon name="expand" size="xs" color={theme.color.icon.secondary} decorative />
           </GlassPanel>
         </Pressable>
@@ -469,7 +461,7 @@ export default function CaptureScreen() {
         <>
           <GlassPanel radius="action" material="chip" style={[styles.hint, { top: pillTop + 60 }]}>
             <Text role="control" size="sm">
-              Encuadra todo el plato
+              {text.capture.frame}
             </Text>
           </GlassPanel>
           <Corners top={pillTop + 110} />
@@ -484,7 +476,7 @@ export default function CaptureScreen() {
         <Review
           items={items}
           totals={totals}
-          mealName={mealName}
+          mealType={mealType}
           saving={saving}
           failure={failure}
           bottom={insets.bottom}
@@ -505,7 +497,7 @@ export default function CaptureScreen() {
           frequent={frequent}
           items={items}
           totals={totals}
-          mealName={mealName}
+          mealType={mealType}
           replacing={replacing !== undefined}
           saving={saving}
           failure={failure}
@@ -525,12 +517,12 @@ export default function CaptureScreen() {
             <View style={styles.shutterRow}>
               <IconButton
                 icon="image"
-                accessibilityLabel="Elegir una foto de la galería"
+                accessibilityLabel={text.capture.fromLibrary}
                 onPress={() => void pickFromGallery()}
               />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Tomar la foto"
+                accessibilityLabel={text.capture.shoot}
                 disabled={!permission?.granted}
                 onPress={() => void shoot()}
                 style={[
@@ -546,8 +538,8 @@ export default function CaptureScreen() {
           <View style={styles.tabs}>
             {(
               [
-                ['photo', 'Foto'],
-                ['foods', 'Alimentos'],
+                ['photo', text.capture.photo],
+                ['foods', text.capture.foods],
               ] as const
             ).map(([key, label]) => {
               const active = key === tab
@@ -574,7 +566,7 @@ export default function CaptureScreen() {
                       color: active ? theme.color.text.accent : theme.color.text.secondary,
                     }}
                   >
-                    {key === 'photo' && !photoOpen ? `${label} · Pro` : label}
+                    {key === 'photo' && !photoOpen ? text.capture.pro(label) : label}
                   </Text>
                   <View
                     style={[
@@ -601,14 +593,18 @@ export default function CaptureScreen() {
         }}
         onDismiss={() => setMenu(false)}
       />
-      <Sheet visible={leaving} onDismiss={() => setLeaving(false)} title="¿Descartar lo escaneado?">
+      <Sheet
+        visible={leaving}
+        onDismiss={() => setLeaving(false)}
+        title={text.capture.discardTitle}
+      >
         <View style={styles.decisions}>
+          <Button label={text.capture.discard} variant="secondary" onPress={backToCamera} />
           <Button
-            label="Descartar y volver a la cámara"
-            variant="secondary"
-            onPress={backToCamera}
+            label={text.capture.keepReviewing}
+            variant="ghost"
+            onPress={() => setLeaving(false)}
           />
-          <Button label="Seguir revisando" variant="ghost" onPress={() => setLeaving(false)} />
         </View>
       </Sheet>
       <ConsentSheet
@@ -650,6 +646,7 @@ function Recognising({
   readonly bottom: number
 }) {
   const theme = useTheme()
+  const { common, nutrition: text } = useText()
   const reduced = useReducedMotion()
   const sweep = useSharedValue(0)
   useEffect(() => {
@@ -679,12 +676,12 @@ function Recognising({
         <GlassPanel radius="action" material="chip" style={styles.recognisingPill}>
           <ActivityIndicator color={theme.color.icon.accent} />
           <Text role="control" size="md">
-            Reconociendo alimentos…
+            {text.capture.recognising}
           </Text>
         </GlassPanel>
         <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={12}>
           <Text role="control" size="md" color="secondary">
-            Cancelar
+            {common.cancel}
           </Text>
         </Pressable>
       </View>
@@ -696,7 +693,7 @@ function Recognising({
 function Review({
   items,
   totals,
-  mealName,
+  mealType,
   saving,
   failure,
   bottom,
@@ -709,7 +706,7 @@ function Review({
   /** Where the labels may start: below the header, so none hides behind the meal pill. */
   readonly top: number
   readonly totals: ReturnType<typeof captureTotals>
-  readonly mealName: string
+  readonly mealType: MealType
   readonly saving: boolean
   readonly failure: string | undefined
   readonly bottom: number
@@ -718,6 +715,7 @@ function Review({
   readonly onSave: () => void
 }) {
   const theme = useTheme()
+  const text = useText().nutrition
   const [area, setArea] = useState({ width: 0, height: 0 })
   const placed = items.filter((item) => item.at)
   const spots = placeLabels(
@@ -726,7 +724,7 @@ function Review({
     LABEL_SIZE,
     LABEL_GAP,
   )
-  const grams = MACROS.map(({ code }) => totals[code] ?? 0)
+  const grams = MACROS.map((code) => totals[code] ?? 0)
   const sum = Math.max(
     1,
     grams.reduce((total, value) => total + value, 0),
@@ -753,7 +751,7 @@ function Review({
             >
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name}${item.review ? ', por revisar' : ''}. Ajustar`}
+                accessibilityLabel={text.capture.adjust(item.name, item.review)}
                 onPress={() => onOpen(item)}
               >
                 {/* One to check wears an amber edge; the list says why. */}
@@ -805,12 +803,12 @@ function Review({
               kcal
             </Text>
             <Text role="control" size="xs" color="accent">
-              Calculado por Allfit con IA
+              {text.capture.calculatedWithAi}
             </Text>
           </View>
         </View>
         <View style={styles.bar}>
-          {MACROS.map(({ code }, at) => (
+          {MACROS.map((code, at) => (
             <View
               key={code}
               style={{
@@ -823,12 +821,12 @@ function Review({
           ))}
         </View>
         <View style={styles.legend}>
-          {MACROS.map(({ code, name }, at) => (
+          {MACROS.map((code, at) => (
             <View key={code} style={styles.legendItem}>
               <View style={[styles.swatch, { backgroundColor: macroColor(theme, code) }]} />
               <Text role="control" size="sm">{`${String(Math.round(grams[at] ?? 0))} g`}</Text>
               <Text role="body" size="sm" color="muted">
-                {name}
+                {text.macroLegend[code]}
               </Text>
             </View>
           ))}
@@ -840,13 +838,13 @@ function Review({
           <Pressable accessibilityRole="button" onPress={onAdd} style={styles.addMissing}>
             <FoundationIcon name="add" size="xs" color={theme.color.icon.accent} decorative />
             <Text role="control" size="md" color="accent">
-              Agregar ingrediente
+              {text.capture.addMissing}
             </Text>
           </Pressable>
         </ScrollView>
         {failure ? <InlineAlert message={failure} /> : null}
         <Button
-          label={`Guardar ${mealName}`}
+          label={text.saveMeal(mealType)}
           icon="check"
           loading={saving}
           disabled={items.length === 0}
@@ -859,10 +857,12 @@ function Review({
 
 function ItemRow({ item, onPress }: { readonly item: CaptureItem; readonly onPress: () => void }) {
   const theme = useTheme()
+  const locale = useLocale()
+  const text = useText().nutrition.capture
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${item.name}, ${portionText(item)}${isEstimated(item) ? ', estimado con IA' : ''}. Ajustar`}
+      accessibilityLabel={text.adjustItem(item.name, portionText(item, locale), isEstimated(item))}
       onPress={onPress}
       style={[styles.row, { borderBottomColor: theme.color.border.subtle }]}
     >
@@ -874,7 +874,7 @@ function ItemRow({ item, onPress }: { readonly item: CaptureItem; readonly onPre
         <View style={styles.rowChips}>
           <View style={[styles.portion, { backgroundColor: theme.color.background.surfaceMuted }]}>
             <Text role="body" size="xs" color="secondary">
-              {portionText(item)}
+              {portionText(item, locale)}
             </Text>
             <FoundationIcon name="expand" size="xs" color={theme.color.icon.secondary} decorative />
           </View>
@@ -886,7 +886,7 @@ function ItemRow({ item, onPress }: { readonly item: CaptureItem; readonly onPre
               ]}
             >
               <Text role="control" size="xs" style={{ color: theme.color.status.warning }}>
-                {isEstimated(item) ? 'IA' : item.food ? '¿Es esto?' : 'Elige el alimento'}
+                {isEstimated(item) ? text.ai : item.food ? text.isThisIt : text.chooseFood}
               </Text>
             </View>
           ) : null}
@@ -912,7 +912,7 @@ function Foods({
   frequent,
   items,
   totals,
-  mealName,
+  mealType,
   replacing,
   saving,
   failure,
@@ -929,7 +929,7 @@ function Foods({
   readonly frequent: readonly FrequentFood[]
   readonly items: readonly CaptureItem[]
   readonly totals: ReturnType<typeof captureTotals>
-  readonly mealName: string
+  readonly mealType: MealType
   readonly replacing: boolean
   readonly saving: boolean
   readonly failure: string | undefined
@@ -938,20 +938,22 @@ function Foods({
   readonly onOpen: (item: CaptureItem) => void
   readonly onSave: () => void
 }) {
+  const locale = useLocale()
+  const text = useText().nutrition
   const searching = query.trim().length > 0
   return (
     <View style={[styles.foods, { top, bottom }]}>
       <TextField
-        label="Buscar un alimento"
+        label={text.capture.search}
         hideLabel
         value={query}
         onChangeText={onQuery}
         placeholder={
           replacing
-            ? 'Busca el alimento correcto'
+            ? text.capture.searchCorrect
             : items.length > 0
-              ? 'Añade otro alimento'
-              : 'Busca: arroz, huevo, banano…'
+              ? text.capture.searchAnother
+              : text.capture.searchExample
         }
         autoCorrect={false}
         returnKeyType="search"
@@ -976,23 +978,21 @@ function Foods({
             ))
           ) : (
             <Text role="body" size="sm" color="muted">
-              No encontramos ese alimento.
+              {text.capture.notFound}
             </Text>
           )
         ) : items.length > 0 && !replacing ? (
           <>
-            <Text
-              role="body"
-              size="sm"
-              color="secondary"
-            >{`Tu ${mealName} · ${String(items.length)} ${items.length === 1 ? 'alimento' : 'alimentos'}`}</Text>
+            <Text role="body" size="sm" color="secondary">
+              {text.capture.yourMeal(mealType, items.length)}
+            </Text>
             {items.map((item) => (
               <FoodRow
                 key={item.key}
                 icon={item.icon}
                 food={item.food}
                 name={item.name}
-                detail={portionText(item)}
+                detail={portionText(item, locale)}
                 kcal={shownValues(item).energy}
                 onPress={() => onOpen(item)}
               />
@@ -1001,7 +1001,7 @@ function Foods({
         ) : frequent.length > 0 ? (
           <>
             <Text role="body" size="sm" color="secondary">
-              Lo que más registras
+              {text.capture.frequent}
             </Text>
             {frequent.map((one) => (
               <FoodRow
@@ -1023,7 +1023,7 @@ function Foods({
               : frequent.map((one) => one.food),
         ) ? (
           <Text role="body" size="xs" color="muted">
-            Productos empacados con datos de Open Food Facts (ODbL)
+            {text.capture.openFoodFacts}
           </Text>
         ) : null}
       </ScrollView>
@@ -1041,12 +1041,21 @@ function Foods({
           </View>
           <Text role="control" size="xs" color={items.length > 0 ? 'accent' : 'muted'}>
             {items.length > 0
-              ? `Calculado por Allfit · ${String(Math.round(totals.protein ?? 0))} g P · ${String(Math.round(totals.carbohydrates ?? 0))} g C · ${String(Math.round(totals.fat ?? 0))} g G`
-              : 'Añade alimentos y calculamos todo'}
+              ? text.capture.calculatedLine(
+                  Math.round(totals.protein ?? 0),
+                  Math.round(totals.carbohydrates ?? 0),
+                  Math.round(totals.fat ?? 0),
+                )
+              : text.capture.addAndWeCount}
           </Text>
           {failure ? <InlineAlert message={failure} /> : null}
           {items.length > 0 ? (
-            <Button label={`Guardar ${mealName}`} icon="check" loading={saving} onPress={onSave} />
+            <Button
+              label={text.saveMeal(mealType)}
+              icon="check"
+              loading={saving}
+              onPress={onSave}
+            />
           ) : null}
         </View>
       ) : null}
@@ -1082,6 +1091,7 @@ function FoodRow({
   readonly onQuickAdd?: () => void
 }) {
   const theme = useTheme()
+  const text = useText().nutrition.capture
   const label = name ?? food?.name ?? ''
   return (
     <Pressable
@@ -1102,7 +1112,7 @@ function FoodRow({
         {kcal === undefined ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Añadir ${label}, ${detail}`}
+            accessibilityLabel={text.quickAdd(label, detail)}
             disabled={!onQuickAdd}
             onPress={onQuickAdd}
             hitSlop={10}

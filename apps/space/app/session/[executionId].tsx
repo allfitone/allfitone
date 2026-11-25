@@ -144,8 +144,8 @@ import { useUnits } from '../../src/units/use-units'
 type Words = Dictionary['session']
 
 /** A rest as a chip or the pill reads it: «Ninguno» is the one word, the rest a clock. */
-const restShown = (seconds: number, words: Words) =>
-  seconds === 0 ? words.rest.none : restLabel(seconds)
+const restShown = (seconds: number, words: Words, sets: Dictionary['training']['sets']) =>
+  seconds === 0 ? words.rest.none : restLabel(seconds, sets)
 
 /** Long enough to stop writing on every keystroke, short enough to never lose a set. */
 const SAVE_DELAY_MS = 1_200
@@ -1118,7 +1118,9 @@ function Exercise({
   /** The unit the loads are typed in. */
   readonly unit: MassUnit
 }) {
-  const text = useText().session
+  const words = useText()
+  const text = words.session
+  const sets = words.training.sets
   const said = text.live
   const theme = useTheme()
   const progress = useSharedValue(0)
@@ -1185,7 +1187,7 @@ function Exercise({
       {/* A quiet pill, not a cyan line: it is a setting, and the rows below are the work. */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={said.restPill(restShown(effectiveRest, text))}
+        accessibilityLabel={said.restPill(restShown(effectiveRest, text, sets))}
         onPress={onRest}
         hitSlop={8}
         style={({ pressed }) => [
@@ -1202,7 +1204,7 @@ function Exercise({
           {said.rest}
         </Text>
         <Text role="control" size="xs">
-          {restShown(effectiveRest, text)}
+          {restShown(effectiveRest, text, sets)}
         </Text>
         <FoundationIcon
           name="expand"
