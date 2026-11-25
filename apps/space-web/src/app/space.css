@@ -1981,6 +1981,35 @@ button.pill-link {
   gap: 16px 28px;
 }
 
+/* A client invitation's link (TECH-360): open the app, or how to get it. */
+.invitation-link__open {
+  width: 100%;
+}
+
+.invitation-link__install {
+  display: grid;
+  gap: 16px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+/* Side by side even on a phone: the panel is narrower than two landing-size buttons. */
+.invitation-link__install .stores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.invitation-link__install .store {
+  min-width: 0;
+  padding-inline: 16px;
+}
+
+.invitation-link__fine {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
 /* An unconfirmed address: the one thing on «mi link» that asks the person to act. */
 .link-notice {
   padding: 20px 24px;

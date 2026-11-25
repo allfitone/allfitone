@@ -266,6 +266,30 @@ export const es = {
       ],
     },
   },
+  // What a client invitation email opens (TECH-360). Private: never indexed.
+  invitationLink: {
+    meta: {
+      title: 'Tu invitación | Allfit Space',
+      description: 'Abre en Allfit Space la invitación de tu gimnasio.',
+    },
+    opening: 'Abriendo tu invitación…',
+    phoneTitle: 'Tu invitación te espera en la app',
+    phoneBody:
+      'Un gimnasio te invitó a entrenar con ellos. Ábrela en Allfit Space para ver qué te proponen y decidir cada cosa.',
+    open: 'Abrir en Allfit Space',
+    noAppTitle: '¿Aún no tienes la app?',
+    noAppBody: 'Instálala y vuelve a abrir este enlace desde el correo.',
+    computerTitle: 'Ábrela desde tu teléfono',
+    computerBody:
+      'Las invitaciones se deciden en la app Allfit Space. Abre este mismo correo en tu teléfono y toca el enlace desde ahí.',
+    computerNoAppBody: 'Instálala en tu teléfono y vuelve a abrir el enlace desde el correo.',
+    expiry: 'La invitación vence a los 7 días. Nada se comparte hasta que decidas en la app.',
+    computerExpiry: 'La invitación vence a los 7 días.',
+    invalidTitle: 'Este enlace está incompleto',
+    invalidBody:
+      'Ábrelo directamente desde el correo de tu invitación. Si sigue sin funcionar, pídele a tu gimnasio que te la reenvíe.',
+    home: 'Ir a Allfit Space',
+  },
   // The pages the waitlist emails link to. Private: none of them is indexed.
   linkPages: {
     checking: 'Revisando tu enlace…',
