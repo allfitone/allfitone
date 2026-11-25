@@ -15,6 +15,7 @@
 
 import { access } from './es/access'
 import { common } from './es/common'
+import { corrections } from './es/corrections'
 import { fitness } from './es/fitness'
 import { gyms } from './es/gyms'
 import { health } from './es/health'
@@ -33,6 +34,7 @@ import { training } from './es/training'
 export const es = {
   access,
   common,
+  corrections,
   fitness,
   gyms,
   health,
