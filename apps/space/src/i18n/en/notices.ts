@@ -109,5 +109,10 @@ export const notices: Dictionary['notices'] = {
     unavailable:
       "This version of the app can't receive notifications on your phone yet. We'll keep notifying you here and by email.",
     failed: "We couldn't turn on notifications on this phone. Try again.",
+    alertTitle: {
+      denied: 'Notifications are off on this phone',
+      unavailable: 'Not in this version yet',
+      failed: "They didn't turn on",
+    },
   },
 }

@@ -52,13 +52,13 @@ export default function PushPermission() {
     }
   }
 
-  const alert: { message: string; tone: InlineAlertTone } | undefined =
+  const alert: { title: string; message: string; tone: InlineAlertTone } | undefined =
     outcome === 'unavailable'
-      ? { message: t.unavailable, tone: 'info' }
+      ? { title: t.alertTitle.unavailable, message: t.unavailable, tone: 'info' }
       : outcome === 'denied'
-        ? { message: t.denied, tone: 'warning' }
+        ? { title: t.alertTitle.denied, message: t.denied, tone: 'warning' }
         : outcome === 'failed'
-          ? { message: t.failed, tone: 'danger' }
+          ? { title: t.alertTitle.failed, message: t.failed, tone: 'danger' }
           : undefined
 
   return (
@@ -94,7 +94,9 @@ export default function PushPermission() {
           {t.footnote}
         </Text>
 
-        {alert ? <InlineAlert message={alert.message} tone={alert.tone} /> : null}
+        {alert ? (
+          <InlineAlert title={alert.title} message={alert.message} tone={alert.tone} />
+        ) : null}
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
@@ -112,7 +114,7 @@ export default function PushPermission() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
-  content: { paddingHorizontal: 24, gap: 22, paddingTop: 24 },
+  content: { paddingHorizontal: 24, gap: 22, paddingTop: 24, paddingBottom: 24 },
   heading: { gap: 8 },
   actions: { paddingHorizontal: 24, gap: 12, paddingTop: 12 },
 })

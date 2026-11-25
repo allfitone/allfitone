@@ -117,5 +117,10 @@ export const notices = {
     unavailable:
       'Esta versión de la app todavía no puede recibir avisos en el teléfono. Te seguimos avisando aquí y por correo.',
     failed: 'No pudimos activar los avisos en este teléfono. Inténtalo otra vez.',
+    alertTitle: {
+      denied: 'Avisos apagados en el teléfono',
+      unavailable: 'Todavía no en esta versión',
+      failed: 'No se activaron',
+    },
   },
 }
