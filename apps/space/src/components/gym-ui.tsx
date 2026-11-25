@@ -14,7 +14,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { invitationExpiry, type PendingInvitation } from '../client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../client/gym-affiliation-transport'
 import { holdsLinkToken } from '../client/invitation-draft'
-import { useText } from '../i18n/use-text'
+import { useLocale, useText } from '../i18n/use-text'
 
 const SCOPE_ICON: Record<string, IconName> = {
   relationship_training: 'training',
@@ -105,6 +105,7 @@ export function WaitingGym() {
 export function PendingInvitationCard({ style }: { readonly style?: StyleProp<ViewStyle> }) {
   const router = useRouter()
   const text = useText()
+  const locale = useLocale()
   const [pending, setPending] = useState<PendingInvitation | undefined>(undefined)
 
   useFocusEffect(
@@ -131,7 +132,9 @@ export function PendingInvitationCard({ style }: { readonly style?: StyleProp<Vi
     <ContentRow
       preview={<GymMark name={pending.organization_name} size={40} />}
       name={text.gyms.invited(pending.organization_name)}
-      caption={text.gyms.seeAndDecide(invitationExpiry(pending.expires_at))}
+      caption={text.gyms.seeAndDecide(
+        invitationExpiry(pending.expires_at, text.invitation, locale),
+      )}
       onPress={() => router.push({ pathname: '/invitation', params: { id: pending.id } })}
       {...(style ? { style } : {})}
     />

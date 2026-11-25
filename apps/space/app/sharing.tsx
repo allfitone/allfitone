@@ -81,7 +81,7 @@ export default function Sharing() {
 
   const active = groups?.filter((group) => group.status === 'active') ?? []
   const ended = groups?.filter((group) => group.status !== 'active') ?? []
-  const copy = asking ? revokeCopy(asking, words) : undefined
+  const copy = asking ? revokeCopy(asking, text) : undefined
 
   return (
     <Screen edges={['top']} padded={false}>
@@ -207,15 +207,16 @@ function Category({
   readonly consent: Consent
   readonly onRevoke: (consent: Consent) => void
 }) {
-  const text = useText().sharing
+  const words = useText()
+  const text = words.sharing
   const locale = useLocale()
-  const title = scopeName(consent.scope_code)
+  const title = scopeName(consent.scope_code, words.gyms)
   return (
     <ContentRow
       icon={scopeIcon(consent.scope_code)}
       iconTone="quiet"
       name={title}
-      caption={consentLine(consent, text, locale)}
+      caption={consentLine(consent, words, locale)}
       trailing={
         canRevoke(consent)
           ? {

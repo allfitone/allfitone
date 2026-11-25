@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { coverSpan, endedSpan, pendingCovers } from '../../src/client/gym-affiliation'
 import { gyms, type Cover, type MyRelationship } from '../../src/client/gym-affiliation-transport'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
-import { useText } from '../../src/i18n/use-text'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 interface PendingCover {
   readonly relationship: MyRelationship
@@ -36,6 +36,7 @@ export default function Gyms() {
   const insets = useSafeAreaInsets()
   const text = useText()
   const words = text.gyms
+  const locale = useLocale()
   const [relationships, setRelationships] = useState<readonly MyRelationship[] | undefined>()
   const [covers, setCovers] = useState<readonly PendingCover[]>([])
   const [deciding, setDeciding] = useState<string | undefined>(undefined)
@@ -119,7 +120,8 @@ export default function Gyms() {
                   {words.wouldCover(pending.cover.display_name)}
                 </Text>
                 <Text role="body" size="xs" style={{ color: theme.color.status.warning }}>
-                  {pending.relationship.organization_name} · {coverSpan(pending.cover)}
+                  {pending.relationship.organization_name} ·{' '}
+                  {coverSpan(pending.cover, words, locale)}
                 </Text>
               </View>
             </View>
@@ -178,7 +180,7 @@ export default function Gyms() {
               <GymRow
                 key={relationship.relationship_id}
                 relationship={relationship}
-                caption={endedSpan(relationship)}
+                caption={endedSpan(relationship, words, locale)}
                 onPress={() =>
                   router.push({
                     pathname: '/gyms/[relationshipId]',

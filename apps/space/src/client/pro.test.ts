@@ -81,7 +81,7 @@ describe('what the screens say', () => {
     expect(renewalLine({ ...subscription, auto_renews: false }, english, 'en')).toMatch(
       /^Ends on Oct \d+, won't renew$/,
     )
-    expect(shortDate('2026-10-15T15:00:00Z')).toBe('15 oct')
+    expect(shortDate('2026-10-15T15:00:00Z', 'es')).toBe('15 oct')
     expect(shortDate('2026-10-15T15:00:00Z', 'en')).toBe('Oct 15')
   })
 

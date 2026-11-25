@@ -77,18 +77,24 @@ export function groupConsents(consents: readonly Consent[]): SharingGroup[] {
 }
 
 type SharingText = Dictionary['sharing']
+// Categories and access levels are named by `gyms`, which the invitation shares.
+type SharingWords = Pick<Dictionary, 'sharing' | 'gyms'>
 
-export function consentLine(consent: Consent, text: SharingText, locale: Locale): string {
+export function consentLine(consent: Consent, text: SharingWords, locale: Locale): string {
   const date = (instant: string | null) => shortDate(instant ?? consent.decided_at, locale)
+  const line = text.sharing.line
   switch (consent.grant_status) {
     case 'active':
-      return text.line.active(accessLevelLabel(consent.access_level), date(consent.granted_at))
+      return line.active(
+        accessLevelLabel(consent.access_level, text.gyms),
+        date(consent.granted_at),
+      )
     case 'frozen':
-      return text.line.frozen(date(consent.frozen_at))
+      return line.frozen(date(consent.frozen_at))
     case 'revoked':
-      return text.line.revoked(date(consent.revoked_at))
+      return line.revoked(date(consent.revoked_at))
     default:
-      return text.line.declined
+      return line.declined
   }
 }
 
@@ -109,9 +115,10 @@ const inSentence = (title: string) => title.charAt(0).toLowerCase() + title.slic
 
 export function revokeCopy(
   consent: Consent,
-  text: SharingText,
+  words: SharingWords,
 ): { title: string; lines: string[] } {
-  const what = inSentence(scopeName(consent.scope_code))
+  const what = inSentence(scopeName(consent.scope_code, words.gyms))
+  const text = words.sharing
   return {
     title: text.revoke.title(what, consent.organization_name),
     lines: [

@@ -20,6 +20,7 @@ import { fitness } from './es/fitness'
 import { gyms } from './es/gyms'
 import { health } from './es/health'
 import { identity } from './es/identity'
+import { invitation } from './es/invitation'
 import { notices } from './es/notices'
 import { nutrition } from './es/nutrition'
 import { onboarding } from './es/onboarding'
@@ -41,6 +42,7 @@ export const es = {
   gyms,
   health,
   identity,
+  invitation,
   notices,
   nutrition,
   onboarding,

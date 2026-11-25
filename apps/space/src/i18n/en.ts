@@ -15,6 +15,7 @@ import { fitness } from './en/fitness'
 import { gyms } from './en/gyms'
 import { health } from './en/health'
 import { identity } from './en/identity'
+import { invitation } from './en/invitation'
 import { notices } from './en/notices'
 import { nutrition } from './en/nutrition'
 import { onboarding } from './en/onboarding'
@@ -36,6 +37,7 @@ export const en: Dictionary = {
   gyms,
   health,
   identity,
+  invitation,
   notices,
   nutrition,
   onboarding,

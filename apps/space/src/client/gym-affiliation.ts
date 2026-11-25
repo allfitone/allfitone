@@ -6,13 +6,21 @@
  * its own; a category she does not touch is a no. The flow keeps one command per
  * invitation until it is answered, so a retry after a dropped connection is the same
  * answer and never a second relationship.
+ *
+ * Every line is worded from the dictionary the caller passes — `text.gyms` for the
+ * categories and the relationship, `text.invitation` for the invitation — and every date
+ * in the `Locale` it passes.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import { textFor, type Dictionary, type Locale } from '../i18n'
 import { ApiError } from './api-error'
 import { shortDate } from './pro'
+
+type GymsText = Dictionary['gyms']
+type InvitationText = Dictionary['invitation']
 
 export type InvitationPresentation = AllfitV1Schemas['ClientInvitationPresentation']
 export type InvitationScopeOption = AllfitV1Schemas['ClientInvitationScopeOption']
@@ -89,21 +97,14 @@ export function createInvitationFlow(dependencies: {
   }
 }
 
-// Her side of each category, in her voice. `body_progress` promises no photos: the
-// published scope excludes them.
-const SCOPE_NAME: Record<string, string> = {
-  relationship_training: 'Tu entrenamiento con ellos',
-  prior_training_history: 'Tu historial previo',
-  body_progress: 'Tu progreso corporal',
-  health_context: 'Dolor y limitaciones',
-  nutrition_intake: 'Tus comidas',
-  nutrition_guidance: 'Metas de nutrición',
-  nutrition_media: 'Fotos de tus comidas',
+const knownScope = (scopeCode: string, text: GymsText): string | undefined => {
+  const names: Readonly<Record<string, string>> = text.scopes
+  return names[scopeCode]
 }
 
 /** A category as she names it on her side, once it is shared or declined. */
-export function scopeName(scopeCode: string): string {
-  return SCOPE_NAME[scopeCode] ?? scopeCode
+export function scopeName(scopeCode: string, text: GymsText): string {
+  return knownScope(scopeCode, text) ?? scopeCode
 }
 
 interface PresentedOption {
@@ -120,8 +121,8 @@ function presented(option: PresentedOption, key: 'display_name' | 'description')
  * A category by the name the gym sent it with: the catalogue's `display_name`, frozen
  * into the invitation when it was sent. Her own name only when the snapshot has none.
  */
-export function scopeTitle(option: PresentedOption): string {
-  return presented(option, 'display_name') ?? scopeName(option.scope_code)
+export function scopeTitle(option: PresentedOption, text: GymsText): string {
+  return presented(option, 'display_name') ?? scopeName(option.scope_code, text)
 }
 
 /**
@@ -137,17 +138,18 @@ export function scopeDescription(option: PresentedOption): string | null {
  * the published scope admits it, which in V1 is her training with them: assigning
  * programs, moving sessions, adjusting and cancelling. "Propuestas" said less than that.
  */
-export function accessLevelLabel(level: string | null): string {
-  return level === 'contribute' ? 'Lectura y cambios a tu plan' : 'Lectura'
+export function accessLevelLabel(level: string | null, text: GymsText): string {
+  return level === 'contribute' ? text.access.contribute : text.access.read
 }
 
 export function sharedSummary(
   decisions: Readonly<Record<string, Decision>>,
   asked: number,
+  text: InvitationText,
 ): string {
-  if (asked === 0) return 'No pide ningún dato'
+  if (asked === 0) return text.asksNothing
   const accepted = Object.values(decisions).filter((decision) => decision === 'accepted').length
-  return `Compartes ${String(accepted)} de ${String(asked)}`
+  return text.sharedOf(accepted, asked)
 }
 
 /**
@@ -169,14 +171,13 @@ export function programStanding(
 export const programAnswer = (standing: ProgramStanding, chosen: Decision): Decision =>
   standing === 'open' ? chosen : 'rejected'
 
-const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-
-/** «lun 1 dic» from a calendar date, without a zone to move it. */
-export function calendarDay(date: string): string {
+/** «lun 1 dic», «Mon, Dec 1», from a calendar date, without a zone to move it. */
+export function calendarDay(date: string, locale: Locale): string {
   const [year = 1970, month = 1, day = 1] = date.split('-').map(Number)
-  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? ''
-  return `${weekday} ${String(day)} ${MONTHS[month - 1] ?? ''}`
+  const text = textFor(locale)
+  const weekday =
+    text.invitation.weekdays[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? ''
+  return text.invitation.calendarDay(weekday, day, text.common.months[month - 1] ?? '')
 }
 
 /** The phone's calendar date, «2026-11-24». */
@@ -190,12 +191,17 @@ export const programStart = (offer: ProgramOffer, today: string): string =>
   offer.starts_on > today ? offer.starts_on : today
 
 /** «8 semanas · empieza el lun 1 dic», or «Se repite cada semana · …». */
-export function programSpan(offer: ProgramOffer, today: string): string {
+export function programSpan(
+  offer: ProgramOffer,
+  today: string,
+  text: InvitationText,
+  locale: Locale,
+): string {
   const length =
     offer.repeats_forever || offer.weeks === null
-      ? 'Se repite cada semana'
-      : `${String(offer.weeks)} ${offer.weeks === 1 ? 'semana' : 'semanas'}`
-  return `${length} · empieza el ${calendarDay(programStart(offer, today))}`
+      ? text.program.repeats
+      : text.program.weeks(offer.weeks)
+  return text.program.span(length, calendarDay(programStart(offer, today), locale))
 }
 
 /** What the program row says under it, for each standing and answer. */
@@ -205,17 +211,19 @@ export function programNote(
   chosen: Decision,
   requiredTitle: string,
   today: string,
+  text: InvitationText,
+  locale: Locale,
 ): string | null {
   if (standing === 'off') return null
-  if (standing === 'locked') return `Para que te lo pongan, primero comparte «${requiredTitle}».`
+  if (standing === 'locked') return text.program.shareFirst(requiredTitle)
   return chosen === 'accepted'
-    ? `Si confirmas, lo verás en Entrenar desde el ${calendarDay(programStart(offer, today))}.`
-    : 'Decide si quieres empezarlo.'
+    ? text.program.seeFrom(calendarDay(programStart(offer, today), locale))
+    : text.program.decide
 }
 
 /** Under the permission the program needs, on «Decide qué pueden ver». */
-export const programNeedLine = (offer: ProgramOffer): string =>
-  `Lo necesitan para ponerte «${offer.title}».`
+export const programNeedLine = (offer: ProgramOffer, text: InvitationText): string =>
+  text.program.needed(offer.title)
 
 /**
  * What became of the program, for «Ya entrenas con…». Nothing when she declined it or
@@ -225,39 +233,30 @@ export function programOutcomeLine(
   offer: ProgramOffer | null,
   outcome: ProgramOutcome | null,
   today: string,
+  text: InvitationText,
+  locale: Locale,
 ): string | null {
   if (!offer || !outcome) return null
   if (outcome.assignment_id) {
-    return `Empieza el ${calendarDay(programStart(offer, today))} · lo verás en Entrenar`
+    return text.program.starts(calendarDay(programStart(offer, today), locale))
   }
-  if (outcome.unmaterialized_reason === 'training_not_granted') {
-    return 'No quedó puesto: no compartiste tu entrenamiento'
-  }
-  if (outcome.unmaterialized_reason === 'program_unavailable') {
-    return 'Tu gimnasio retiró este programa antes de que respondieras'
-  }
+  if (outcome.unmaterialized_reason === 'training_not_granted') return text.program.notGranted
+  if (outcome.unmaterialized_reason === 'program_unavailable') return text.program.withdrawn
   return null
 }
 
-export const invitationExpiry = (instant: string): string => `vence el ${shortDate(instant)}`
-
-const DECISION_FAILED =
-  'No pudimos guardar tus decisiones. Revisa tu conexión e inténtalo de nuevo.'
-const LATER = 'Tu invitación sigue abierta: inténtalo más tarde.'
+export const invitationExpiry = (instant: string, text: InvitationText, locale: Locale): string =>
+  text.expires(shortDate(instant, locale))
 
 /**
  * Why her answer did not land. A gym that cannot take her now is not a connection
  * problem, and the invitation it sent is still open; why the gym is paused is not hers.
  */
-export function decisionFailure(cause: unknown): string {
-  if (!(cause instanceof ApiError)) return DECISION_FAILED
-  if (cause.failure === 'organization-not-operating') {
-    return `Este gimnasio no está recibiendo personas nuevas por ahora. ${LATER}`
-  }
-  if (cause.failure === 'guest-quota-exhausted') {
-    return `Este gimnasio no tiene lugares libres por ahora. ${LATER}`
-  }
-  return DECISION_FAILED
+export function decisionFailure(cause: unknown, text: InvitationText): string {
+  if (!(cause instanceof ApiError)) return text.failure.decision
+  if (cause.failure === 'organization-not-operating') return text.failure.notOperating
+  if (cause.failure === 'guest-quota-exhausted') return text.failure.noPlaces
+  return text.failure.decision
 }
 
 /** Covers still waiting on her: proposed, and not already past their last day. */
@@ -271,43 +270,43 @@ export function pendingCovers<
 }
 
 /** One moment of a relationship, said as she would say it. */
-export function historyLine(event: {
-  readonly type: string
-  readonly detail: Readonly<Record<string, unknown>>
-}): string {
-  const name = typeof event.detail.display_name === 'string' ? event.detail.display_name : 'Alguien'
+export function historyLine(
+  event: {
+    readonly type: string
+    readonly detail: Readonly<Record<string, unknown>>
+  },
+  text: GymsText,
+): string {
+  const words = text.history
+  const name =
+    typeof event.detail.display_name === 'string' ? event.detail.display_name : words.someone
+  // Inside a sentence, so the category's name loses its capital.
+  const scope = () => {
+    const named = knownScope(String(event.detail.scope_code), text)
+    return named ? named.charAt(0).toLowerCase() + named.slice(1) : words.aCategory
+  }
   switch (event.type) {
     case 'relationship_started':
-      return 'Aceptaste la invitación'
+      return words.started
     case 'holder_assigned':
-      return `${name} es tu coach`
+      return words.holderAssigned(name)
     case 'holder_ended':
-      return `${name} dejó de ser tu coach`
+      return words.holderEnded(name)
     case 'substitution_proposed':
-      return `${name} propone cubrirte`
+      return words.coverProposed(name)
     case 'substitution_accepted':
-      return `Aceptaste que ${name} te cubra`
+      return words.coverAccepted(name)
     case 'substitution_ended':
-      return `${name} dejó de cubrirte`
-    case 'consent_decided': {
-      const named = SCOPE_NAME[String(event.detail.scope_code)]
-      // Inside a sentence, so the name loses its capital.
-      const scope = named ? named.charAt(0).toLowerCase() + named.slice(1) : 'una categoría'
-      return event.detail.decision === 'accepted'
-        ? `Compartiste ${scope}`
-        : `No compartiste ${scope}`
-    }
-    case 'grant_revoked': {
-      const named = SCOPE_NAME[String(event.detail.scope_code)]
-      return `Dejaste de compartir ${named ? named.charAt(0).toLowerCase() + named.slice(1) : 'una categoría'}`
-    }
+      return words.coverEnded(name)
+    case 'consent_decided':
+      return event.detail.decision === 'accepted' ? words.shared(scope()) : words.declined(scope())
+    case 'grant_revoked':
+      return words.revoked(scope())
     case 'relationship_ended':
       // Seen from Space, «declared by us» is her own decision.
-      return event.detail.declared_by_us === true
-        ? 'Terminaste la relación'
-        : 'El gimnasio terminó la relación'
+      return event.detail.declared_by_us === true ? words.youEnded : words.gymEnded
     default:
-      return 'Cambió la relación'
+      return words.changed
   }
 }
 
@@ -320,21 +319,31 @@ export function tokenFromLink(url: string | null): string | undefined {
 }
 
 // A calendar day read at noon, so no zone moves it to the day before.
-const day = (date: string): string => shortDate(`${date}T12:00:00`)
+const day = (date: string, locale: Locale): string => shortDate(`${date}T12:00:00`, locale)
 
 /** When a cover runs: from the day it starts to its last day, if it has one. */
-export function coverSpan(cover: {
-  readonly valid_from: string
-  readonly ends_on: string | null
-}): string {
-  const from = shortDate(cover.valid_from)
-  return cover.ends_on ? `del ${from} al ${day(cover.ends_on)}` : `desde el ${from}`
+export function coverSpan(
+  cover: {
+    readonly valid_from: string
+    readonly ends_on: string | null
+  },
+  text: GymsText,
+  locale: Locale,
+): string {
+  const from = shortDate(cover.valid_from, locale)
+  return cover.ends_on ? text.coverRange(from, day(cover.ends_on, locale)) : text.coverFrom(from)
 }
 
-export function endedSpan(relationship: {
-  readonly started_at: string
-  readonly ended_at: string | null
-}): string {
-  const until = relationship.ended_at ? ` al ${shortDate(relationship.ended_at)}` : ''
-  return `Del ${shortDate(relationship.started_at)}${until} · ya no ven nada nuevo`
+export function endedSpan(
+  relationship: {
+    readonly started_at: string
+    readonly ended_at: string | null
+  },
+  text: GymsText,
+  locale: Locale,
+): string {
+  const from = shortDate(relationship.started_at, locale)
+  return relationship.ended_at
+    ? text.endedSpan(from, shortDate(relationship.ended_at, locale))
+    : text.endedFrom(from)
 }

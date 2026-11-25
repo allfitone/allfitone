@@ -15,7 +15,7 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 import type { IconName } from '@allfitone/icons'
 
-import { DEFAULT_LOCALE, intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
 
 export type ProStatus = AllfitV1Schemas['SpaceProStatus']
 export type ProPlanCatalogue = AllfitV1Schemas['SpaceProPlanCatalogue']
@@ -79,8 +79,7 @@ const STORE_NAME: Record<ProStore, string> = { app_store: 'Apple', google_play: 
 export const storeName = (store: ProStore) => STORE_NAME[store]
 
 /** «3 oct», «Oct 3», in the phone's own time zone. */
-// The default serves the invitation and gym-affiliation code, which still reads Spanish.
-export function shortDate(instant: string, locale: Locale = DEFAULT_LOCALE): string {
+export function shortDate(instant: string, locale: Locale): string {
   const date = new Date(instant)
   const text = textFor(locale)
   return text.plans.dayMonth(date.getDate(), text.common.months[date.getMonth()] ?? '')

@@ -22,12 +22,16 @@ import { shortDate } from '../../src/client/pro'
 import type { PendingInvitation } from '../../src/client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../../src/client/gym-affiliation-transport'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 export default function InvitationArrived() {
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id?: string }>()
+  const text = useText().invitation
+  const words = text.arrived
+  const locale = useLocale()
   const flow = useMemo(() => createSpaceInvitationFlow(), [])
   const [invitation, setInvitation] = useState<PendingInvitation | undefined>(undefined)
 
@@ -57,10 +61,10 @@ export default function InvitationArrived() {
       <View style={styles.content}>
         <GymMark name={gym} size={64} />
         <Text role="control" size="2xl" align="center" accessibilityRole="header">
-          {gym} te invitó
+          {words.title(gym)}
         </Text>
         <Text role="body" size="sm" color="secondary" align="center">
-          La invitación llegó al correo con el que creaste tu cuenta.
+          {words.email}
         </Text>
         <View style={styles.rows}>
           <RowCard>
@@ -68,37 +72,28 @@ export default function InvitationArrived() {
               <ContentRow
                 icon="person"
                 iconTone="quiet"
-                name={`Te invita ${invitation.invited_by}`}
-                caption={`Del equipo de ${gym}`}
+                name={text.invitedBy(invitation.invited_by)}
+                caption={words.team(gym)}
               />
             ) : null}
-            <ContentRow
-              icon="favourite"
-              name="Allfit Pro incluido"
-              caption={`Mientras sigas con ${gym}`}
-            />
+            <ContentRow icon="favourite" name={words.pro} caption={words.whileWith(gym)} />
           </RowCard>
         </View>
         <View style={styles.note}>
           <FoundationIcon name="locked" size="sm" color={theme.color.icon.secondary} decorative />
           <Text role="body" size="xs" color="muted" style={styles.grow}>
-            Todavía no aceptaste nada ni compartiste nada. Decides cada cosa por separado.
+            {words.nothingYet}
           </Text>
         </View>
       </View>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
         <Button
-          label="Ver y decidir"
+          label={words.decide}
           onPress={() => router.replace({ pathname: '/invitation', params: { id: invitation.id } })}
         />
-        <Button
-          label="Ahora no, entrar a Allfit"
-          variant="secondary"
-          onPress={() => router.replace('/today')}
-        />
+        <Button label={words.notNow} variant="secondary" onPress={() => router.replace('/today')} />
         <Text role="body" size="xs" color="muted" align="center">
-          Si entras sin decidir, la invitación te espera en Hoy hasta el{' '}
-          {shortDate(invitation.expires_at)}.
+          {words.waits(shortDate(invitation.expires_at, locale))}
         </Text>
       </View>
     </Screen>

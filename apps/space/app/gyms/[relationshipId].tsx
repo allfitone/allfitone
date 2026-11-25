@@ -140,7 +140,7 @@ export default function RelationshipHistory() {
                   key={`${event.type}-${event.source_id}-${String(index)}`}
                   icon={EVENT_ICON[event.type] ?? 'history'}
                   iconTone="quiet"
-                  name={historyLine(event)}
+                  name={historyLine(event, text.gyms)}
                   caption={shortDate(event.occurred_at, locale)}
                 />
               ))}

@@ -3,8 +3,10 @@ import { describe, expect, test } from 'bun:test'
 import { textFor } from '../i18n'
 import { consentLine, groupConsents, groupCaption, revokeCopy, type Consent } from './sharing'
 
-const es = textFor('es').sharing
-const en = textFor('en').sharing
+const esWords = textFor('es')
+const enWords = textFor('en')
+const es = esWords.sharing
+const en = enWords.sharing
 
 const ACTIVE = '019c8000-0000-7000-8000-000000000201'
 const ENDED = '019c8000-0000-7000-8000-000000000202'
@@ -53,34 +55,42 @@ describe('what she shares', () => {
   })
 
   test('T-SPC-UNIT-322 each category says how it stands, in her words', () => {
-    expect(consentLine(consent(), es, 'es')).toBe('Lectura · desde el 12 sep')
-    expect(consentLine(consent({ access_level: 'contribute' }), es, 'es')).toBe(
+    expect(consentLine(consent(), esWords, 'es')).toBe('Lectura · desde el 12 sep')
+    expect(consentLine(consent({ access_level: 'contribute' }), esWords, 'es')).toBe(
       'Lectura y cambios a tu plan · desde el 12 sep',
     )
     expect(
-      consentLine(consent({ decision: 'rejected', grant_id: null, grant_status: null }), es, 'es'),
+      consentLine(
+        consent({ decision: 'rejected', grant_id: null, grant_status: null }),
+        esWords,
+        'es',
+      ),
     ).toBe('Elegiste no compartirlo')
     expect(
       consentLine(
         consent({ grant_status: 'revoked', revoked_at: '2026-10-21T15:00:00.000Z' }),
-        es,
+        esWords,
         'es',
       ),
     ).toBe('Dejaste de compartirlo el 21 oct')
     expect(
       consentLine(
         consent({ grant_status: 'frozen', frozen_at: '2026-10-01T15:00:00.000Z' }),
-        es,
+        esWords,
         'es',
       ),
     ).toBe('Aún pueden ver lo compartido hasta el 1 oct')
     expect(
       consentLine(
         consent({ grant_status: 'revoked', revoked_at: '2026-10-21T15:00:00.000Z' }),
-        en,
+        enWords,
         'en',
       ),
     ).toBe('You stopped sharing it on Oct 21')
+    expect(consentLine(consent(), enWords, 'en')).toBe('View only · since Sep 12')
+    expect(consentLine(consent({ access_level: 'contribute' }), enWords, 'en')).toBe(
+      'View and change your plan · since Sep 12',
+    )
   })
 
   test('T-SPC-UNIT-323 a gym says since when and how much of what it asked she shares', () => {
@@ -120,7 +130,7 @@ describe('taking one back', () => {
         scope_code: 'nutrition_intake',
         presented_snapshot: { display_name: 'Lo que comes' },
       }),
-      es,
+      esWords,
     )
     expect(copy.title).toBe('¿Dejar de compartir tus comidas con Bodytech Chicó?')
     expect(copy.lines).toEqual([
@@ -129,7 +139,10 @@ describe('taking one back', () => {
       'No se borra nada tuyo. Sigue en tu Fitness ID.',
       'No se puede deshacer: para volver a compartir hará falta un permiso nuevo.',
     ])
-    expect(revokeCopy(consent(), en).lines.slice(1)).toEqual([
+    const english = revokeCopy(consent({ scope_code: 'nutrition_intake' }), enWords)
+    expect(english.title).toBe('Stop sharing your meals with Bodytech Chicó?')
+    expect(english.lines[0]).toBe('They stop seeing your meals right away.')
+    expect(revokeCopy(consent(), enWords).lines.slice(1)).toEqual([
       'Everything else you share stays the same: each permission is separate.',
       'Nothing of yours is deleted. It stays in your Fitness ID.',
       "This can't be undone: sharing again will need a new permission.",
@@ -139,10 +152,14 @@ describe('taking one back', () => {
   test('T-SPC-UNIT-326 for an ended gym it is what they kept that goes', () => {
     const copy = revokeCopy(
       consent({ relationship_status: 'terminated', grant_status: 'frozen' }),
-      es,
+      esWords,
     )
     expect(copy.lines[0]).toBe(
       'Dejan de conservar tu progreso corporal, también lo que ya les compartiste.',
     )
+    expect(
+      revokeCopy(consent({ relationship_status: 'terminated', grant_status: 'frozen' }), enWords)
+        .lines[0],
+    ).toBe('They stop keeping your body progress, including what you already shared with them.')
   })
 })
