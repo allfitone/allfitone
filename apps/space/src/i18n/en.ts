@@ -9,6 +9,7 @@
 
 import type { Dictionary } from './es'
 import { common } from './en/common'
+import { corrections } from './en/corrections'
 import { fitness } from './en/fitness'
 import { health } from './en/health'
 import { identity } from './en/identity'
@@ -16,4 +17,13 @@ import { password } from './en/password'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
 
-export const en: Dictionary = { common, fitness, health, identity, password, pro, profile }
+export const en: Dictionary = {
+  common,
+  corrections,
+  fitness,
+  health,
+  identity,
+  password,
+  pro,
+  profile,
+}
