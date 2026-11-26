@@ -3104,6 +3104,38 @@
     width: 100%;
   }
 
+  /* An action that stands alone in a card or a section takes the full width,
+     the way the action rows above already do. These are not in an action row —
+     each is a direct child of the card's content or of its own small wrapper —
+     so a content-width pill ended up floating at the left of an empty line,
+     next to controls that did reach the edge. */
+  [data-client-correction-propose],
+  [data-client-observation-correct],
+  [data-client-prescription-adjust-open],
+  [data-client-program-prescription],
+  [data-client-nutrition-goal-propose],
+  [data-client-body-more] > button,
+  [data-client-executions-more] > button,
+  [data-client-health-more] > button,
+  [data-client-nutrition-more] > button,
+  [data-client-nutrition-goals-more] > button,
+  [data-client-programs-more] > button,
+  [data-client-program-cancel] > button,
+  [data-client-observation-actions] > button,
+  [data-client-nutrition-range-actions] > button {
+    width: 100%;
+  }
+
+  /* A choice inside a form takes the field's width, as its textarea does: left
+     at its content width it was the one control in the form stopping short. */
+  [data-client-observation-provenance-choice] {
+    width: 100%;
+  }
+
+  [data-client-observation-provenance-choice] > * {
+    flex: 1;
+  }
+
   /* The same rule, reached differently: these triggers are not in an action
      row, they are direct children of the collapsible, so they take the width
      themselves. */
@@ -3745,8 +3777,10 @@
   overflow-wrap: anywhere;
 }
 
-/* The calendar stands off the facts above it. Same air the card's doors take
-   from the facts they follow. */
+/* Everything after the facts stands off them by the same 16px. `CardContent`
+   pads sideways and nothing else, so a child with no margin of its own sits
+   flush against the last fact — which is what the prescription button did. */
+[data-client-program-prescription],
 [data-client-program-calendar],
 [data-client-program-no-sessions] {
   margin-block-start: var(--afo-space-4);
@@ -3829,6 +3863,14 @@
   min-width: 0;
   padding-block-start: var(--afo-space-3);
   border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* An action under a row's facts stands off them by 16px, the air every other
+   action in this block takes. Written as the difference, because the row's own
+   grid gap already pays part of it: 8px here, 12px on a prescription step. */
+[data-client-correction-proposal],
+[data-client-observation-correction] {
+  margin-block-start: var(--afo-space-2);
 }
 
 [data-client-execution-result-list] > li:first-child [data-client-execution-result],
@@ -5450,6 +5492,12 @@
   min-width: 0;
   padding-block-start: var(--afo-space-4);
   border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* Same 16px standoff as the correction actions — see that rule; the step's
+   grid gap is 12px, so this adds the remaining 4px. */
+[data-client-prescription-adjust] {
+  margin-block-start: var(--afo-space-1);
 }
 
 [data-client-prescription-step-list] > li:first-child [data-client-prescription-step] {
