@@ -3114,15 +3114,15 @@
   [data-client-prescription-adjust-open],
   [data-client-program-prescription],
   [data-client-nutrition-goal-propose],
-  [data-client-body-more] > button,
-  [data-client-executions-more] > button,
-  [data-client-health-more] > button,
-  [data-client-nutrition-more] > button,
-  [data-client-nutrition-goals-more] > button,
-  [data-client-programs-more] > button,
-  [data-client-program-cancel] > button,
-  [data-client-observation-actions] > button,
-  [data-client-nutrition-range-actions] > button {
+  [data-client-body-more] > *,
+  [data-client-executions-more] > *,
+  [data-client-health-more] > *,
+  [data-client-nutrition-more] > *,
+  [data-client-nutrition-goals-more] > *,
+  [data-client-programs-more] > *,
+  [data-client-program-cancel] > *,
+  [data-client-observation-actions] > *,
+  [data-client-nutrition-range-actions] > * {
     width: 100%;
   }
 
