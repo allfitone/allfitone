@@ -1,5 +1,6 @@
 /**
- * The token a waitlist email link carries in its fragment (`#token=…`).
+ * The token an email link carries in its fragment (`#token=…`): the waitlist's, and the
+ * client invitation's (TECH-360).
  *
  * The fragment never reaches a server, so the token stays out of CloudFront's and the
  * load balancer's logs and out of every `Referer`. The page reads it here, posts it in a
@@ -12,10 +13,14 @@ import { useEffect, useSyncExternalStore } from 'react'
 
 import { isLinkToken, tokenFromFragment } from './waitlist'
 
-/** A confirmation link carries its own token; «mi link» and leaving carry the private one. */
-export type LinkTokenKind = 'confirmation' | 'private'
+/**
+ * A confirmation link carries its own token; «mi link» and leaving carry the private one;
+ * a client invitation carries the invitation's.
+ */
+export type LinkTokenKind = 'confirmation' | 'private' | 'invitation'
 
-const storageKey = (kind: LinkTokenKind) => `allfit-space.waitlist-${kind}`
+const storageKey = (kind: LinkTokenKind) =>
+  kind === 'invitation' ? 'allfit-space.client-invitation' : `allfit-space.waitlist-${kind}`
 
 /** The last token each kind read from a fragment, for when session storage is blocked. */
 const remembered: Partial<Record<LinkTokenKind, string>> = {}

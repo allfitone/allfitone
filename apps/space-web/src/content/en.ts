@@ -254,6 +254,30 @@ export const en: Dictionary = {
       ],
     },
   },
+  // What a client invitation email opens (TECH-360). Private: never indexed.
+  invitationLink: {
+    meta: {
+      title: 'Your invitation | Allfit Space',
+      description: 'Open your gym’s invitation in Allfit Space.',
+    },
+    opening: 'Opening your invitation…',
+    phoneTitle: 'Your invitation is waiting in the app',
+    phoneBody:
+      'A gym invited you to train with them. Open it in Allfit Space to see what they propose and decide on each thing.',
+    open: 'Open in Allfit Space',
+    noAppTitle: 'Don’t have the app yet?',
+    noAppBody: 'Install it and open this link again from the email.',
+    computerTitle: 'Open it on your phone',
+    computerBody:
+      'Invitations are decided in the Allfit Space app. Open this same email on your phone and tap the link there.',
+    computerNoAppBody: 'Install it on your phone and open the link again from the email.',
+    expiry: 'The invitation expires after 7 days. Nothing is shared until you decide in the app.',
+    computerExpiry: 'The invitation expires after 7 days.',
+    invalidTitle: 'This link is incomplete',
+    invalidBody:
+      'Open it straight from your invitation email. If it still doesn’t work, ask your gym to send it again.',
+    home: 'Go to Allfit Space',
+  },
   linkPages: {
     checking: 'Checking your link…',
     failedTitle: "We couldn't check your link.",

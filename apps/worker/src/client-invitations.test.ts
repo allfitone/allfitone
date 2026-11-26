@@ -10,6 +10,7 @@ import { createClientInvitationBatchProcessor } from './client-invitations.js'
 
 const KEY = Buffer.alloc(32, 7).toString('base64')
 const INVITATION_ID = '019b3000-0000-7000-8000-000000000501'
+const BRAND = 'http://localhost:3000/email/allfit-one.png'
 
 function queue(acknowledged: string[], rejected: Array<[string, string, boolean]> = []): Queue {
   return {
@@ -49,6 +50,7 @@ test('T-WRK-CLI-01 sends the person a link carrying the token derived from the i
       },
     },
     publicBaseUrl: 'http://localhost:3000/',
+    brandAssetUrl: BRAND,
     environment: { NODE_ENV: 'development', INVITATION_TOKEN_KEY_V1: KEY },
   })
 
@@ -77,6 +79,7 @@ test('T-WRK-CLI-02 never puts what the gym asked for in the message', async () =
       },
     },
     publicBaseUrl: 'http://localhost:3000/',
+    brandAssetUrl: BRAND,
     environment: { NODE_ENV: 'development', INVITATION_TOKEN_KEY_V1: KEY },
   })()
 
@@ -100,6 +103,7 @@ test('T-WRK-CLI-03 acknowledges an invitation that is no longer pending without 
       },
     },
     publicBaseUrl: 'https://app.example.test/',
+    brandAssetUrl: BRAND,
   })
 
   await expect(process()).resolves.toMatchObject({ claimed: 1, skipped: 1, delivered: 0 })
@@ -123,6 +127,7 @@ test('T-WRK-CLI-04 refuses a projection missing anything the email needs', async
     },
     email: { send: async () => Promise.reject(new Error('must not send')) },
     publicBaseUrl: 'http://localhost:3000/',
+    brandAssetUrl: BRAND,
     environment: { NODE_ENV: 'development', INVITATION_TOKEN_KEY_V1: KEY },
   })()
 
@@ -142,6 +147,7 @@ test('T-WRK-CLI-05 retries a throttled provider and never retries a rejected add
       database: { prepare: async () => ready() },
       email: { send: async () => Promise.reject(failure) },
       publicBaseUrl: 'http://localhost:3000/',
+      brandAssetUrl: BRAND,
       environment,
     })()
   }
@@ -166,6 +172,7 @@ test('T-WRK-CLI-06 claims nothing while delivery is switched off', async () => {
     database: { prepare: async () => Promise.reject(new Error('must not prepare delivery')) },
     email: { send: async () => Promise.reject(new Error('must not send')) },
     publicBaseUrl: 'https://app.example.test/',
+    brandAssetUrl: BRAND,
     deliveryEnabled: false,
   })
 
@@ -176,4 +183,25 @@ test('T-WRK-CLI-06 claims nothing while delivery is switched off', async () => {
     skipped: 0,
   })
   expect(claimed).toBeFalse()
+})
+
+test('T-WRK-CLI-07 the logo comes from where the other emails take it, not from the link base', async () => {
+  const sent: EmailMessage[] = []
+  await createClientInvitationBatchProcessor({
+    queue: queue([]),
+    database: { prepare: async () => ready() },
+    email: {
+      send: async (message) => {
+        sent.push(message)
+      },
+    },
+    publicBaseUrl: 'https://space.example.test/',
+    brandAssetUrl: 'https://studio.example.test/email/allfit-one.png',
+    environment: { NODE_ENV: 'development', INVITATION_TOKEN_KEY_V1: KEY },
+  })()
+
+  // Only Studio serves `email/`: on Space's base the image would break.
+  expect(sent[0]?.html).toContain('https://studio.example.test/email/allfit-one.png')
+  expect(sent[0]?.html).not.toContain('https://space.example.test/email/')
+  expect(sent[0]?.html).toContain('https://space.example.test/client-invitations#token=')
 })

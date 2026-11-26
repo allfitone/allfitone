@@ -21,7 +21,6 @@
  */
 
 import {
-  emailBrandAssetUrl,
   NotificationDeliveryError,
   createInvitationToken,
   invitationTokenKey,
@@ -89,6 +88,8 @@ export function createClientInvitationBatchProcessor(dependencies: {
   database: ClientInvitationDeliveryDatabase
   email: EmailSender
   publicBaseUrl: string
+  /** The lockup every email uses; only Studio's base serves `email/`, not Space's. */
+  brandAssetUrl: string
   environment?: NodeJS.ProcessEnv
   deliveryEnabled?: boolean
 }) {
@@ -135,7 +136,7 @@ export function createClientInvitationBatchProcessor(dependencies: {
       const rendered = renderClientInvitationEmail({
         organizationName: delivery.organizationName,
         invitationUrl: invitationUrl.toString(),
-        brandAssetUrl: emailBrandAssetUrl(baseUrl),
+        brandAssetUrl: dependencies.brandAssetUrl,
         expiresAt: delivery.expiresAt,
       })
       await dependencies.email.send({
