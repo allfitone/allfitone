@@ -2310,7 +2310,7 @@ export const SCREENS: Screen[] = [
     // halves share an instant. If a date column and a sentence crowd each
     // other, this is where it shows.
     stories: 'HU-026 · what a relationship has been through',
-    path: `${workspace}/clients/${relationshipId}/history`,
+    path: `${workspace}/clients/${relationshipId}?tab=history`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
@@ -2321,7 +2321,7 @@ export const SCREENS: Screen[] = [
     // Nothing has happened yet. The empty state has to say what will appear
     // here, because «no hay nada» alone reads as a screen that failed.
     stories: 'HU-026 · a relationship with nothing to tell yet',
-    path: `${workspace}/clients/${relationshipId}/history`,
+    path: `${workspace}/clients/${relationshipId}?tab=history`,
     fixture: () =>
       createStudioApiFixture({ memberships: [activeMembership], relationshipHistory: [] }),
     settled: async (page) => {
@@ -2333,7 +2333,7 @@ export const SCREENS: Screen[] = [
     // A coach sees a shorter history and is told so above it, so the notice and
     // the list have to sit together without the warning swamping the content.
     stories: 'HU-026 · the history a coach reads, with the notice that it is partial',
-    path: `/organizations/${secondActiveMembership.organization_id}/clients/${relationshipId}/history`,
+    path: `/organizations/${secondActiveMembership.organization_id}/clients/${relationshipId}?tab=history`,
     fixture: () => createStudioApiFixture({ memberships: [secondActiveMembership] }),
     settled: async (page) => {
       await settledByHeading(page)

@@ -15,14 +15,8 @@
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+import { Button } from '@allfitone/react/components/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
 import {
   Empty,
   EmptyDescription,
@@ -33,12 +27,10 @@ import {
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
 import { FoundationIcon } from '@allfitone/react/icons'
 
-import { WorkspacePageHeader } from '@/components/workspace-page-header'
 import { useOrganizationContext } from '@/components/organization-context'
 import { seesEveryClient } from '@/lib/client-directory'
 import { endedElsewhereNote, endedReason, historyEventTitle } from '@/lib/relationship-history'
@@ -71,13 +63,10 @@ export function RelationshipHistoryScreen() {
     relationshipHistoryQueryOptions(current.organization_id, params.relationshipId, PAGE_SIZE),
   )
 
-  const relationshipPath = `/organizations/${current.organization_id}/clients/${params.relationshipId}`
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
 
   if (historyQuery.isPending || relationshipQuery.isPending) return <LoadingState />
-  if (isStudioNotFound(historyQuery.error)) {
-    return <UnreachableState directoryPath={`/organizations/${current.organization_id}/clients`} />
-  }
+  if (isStudioNotFound(historyQuery.error)) return <UnreachableState />
   if (isStudioForbidden(historyQuery.error)) return <DeniedState />
   if (!historyQuery.data) return <FailureState onRetry={() => void historyQuery.refetch()} />
 
@@ -86,20 +75,6 @@ export function RelationshipHistoryScreen() {
 
   return (
     <div data-relationship-history>
-      <WorkspacePageHeader
-        description={`Lo que ha pasado en el vínculo con ${personName}, de lo más reciente a lo más antiguo.`}
-        actions={
-          <Link
-            href={relationshipPath}
-            data-slot="button"
-            data-variant="outline"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver al vínculo
-          </Link>
-        }
-      />
-
       {/*
        * Said before the list, not after it. The row policy shows a coach only
        * their own assignment, so a coach genuinely reads a shorter history — and
@@ -115,54 +90,45 @@ export function RelationshipHistoryScreen() {
         </Alert>
       )}
 
-      <Card data-relationship-history-card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Historia del vínculo
-          </CardTitle>
-          <CardDescription>
-            Un registro de lo que ocurrió y cuándo. No muestra ningún dato de la persona, solo los
-            hechos del vínculo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <Empty data-relationship-history-empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FoundationIcon name="organization" decorative />
-                </EmptyMedia>
-                <EmptyTitle>Todavía no hay nada que contar</EmptyTitle>
-                <EmptyDescription>
-                  Aquí irán apareciendo las altas, los cambios de profesional, las suplencias y lo
-                  que la persona decida sobre sus permisos.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <ol data-relationship-history-list aria-label="Historia del vínculo">
-              {events.map((event) => (
-                <li key={`${event.occurred_at}-${event.type}-${event.source_id}`}>
-                  <HistoryEntry event={event} personName={personName} />
-                </li>
-              ))}
-            </ol>
-          )}
+      {/* No heading of its own: the tab above already says «Historia», and the
+          sentence about what this never shows sits with it in the page header. */}
+      <div data-workspace-section-body>
+        {events.length === 0 ? (
+          <Empty data-relationship-history-empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FoundationIcon name="organization" decorative />
+              </EmptyMedia>
+              <EmptyTitle>Todavía no hay nada que contar</EmptyTitle>
+              <EmptyDescription>
+                Aquí irán apareciendo las altas, los cambios de profesional, las suplencias y lo que
+                la persona decida sobre sus permisos.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ol data-relationship-history-list aria-label="Historia del vínculo">
+            {events.map((event) => (
+              <li key={`${event.occurred_at}-${event.type}-${event.source_id}`}>
+                <HistoryEntry event={event} personName={personName} />
+              </li>
+            ))}
+          </ol>
+        )}
 
-          {historyQuery.hasNextPage ? (
-            <Button
-              type="button"
-              variant="outline"
-              data-relationship-history-more
-              disabled={historyQuery.isFetchingNextPage}
-              onClick={() => void historyQuery.fetchNextPage()}
-            >
-              {historyQuery.isFetchingNextPage ? <Spinner label="Cargando más" /> : null}
-              {historyQuery.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
+        {historyQuery.hasNextPage ? (
+          <Button
+            type="button"
+            variant="outline"
+            data-relationship-history-more
+            disabled={historyQuery.isFetchingNextPage}
+            onClick={() => void historyQuery.fetchNextPage()}
+          >
+            {historyQuery.isFetchingNextPage ? <Spinner label="Cargando más" /> : null}
+            {historyQuery.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
+          </Button>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -200,7 +166,6 @@ function HistoryEntry({
 function LoadingState() {
   return (
     <div data-relationship-history data-loading>
-      <WorkspacePageHeader description="Cargando la historia del vínculo…" />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
@@ -225,10 +190,9 @@ function LoadingState() {
  * telling a coach that a relationship exists but is not theirs already says the
  * gym has that client.
  */
-function UnreachableState({ directoryPath }: { directoryPath: string }) {
+function UnreachableState() {
   return (
     <div data-relationship-history data-unreachable>
-      <WorkspacePageHeader description="No encontramos este vínculo." />
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
@@ -238,15 +202,9 @@ function UnreachableState({ directoryPath }: { directoryPath: string }) {
           <EmptyDescription>
             Puede que ya no exista, o que no sea uno de los que atiendes.
           </EmptyDescription>
+          {/* The way back is in the page header, where it is on every tab and
+              on every state. A second one here was the same control twice. */}
         </EmptyHeader>
-        <Link
-          href={directoryPath}
-          data-slot="button"
-          data-variant="outline"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          Volver a clientes
-        </Link>
       </Empty>
     </div>
   )
@@ -255,7 +213,6 @@ function UnreachableState({ directoryPath }: { directoryPath: string }) {
 function DeniedState() {
   return (
     <div data-relationship-history data-denied>
-      <WorkspacePageHeader description="No puedes ver la historia de este vínculo." />
       <Alert variant="warning" data-relationship-history-denied>
         <AlertTitle>Tu rol no incluye leer el directorio</AlertTitle>
         <AlertDescription>
@@ -270,7 +227,6 @@ function DeniedState() {
 function FailureState({ onRetry }: { onRetry: () => void }) {
   return (
     <div data-relationship-history data-failed>
-      <WorkspacePageHeader description="No pudimos cargar la historia del vínculo." />
       <Alert variant="danger" live="assertive" data-relationship-history-failed>
         <AlertTitle>No pudimos cargar la historia</AlertTitle>
         <AlertDescription>

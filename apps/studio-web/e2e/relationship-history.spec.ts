@@ -12,7 +12,7 @@ import {
 } from './studio-api-mock'
 
 const RELATIONSHIP = relationshipState.relationship_id
-const HISTORY_PATH = `/organizations/${activeMembership.organization_id}/clients/${RELATIONSHIP}/history`
+const HISTORY_PATH = `/organizations/${activeMembership.organization_id}/clients/${RELATIONSHIP}?tab=history`
 
 test('an owner reaches the history from the relationship and reads it newest first', async ({
   page,
@@ -20,10 +20,10 @@ test('an owner reaches the history from the relationship and reads it newest fir
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
 
-  // The way somebody actually gets here, rather than by typing the URL.
+  // The way somebody actually gets here, rather than by typing the address.
   await page.goto(`/organizations/${activeMembership.organization_id}/clients/${RELATIONSHIP}`)
-  await page.getByRole('link', { name: 'Ver la historia' }).click()
-  await expect(page).toHaveURL(new RegExp(`${HISTORY_PATH}$`))
+  await page.getByRole('tab', { name: 'Historia' }).click()
+  await expect(page).toHaveURL(HISTORY_PATH)
 
   const entries = page.locator('[data-relationship-history-entry] [data-history-title]')
   await expect(entries).toHaveCount(relationshipHistory.length)
@@ -139,7 +139,7 @@ test('a coach is told the history they see is partial', async ({ page }) => {
   })
   await installStudioApiMock(page, fixture)
   await page.goto(
-    `/organizations/${secondActiveMembership.organization_id}/clients/${RELATIONSHIP}/history`,
+    `/organizations/${secondActiveMembership.organization_id}/clients/${RELATIONSHIP}?tab=history`,
   )
 
   await expect(page.locator('[data-relationship-history-partial]')).toBeVisible()

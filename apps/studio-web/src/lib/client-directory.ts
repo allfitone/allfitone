@@ -20,6 +20,7 @@ import type {
   OrganizationRole,
 } from './studio-api'
 import type { ClientFilter } from './studio-query'
+import type { RelationshipTab } from './relationship-sections'
 
 const VIEW_DIRECTORY = 'view_directory'
 const VIEW_ASSIGNED_DIRECTORY = 'view_assigned_directory'
@@ -203,6 +204,13 @@ export function clientFilterFromQuery(status: string | string[] | undefined): Cl
  * of what needs attention today, whose notices about an unassigned link or a
  * termination request are resolved on exactly this screen.
  */
-export function relationshipPath(organizationId: string, relationshipId: string): string {
-  return `/organizations/${organizationId}/clients/${relationshipId}`
+export function relationshipPath(
+  organizationId: string,
+  relationshipId: string,
+  tab: RelationshipTab = 'state',
+): string {
+  const base = `/organizations/${organizationId}/clients/${relationshipId}`
+  // The state is the screen's first tab, so it is left out, as every other
+  // tabbed screen leaves out its own.
+  return tab === 'state' ? base : `${base}?tab=${tab}`
 }
