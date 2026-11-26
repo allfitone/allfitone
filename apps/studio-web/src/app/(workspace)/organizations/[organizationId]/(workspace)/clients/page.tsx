@@ -1,25 +1,22 @@
-import { ClientDirectoryList } from '@/components/client-directory-list'
+import { ClientsScreen } from '@/components/clients-screen'
 import { clientFilterFromQuery } from '@/lib/client-directory'
 
 /**
- * The directory, opened on the group the URL asked for.
+ * The clients. The screen reads its tab from the address itself, because it
+ * changes the address without a navigation and this page is not rendered
+ * again for that.
  *
- * Read here rather than with `useSearchParams` in the list: the Next docs
- * prefer the page's own prop, and the hook would push the whole client tree
- * below the nearest Suspense boundary into client-side rendering.
- *
- * **The `key` is what makes the URL authoritative.** The list keeps the filter
- * in state so the toggle stays instant, and state ignores a prop that changed —
- * so arriving at `/clients` from `/clients?status=invited` would otherwise show
- * every client under a screen still filtered to the invited ones.
+ * What is read here is the directory's group, which arrives by navigation —
+ * the workspace home links to `?status=invited`. The directory keeps that
+ * filter in state so its toggle stays instant, and state ignores a prop that
+ * changed, so the key is what makes the address authoritative for it.
  */
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string | string[] }>
+  searchParams: Promise<{ status?: string | string[]; tab?: string | string[] }>
 }) {
   const { status } = await searchParams
-  const filter = clientFilterFromQuery(status)
 
-  return <ClientDirectoryList key={filter} initialFilter={filter} />
+  return <ClientsScreen initialFilter={clientFilterFromQuery(status)} />
 }

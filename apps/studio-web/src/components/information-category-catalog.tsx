@@ -19,7 +19,6 @@ import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { WorkspacePageHeader } from './workspace-page-header'
 import type { InformationCategory } from '@/lib/studio-api'
 import { informationCategoriesQueryOptions, isStudioForbidden } from '@/lib/studio-query'
 
@@ -82,9 +81,7 @@ export function InformationCategoryCatalog() {
         : { kind: 'error' }
 
   return (
-    <section data-team-page data-category-page aria-label="Categorías de información">
-      <WorkspacePageHeader description="Allfit One tiene siete categorías de información fijas. Consulta qué abarca cada una, y dónde para, antes de pedirle algo a un cliente." />
-
+    <div data-client-panel>
       {query.isFetching && state.kind === 'ready' ? (
         <p data-query-refreshing role="status" aria-live="polite">
           Actualizando categorías de información…
@@ -131,7 +128,7 @@ export function InformationCategoryCatalog() {
           ))}
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

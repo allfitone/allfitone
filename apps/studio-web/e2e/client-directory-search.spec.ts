@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import { activeMembership, createStudioApiFixture, installStudioApiMock } from './studio-api-mock'
 
@@ -16,6 +16,12 @@ import { activeMembership, createStudioApiFixture, installStudioApiMock } from '
 const ORG = activeMembership.organization_id
 const DIRECTORY = `/organizations/${ORG}/clients`
 const SEARCH = '#client-directory-search'
+
+/** The directory filters with a picker, as the library does, not a row of buttons. */
+async function filterClients(page: Page, option: string) {
+  await page.getByRole('combobox', { name: 'Filtrar clientes por estado' }).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
+}
 
 test.beforeEach(async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
@@ -71,7 +77,7 @@ test('turns the search off among invitations, saying why, and keeps what was typ
   await page.locator(SEARCH).fill('ana')
   await expect(page.getByText('Bruno Bello')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Invitados', exact: true }).click()
+  await filterClients(page, 'Invitados')
 
   await expect(page.locator(SEARCH)).toBeDisabled()
   await expect(page.locator(SEARCH)).toHaveValue('ana')
@@ -83,7 +89,7 @@ test('turns the search off among invitations, saying why, and keeps what was typ
   expect(refused).toEqual([])
 
   // Going back restores the search instead of having silently dropped it.
-  await page.getByRole('button', { name: 'Todos', exact: true }).click()
+  await filterClients(page, 'Todos')
   await expect(page.locator(SEARCH)).toBeEnabled()
   await expect(page.getByText('Ana Álvarez')).toBeVisible()
   await expect(page.getByText('Bruno Bello')).toHaveCount(0)

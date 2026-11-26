@@ -8,8 +8,7 @@ import {
   installStudioApiMock,
 } from './studio-api-mock'
 
-const PATH = (organizationId: string) =>
-  `/organizations/${organizationId}/clients/information-categories`
+const PATH = (organizationId: string) => `/organizations/${organizationId}/clients?tab=categories`
 
 /*
  * `HU-STUDIO-034`. The screen exists so a member can read what each category

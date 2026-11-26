@@ -35,10 +35,11 @@ test('the header carries one action, and it is the only thing you do from here',
 })
 
 /**
- * The consultations close the section rather than crowding its top. Asserted on
- * document order, not on pixels: the point is that the list comes first.
+ * The consultations open the section rather than closing it: they are tabs
+ * above the list now, where the row of links used to sit below it. Asserted on
+ * document order, not on pixels.
  */
-test('the consultations close the section, after the list', async ({ page }) => {
+test('the sections are a strip above the list, not links below it', async ({ page }) => {
   await open(page)
 
   const order = await page.evaluate(() => {
@@ -48,132 +49,97 @@ test('the consultations close the section, after the list', async ({ page }) => 
     const index = (selector: string) => everything.findIndex((element) => element.matches(selector))
     return {
       header: index('[data-page-header]'),
+      tabs: index('[role="tablist"]'),
       filters: index('[data-slot="toggle-group"]'),
       list: index('[data-studio-register="clients"], [data-client-directory-cards]'),
-      references: index('[data-client-references]'),
     }
   })
 
   expect(order.header).toBeGreaterThanOrEqual(0)
-  expect(order.filters).toBeGreaterThan(order.header)
+  expect(order.tabs).toBeGreaterThan(order.header)
+  expect(order.filters).toBeGreaterThan(order.tabs)
   expect(order.list).toBeGreaterThan(order.filters)
-  expect(order.references).toBeGreaterThan(order.list)
 })
 
 /**
- * They read as links, which means underlined at rest rather than on hover, in a
- * colour that is not the text's own.
+ * Every section stays reachable from where a person looks for it.
+ * «Categorías de información» had no click test at all before the row of links
+ * was written, and it was reachable only by typing the address.
  *
- * The second half is the real guard. `--afo-color-border` does not exist in the
- * Design System, and an invalid custom property in `text-decoration-color`
- * falls back to `currentcolor` — so the underline silently renders at full ink
- * and the `:hover` rule has nothing left to change. Nothing looks broken; it
- * just stops meaning what the rule says. Comparing the two computed colours is
- * what catches it.
+ * The heading does not change — one screen, one title — so what says the tab
+ * opened is the sentence under it, which names the section.
  */
-test('the consultations are underlined at rest, in a colour of their own', async ({ page }) => {
+test('the three consultations are reachable by pressing their tab', async ({ page }) => {
   await open(page)
 
-  const styles = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-client-reference]')).map((link) => {
-      const computed = getComputedStyle(link)
-      return {
-        text: (link.textContent ?? '').trim(),
-        decoration: computed.textDecorationLine,
-        decorationColor: computed.textDecorationColor,
-        color: computed.color,
-      }
-    }),
-  )
+  const sections = page.getByRole('tablist', { name: 'Secciones de clientes' })
+  await expect(sections.getByRole('tab')).toHaveCount(4)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clientes')
 
-  expect(styles).toHaveLength(3)
-  for (const link of styles) {
-    expect(link.decoration, `"${link.text}" no está subrayado en reposo`).toContain('underline')
-    expect(
-      link.decorationColor,
-      `el subrayado de "${link.text}" cayó a currentcolor: el token no resolvió`,
-    ).not.toBe(link.color)
-  }
-})
+  await sections.getByRole('tab', { name: 'Categorías' }).click()
+  await expect(page).toHaveURL(`/organizations/${ORG}/clients?tab=categories`)
+  await expect(page.getByText(/siete categorías de información fijas/)).toBeVisible()
 
-/**
- * The third criterion: every reference stays reachable from where a person
- * looks for it. "Categorías de información" had no click test at all before
- * this — it was reachable only by typing the URL.
- */
-test('the three consultations are reachable by clicking, from the directory', async ({ page }) => {
-  await open(page)
-
-  const references = page.getByRole('navigation', { name: 'Consultas sobre los clientes' })
-  await expect(references.getByRole('link')).toHaveCount(3)
-
-  await references.getByRole('link', { name: 'Categorías de información' }).click()
-  await expect(page).toHaveURL(new RegExp(`${ORG}/clients/information-categories$`))
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Categorías de información')
-
-  await page.goBack()
-  await page
-    .getByRole('navigation', { name: 'Consultas sobre los clientes' })
-    .getByRole('link', { name: 'Autorizaciones' })
-    .click()
-  await expect(page).toHaveURL(new RegExp(`${ORG}/clients/authorizations$`))
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autorizaciones')
+  await sections.getByRole('tab', { name: 'Autorizaciones' }).click()
+  await expect(page).toHaveURL(`/organizations/${ORG}/clients?tab=authorizations`)
+  await expect(page.getByText(/Qué autorizó cada persona/)).toBeVisible()
 
   // The third is the only one about the reader's own work, not about a client.
-  await page.goBack()
-  await page
-    .getByRole('navigation', { name: 'Consultas sobre los clientes' })
-    .getByRole('link', { name: 'Mis propuestas de corrección' })
-    .click()
-  await expect(page).toHaveURL(new RegExp(`${ORG}/clients/correction-proposals$`))
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Propuestas de corrección')
+  await sections.getByRole('tab', { name: 'Propuestas' }).click()
+  await expect(page).toHaveURL(`/organizations/${ORG}/clients?tab=proposals`)
+  await expect(page.getByText(/correcciones que propusiste/)).toBeVisible()
+
+  // The heading stayed put the whole way: four sections, one screen.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clientes')
 })
 
 /**
- * The second criterion, measured rather than eyeballed. Inside the header's
- * action row the shared rule below 640px gives every child an equal share of
- * the width, so three of them took a third each and the labels broke mid-word.
+ * Measured rather than eyeballed, and the reason the labels are one word where
+ * the section allows it: four tabs have to fit a 390px phone. The row of links
+ * this replaced broke its labels mid-word there, because the shared rule below
+ * 640px gave every child an equal share of the width.
  */
-test('on a phone no reference is cut off or clipped', async ({ page }) => {
+test('on a phone no section label is cut off, and the page never scrolls sideways', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await open(page)
 
   const measurements = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('[data-client-reference]'))
-    return links.map((link) => {
-      const box = link.getBoundingClientRect()
-      return {
-        text: (link.textContent ?? '').trim(),
-        clipped: link.scrollWidth > link.clientWidth + 1,
-        insideViewport: box.left >= 0 && box.right <= document.documentElement.clientWidth,
-      }
-    })
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+    return tabs.map((tab) => ({
+      text: (tab.textContent ?? '').trim(),
+      clipped: tab.scrollWidth > tab.clientWidth + 1,
+    }))
   })
 
-  expect(measurements).toHaveLength(3)
-  for (const link of measurements) {
-    expect(link.clipped, `"${link.text}" quedó recortado`).toBe(false)
-    expect(link.insideViewport, `"${link.text}" se sale de la pantalla`).toBe(true)
+  expect(measurements).toHaveLength(4)
+  for (const tab of measurements) {
+    expect(tab.clipped, `"${tab.text}" quedó recortado`).toBe(false)
   }
 
-  // And the page itself never scrolls sideways.
-  const page_ = await page.evaluate(() => ({
-    document: document.documentElement.scrollWidth,
+  /*
+   * The strip may scroll within itself on a phone — that is a shape, not a
+   * defect. What must never happen is the page scrolling sideways, which is
+   * what makes a reader lose the left edge of everything else.
+   */
+  const document_ = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
     viewport: document.documentElement.clientWidth,
   }))
-  expect(page_.document).toBeLessThanOrEqual(page_.viewport)
+  expect(document_.width).toBeLessThanOrEqual(document_.viewport)
 })
 
 /**
- * No consultation depends on being able to invite: a coach who only attends
- * clients still needs to know what may be asked of them — and the register of
- * what he proposed is his own work, which invites have nothing to do with.
+ * No section depends on being able to invite: a coach who only attends clients
+ * still needs to know what may be asked of them — and the register of what he
+ * proposed is his own work, which invites have nothing to do with.
  */
-test('a role without the invite action keeps the three consultations', async ({ page }) => {
+test('a role without the invite action keeps the four sections', async ({ page }) => {
   await open(page, secondActiveMembership)
 
-  const references = page.getByRole('navigation', { name: 'Consultas sobre los clientes' })
-  await expect(references.getByRole('link', { name: 'Categorías de información' })).toBeVisible()
-  await expect(references.getByRole('link', { name: 'Autorizaciones' })).toBeVisible()
-  await expect(references.getByRole('link', { name: 'Mis propuestas de corrección' })).toBeVisible()
+  const sections = page.getByRole('tablist', { name: 'Secciones de clientes' })
+  await expect(sections.getByRole('tab', { name: 'Categorías' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Autorizaciones' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Propuestas' })).toBeVisible()
 })

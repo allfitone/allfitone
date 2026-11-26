@@ -139,16 +139,11 @@ describe('organization workspace navigation', () => {
    * through to "Studio", and the screen ships with the product's name where its
    * own title belongs. That is exactly what happened to the client directory.
    */
+  // One title for the four sections, which are tabs of this one address.
   test('resolves the client directory title rather than falling through to the default', () => {
     expect(resolveWorkspaceRoute(`${basePath}/clients`, organizationId)).toEqual({
       title: 'Clientes',
     })
-  })
-
-  test('resolves the information categories title', () => {
-    expect(
-      resolveWorkspaceRoute(`${basePath}/clients/information-categories`, organizationId),
-    ).toEqual({ title: 'Categorías de información' })
   })
 
   /*

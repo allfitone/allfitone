@@ -63,20 +63,6 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/clients/invitations/new`) {
     return { title: 'Invitar cliente' }
   }
-  if (pathname === `${basePath}/clients/information-categories`) {
-    return { title: 'Categorías de información' }
-  }
-  if (pathname === `${basePath}/clients/authorizations`) {
-    return { title: 'Autorizaciones' }
-  }
-  /*
-   * "Propuestas de corrección" entero y no "Propuestas": el producto también
-   * propone objetivos nutricionales, y una sola palabra no diría cuál de las
-   * dos cosas está abierta.
-   */
-  if (pathname === `${basePath}/clients/correction-proposals`) {
-    return { title: 'Propuestas de corrección' }
-  }
   /*
    * "Ficha" is the word the story uses — "abrir la ficha de mi cliente" — and
    * it is a different screen from the one below: the link is how the gym stands
