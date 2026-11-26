@@ -225,9 +225,14 @@ export function ClientInvitationForm() {
 
   if (sent) {
     /*
-     * A `Card`, as the team invitation confirms, and not a `SetupPanel`. That
-     * panel is two columns on a desktop: with nothing to put in the second one
-     * it left half the screen blank beside the message.
+     * A `Card` and not a `SetupPanel`: that panel is two columns on a desktop,
+     * and with nothing to put in the second one it left half the screen blank
+     * beside the message.
+     *
+     * The team's invitation used to confirm the same way and no longer does —
+     * its register already showed every fact its card repeated. This one is
+     * kept because the client directory does not: which permissions were asked
+     * for, and whether a program went with them, are said here or nowhere.
      */
     const asked = catalog.filter((scope) => sent.scope_codes.includes(scope.scope_code))
     return (
@@ -388,7 +393,18 @@ export function ClientInvitationForm() {
                       boundary, which is the half worth keeping when there is
                       one line to spend. */}
                   <FieldLabel htmlFor={`scope-${scope.scope_code}`}>
-                    {`${scope.display_name}: ${scope.summary}`}
+                    {/* One flex item, not two. The name carries the weight and
+                        the summary does not, so the rows can be scanned by
+                        name — but as siblings of the label's own flex the two
+                        became columns, and on a phone the name stacked into a
+                        narrow one with the summary beside it. Stacking them is
+                        what the note above rejects; this separates them by
+                        weight inside a single line of text. */}
+                    <span data-client-invitation-scope-text>
+                      {/* The colon stays with the weight: bold alone let
+                          «…con nosotros Sesiones…» run together. */}
+                      <strong>{scope.display_name}:</strong> {scope.summary}
+                    </span>
                     {/* The raised level, shown on the row it belongs to. The
                         request and the list have to agree: a scope asked for at
                         a level the reader cannot see is the thing the
@@ -430,7 +446,10 @@ export function ClientInvitationForm() {
               ) : (
                 <>
                   <Field>
-                    <FieldLabel htmlFor="client-invitation-program">Programa</FieldLabel>
+                    {/* No label of its own: the legend above already says
+                        «Programa inicial», and this is the only control under
+                        it. The name it needs for a screen reader is on the
+                        trigger, as the library's filters carry theirs. */}
                     <Select
                       value={program.versionId || NO_PROGRAM}
                       onValueChange={(value) => chooseProgram(value ?? NO_PROGRAM)}
@@ -446,7 +465,11 @@ export function ClientInvitationForm() {
                         })),
                       ]}
                     >
-                      <SelectTrigger id="client-invitation-program" data-studio-select-trigger>
+                      <SelectTrigger
+                        id="client-invitation-program"
+                        aria-label="Programa"
+                        data-studio-select-trigger
+                      >
                         <SelectValue placeholder="Sin programa" />
                       </SelectTrigger>
                       <SelectContent align="start">

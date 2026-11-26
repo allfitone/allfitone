@@ -1424,6 +1424,22 @@
   max-width: var(--studio-measure);
 }
 
+/* On the invitation form this is a statement about the gym, not a note under
+   the control above it — and with nothing between them it read as one. The
+   form's own rhythm does not separate it, because it is the only child there
+   that belongs to no field. */
+[data-studio-form] > [data-guest-quota-summary] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* The permission's name and what it covers, as one run of text: the label it
+   sits in is a flex row, so without this the two would be columns and the name
+   would stack into a narrow one on a phone. */
+[data-client-invitation-scope-text] {
+  min-width: 0;
+  flex: 1;
+}
+
 /* ----------------------------------------------------------------- confirm */
 
 /* Two answers that say what each does are long: side by side they need more
