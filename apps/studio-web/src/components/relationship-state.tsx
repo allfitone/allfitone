@@ -20,12 +20,11 @@
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { Button } from '@allfitone/react/components/button'
 import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
@@ -48,16 +47,15 @@ import {
 } from '@allfitone/react/components/table'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { useOrganizationContext } from './organization-context'
 import { RelationshipHolderChange } from './relationship-holder-change'
 import { RelationshipHolderForm } from './relationship-holder-form'
 import { RelationshipSubstitutionEnd } from './relationship-substitution-end'
 import { RelationshipSubstitutionPropose } from './relationship-substitution-propose'
 import { RelationshipTermination } from './relationship-termination'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
 import { clientInitials, seesEveryClient } from '@/lib/client-directory'
 import {
@@ -110,7 +108,6 @@ export function RelationshipStateScreen() {
   const query = useQuery(relationshipQueryOptions(current.organization_id, params.relationshipId))
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
   const mayAssign = canAssignProfessionals(current.roles, rolesQuery.data?.items)
-  const directoryPath = `/organizations/${current.organization_id}/clients`
   /*
    * Only fetched for somebody who could act on it, and only while the link is
    * live. A reader of the relationship has no reason to pull the team roster
@@ -130,7 +127,7 @@ export function RelationshipStateScreen() {
   })
 
   if (query.isPending) return <LoadingState />
-  if (isStudioNotFound(query.error)) return <UnreachableState directoryPath={directoryPath} />
+  if (isStudioNotFound(query.error)) return <UnreachableState />
   if (isStudioForbidden(query.error)) return <DeniedState />
   if (!query.data) return <FailureState onRetry={() => void query.refetch()} />
 
@@ -138,38 +135,6 @@ export function RelationshipStateScreen() {
 
   return (
     <div ref={measuredRef} data-relationship-state>
-      <WorkspacePageHeader
-        description={
-          relationship.status === 'active'
-            ? `Cómo está el vínculo con ${relationship.display_name}, quién la atiende y qué permisos concedió.`
-            : `Cómo quedó el vínculo con ${relationship.display_name}, quién la atendía y qué permisos concedió.`
-        }
-        actions={
-          <>
-            {/* Since a professional in charge can be replaced, this screen names
-                somebody without saying when that changed. The history is where
-                that lives, so the way in belongs next to the state it explains. */}
-            <Link
-              href={`${directoryPath}/${params.relationshipId}/history`}
-              data-slot="button"
-              data-variant="outline"
-              data-relationship-history-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Ver la historia
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
-
       {query.isFetching ? (
         <p data-query-refreshing role="status" aria-live="polite">
           Actualizando el estado del vínculo…
@@ -207,24 +172,42 @@ export function RelationshipStateScreen() {
   )
 }
 
+/**
+ * «Cliente», not «El vínculo». The page is already titled «Vínculo» and the
+ * tab «Estado», so a heading repeating either said the word twice and neither
+ * time said who the reader was about to read about. This is the word the
+ * sidebar entry and the directory already use for her.
+ *
+ * The sentence under it says what the badge beside it is about, so «Activo»
+ * reads as the state of the link and not as something said about her.
+ *
+ * The sentence that stood here before — «esta vista no cambia nada: ni el
+ * vínculo, ni quién atiende, ni los permisos» — is not kept, because the
+ * screen contradicts it: it offers to change who attends, to propose a cover
+ * and to end the link.
+ */
 function LinkPanel({ relationship }: { relationship: RelationshipState }) {
   const active = relationship.status === 'active'
   return (
-    <Card data-relationship-link>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          El vínculo
-        </CardTitle>
-        <CardDescription>
-          Esta vista no cambia nada: ni el vínculo, ni quién atiende, ni los permisos.
-        </CardDescription>
-        <CardAction>
+    <section
+      data-workspace-section
+      data-relationship-link
+      aria-labelledby="relationship-link-title"
+    >
+      <header data-workspace-section-heading>
+        <div data-workspace-section-heading-text>
+          <WorkspaceTitle as="h2" id="relationship-link-title">
+            Cliente
+          </WorkspaceTitle>
+          <p data-workspace-section-lead>Con quién es el vínculo y desde cuándo.</p>
+        </div>
+        <div data-workspace-section-heading-actions>
           <Badge variant={active ? 'success' : 'secondary'}>
             {active ? 'Activo' : 'Terminado'}
           </Badge>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
+        </div>
+      </header>
+      <div data-workspace-section-body>
         {/* The person goes on her own full-width line, the way a directory card
             carries a name. Inside the label/value grid her name shared the row
             with the label and broke mid-word on a phone. */}
@@ -245,8 +228,8 @@ function LinkPanel({ relationship }: { relationship: RelationshipState }) {
             </>
           ) : null}
         </dl>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -282,19 +265,25 @@ function ProfessionalsPanel({
     hasHolder: Boolean(holder),
   })
   return (
-    <Card data-relationship-professionals>
-      <CardHeader>
-        {/* Past tense once the link is over: "quién la atiende" on a terminated
-            relationship claims somebody still does. */}
-        <CardTitle role="heading" aria-level={2}>
-          {active ? 'Quién la atiende' : 'Quién la atendía'}
-        </CardTitle>
-        <CardDescription>
-          Estar a cargo no es tener permiso: sin el consentimiento de la persona, el profesional
-          responsable no ve nada suyo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <section
+      data-workspace-section
+      data-relationship-professionals
+      aria-labelledby="relationship-professionals-title"
+    >
+      <header data-workspace-section-heading>
+        <div data-workspace-section-heading-text>
+          {/* Past tense once the link is over: "quién la atiende" on a terminated
+              relationship claims somebody still does. */}
+          <WorkspaceTitle as="h2" id="relationship-professionals-title">
+            {active ? 'Quién la atiende' : 'Quién la atendía'}
+          </WorkspaceTitle>
+          <p data-workspace-section-lead>
+            Estar a cargo no es tener permiso: sin el consentimiento de la persona, el profesional
+            responsable no ve nada suyo.
+          </p>
+        </div>
+      </header>
+      <div data-workspace-section-body>
         {holder ? (
           <div data-relationship-holder>
             <div data-relationship-holder-head>
@@ -399,8 +388,8 @@ function ProfessionalsPanel({
             </ul>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -461,17 +450,23 @@ function GrantsPanel({
   const note = 'Lo que la persona aceptó compartir. Esta pantalla no muestra ningún dato suyo.'
 
   return (
-    <Card data-relationship-grants>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Permisos concedidos
-        </CardTitle>
-        <CardDescription>
-          Saber que existe un permiso no es leer lo que ampara. Aquí solo aparecen las categorías y
-          su estado.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <section
+      data-workspace-section
+      data-relationship-grants
+      aria-labelledby="relationship-grants-title"
+    >
+      <header data-workspace-section-heading>
+        <div data-workspace-section-heading-text>
+          <WorkspaceTitle as="h2" id="relationship-grants-title">
+            Permisos concedidos
+          </WorkspaceTitle>
+          <p data-workspace-section-lead>
+            Saber que existe un permiso no es leer lo que ampara. Aquí solo aparecen las categorías
+            y su estado.
+          </p>
+        </div>
+      </header>
+      <div data-workspace-section-body>
         {ordered.length === 0 ? (
           <Empty data-relationship-no-grants>
             <EmptyHeader>
@@ -536,8 +531,8 @@ function GrantsPanel({
           </Table>
         )}
         {ordered.length > 0 && compact ? <p data-relationship-grant-note>{note}</p> : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -594,7 +589,7 @@ function LoadingState() {
  * coach that the relationship exists but is not theirs would reveal that the
  * organization has that person as a client.
  */
-function UnreachableState({ directoryPath }: { directoryPath: string }) {
+function UnreachableState() {
   return (
     <div data-relationship-state>
       <Empty data-relationship-unreachable>
@@ -607,15 +602,9 @@ function UnreachableState({ directoryPath }: { directoryPath: string }) {
             Puede que no exista o que no esté entre los que atiendes. Vuelve a clientes para elegir
             otro.
           </EmptyDescription>
+          {/* The way back is in the page header, where it is on every tab and
+              on every state. A second one here was the same control twice. */}
         </EmptyHeader>
-        <Link
-          href={directoryPath}
-          data-slot="button"
-          data-variant="outline"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          Volver a clientes
-        </Link>
       </Empty>
     </div>
   )

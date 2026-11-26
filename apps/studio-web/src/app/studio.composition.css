@@ -139,9 +139,10 @@
 }
 
 /* A region of a workspace read screen, set apart by a hairline and space
-   rather than by a box: the page is a spread, not a stack of widgets. The two
-   cards the organization screen used to stack were the only page regions in
-   Studio drawn as boxes.
+   rather than by a box: the page is a spread, not a stack of widgets. The
+   organization screen's two cards were the first found; the client's link
+   screen stacked three more and its history a fourth, which is why this says
+   nothing about being the last.
 
    Not `data-studio-section`, which the public landing already owns with a
    168px marketing padding — this rule reached its sections too. */
@@ -151,11 +152,22 @@
   gap: var(--afo-space-5);
 }
 
+/* What a region holds under its heading, when it holds more than one thing.
+   The organization's regions each hold a single list and need none of this;
+   the client's link holds a name and a set of facts, and they stand closer to
+   each other than either stands to the heading. */
+[data-workspace-section-body] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-4);
+}
+
 /* The closure block is the organization page's third region, so it takes the
    rule above it. It is named here rather than given the attribute because it
    keeps a tighter rhythm of its own, and inheriting this one's grid would
    depend on which rule the file happens to declare last. */
 [data-workspace-section] + [data-workspace-section],
+[data-workspace-section] + [data-relationship-termination],
 [data-workspace-section] + [data-organization-closure] {
   padding-block-start: var(--afo-space-6);
   border-block-start: 1px solid var(--afo-color-border-subtle);
@@ -297,6 +309,7 @@
 [data-today-panel],
 [data-profile-presentation],
 [data-account-map],
+[data-relationship-screen],
 [data-relationship-state],
 [data-relationship-history],
 [data-client-card-screen],
@@ -797,12 +810,13 @@
    `--studio-row-measure`. Capped on the row rather than on the list, because
    one of these is not in a list at all.
 
-   The organization's sites are deliberately not here any more: a register that
-   answers the canvas with columns and a heading row does not need the cap, and
-   the cap is what made that section stop 500px before the hairline above it.
-   These five still take it, and each becomes a candidate for the same
-   treatment when its screen is next worked on. */
-[data-relationship-substitution-list] > li,
+   The organization's sites left first, and the client's substitutions have now
+   left too: a register that answers the canvas with columns and a heading row
+   does not need the cap, and the cap is what made each of those sections stop
+   short of the hairline above it. A substitution's state badge sat at the end
+   of a 48rem row, which is the middle of the canvas, reading as a label
+   belonging to nothing. These three still take it, and each becomes a
+   candidate for the same treatment when its screen is next worked on. */
 [data-content-version-list] > li,
 [data-role-capability-list] > li,
 [data-historical-case-picker-results] > li,
@@ -810,6 +824,15 @@
   display: flex;
   min-width: 0;
   max-width: var(--studio-row-measure);
+  align-items: center;
+  gap: var(--afo-space-3);
+}
+
+/* The same row without the cap: the badge lands at the section's edge, under
+   the action in the heading above it, instead of halfway across. */
+[data-relationship-substitution-list] > li {
+  display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--afo-space-3);
 }
@@ -3977,26 +4000,27 @@
   gap: var(--afo-space-2);
 }
 
+/* What a region says under its heading, and what a closure says under its
+   own: the same quiet voice, so a reader meets one kind of explanation and
+   not two. */
+[data-workspace-section-lead],
 [data-relationship-termination-lead],
 [data-organization-closure-lead] {
   margin-block: 0;
   color: var(--afo-color-text-muted);
 }
 
-/* The closure is the one section of this page that is prose, and it takes the
+/* A closure is the one section of these pages that is prose, and it takes the
    canvas like every section above it. The reading measure was kept here first
-   and read as an unfinished section: the hairline, the headings and the sites
-   table all reached the edge and this stopped two thirds of the way, with no
-   reason a reader could see. The cost is a long line, and it is a real one —
-   this is a product decision taken knowing it.
+   and read as an unfinished section: the hairline, the headings and the table
+   all reached the edge and this stopped two thirds of the way, with no reason
+   a reader could see. The cost is a long line, and it is a real one — a
+   product decision taken knowing it.
 
-   The sibling on the client's screen keeps the measure until that screen is
-   looked at, rather than being changed from here on a judgement made about
-   this one. */
-[data-relationship-termination-lead] {
-  max-width: 62ch;
-}
-
+   The organization's closure was settled first and the client's was left at
+   the measure until this screen was looked at. It has been, and the decision
+   is the same one: a reader meeting both should not find them different. */
+[data-relationship-termination-lead],
 [data-organization-closure-lead] {
   justify-self: stretch;
 }
