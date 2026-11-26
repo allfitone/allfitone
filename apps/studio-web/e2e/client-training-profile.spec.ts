@@ -227,6 +227,6 @@ test('is opened from the training section of the card, and only from it', async 
     page.getByRole('heading', { level: 1, name: 'Perfil de entrenamiento' }),
   ).toBeVisible()
 
-  await page.getByRole('link', { name: 'Volver a su ficha' }).click()
+  await page.getByRole('link', { name: 'Ficha', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`people/${PERSON}$`))
 })

@@ -48,6 +48,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Fragment } from 'react'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
@@ -104,30 +105,22 @@ export function ClientCardScreen() {
       <WorkspacePageHeader
         description={`Lo que ${card.display_name} te autorizó a consultar. Esta pantalla no muestra ningún dato suyo: cada categoría se abre por su cuenta y queda registrada.`}
         actions={
-          <>
-            {/* The link is the other half of the same person: how the gym stands
-                with her, who attends her, what she granted. It is a different
-                screen on purpose — that one an administrator can read too. */}
-            <Link
-              href={`${directoryPath}/${card.relationship.id}`}
-              data-slot="button"
-              data-variant="outline"
-              data-client-card-relationship-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Ver el vínculo
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
+          /* The other half of the same person, and a different screen on
+             purpose: an administrator reads that one too, so it is no door. */
+          <Link
+            href={`${directoryPath}/${card.relationship.id}`}
+            data-slot="button"
+            data-variant="outline"
+            data-client-card-relationship-link
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Ver el vínculo
+          </Link>
         }
       />
+      {/* The categories below open their own doors as well, and those do the
+          job this cannot: say which permission is what opens each screen. */}
+      <ClientScreenStrip />
 
       {query.isFetching ? (
         <p data-query-refreshing role="status" aria-live="polite">

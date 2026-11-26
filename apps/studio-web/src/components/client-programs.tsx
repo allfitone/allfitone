@@ -59,6 +59,7 @@ import { useParams } from 'next/navigation'
 import { ClientProgramAssignment } from './client-program-assignment'
 import { ClientProgramCancellation } from './client-program-cancellation'
 import { ClientSessionReschedule } from './client-session-reschedule'
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
@@ -154,28 +155,8 @@ export function ClientProgramsScreen() {
     <div data-client-programs-screen>
       <WorkspacePageHeader
         description={`Los programas que le asignamos a ${card.display_name} desde este vínculo, del más reciente al más antiguo. No aparecen los que ella se puso por su cuenta ni los que le dio otra organización.`}
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-programs-card-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
       />
+      <ClientScreenStrip segment="programs" />
 
       {assignments.length === 0 ? (
         <Empty data-client-programs-empty>

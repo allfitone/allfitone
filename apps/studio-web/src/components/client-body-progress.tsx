@@ -46,6 +46,7 @@ import { useParams } from 'next/navigation'
 import { Fragment, useState } from 'react'
 
 import { PhotoFrame } from './authorized-photo'
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
@@ -104,29 +105,8 @@ export function ClientBodyProgressScreen() {
 
   return (
     <div data-client-body-screen>
-      <WorkspacePageHeader
-        description="Las medidas y las fotos que comparte contigo. Es un permiso aparte del de entrenamiento: tener uno no te da el otro."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Las medidas y las fotos que comparte contigo. Es un permiso aparte del de entrenamiento: tener uno no te da el otro." />
+      <ClientScreenStrip segment="body-progress" />
 
       {nothing ? (
         <Empty data-client-body-nothing>

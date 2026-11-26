@@ -3912,6 +3912,48 @@
   margin-block-start: var(--afo-space-4);
 }
 
+/* The strip of screens a relationship opens, under the page header on each of
+   them. It wraps rather than scrolling — a door out of sight is a screen the
+   reader never learns she shares, which is the Design System's own reason for
+   wrapping its tabs — and it can hold nine, so on a phone it takes two rows
+   and that is the honest shape.
+
+   Not drawn as tabs on purpose: these are ten addresses, and a control that
+   looks like a tab promises a panel swapping under it. */
+[data-client-screen-strip] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-1) var(--afo-space-4);
+  padding-block-end: var(--afo-space-3);
+  border-block-end: 1px solid var(--afo-color-border-subtle);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* 24px is the floor WCAG 2.2 AA sets for anything you press (2.5.8), and on a
+   phone the strip wraps, so its own rows are what sit closest to each door. */
+[data-client-screen-door] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--afo-color-text-muted);
+  text-decoration: none;
+}
+
+[data-client-screen-door]:hover {
+  color: var(--afo-color-text-primary);
+}
+
+/* Where she is, in full ink and weight: the strip is read at a glance, so the
+   door the reader stands in has to be the one that stands out. Both values of
+   `aria-current` match — on a session or a prescription the current door is a
+   link, because it is also the way back up to its list. */
+[data-client-screen-door][aria-current] {
+  color: var(--afo-color-text-primary);
+  font-weight: 700;
+}
+
 /* Drawn as the same label every other value on the product carries, so the
    hierarchy here is the claim's value and not its name. Its own rule only
    places the badge that explains why more than one line follows. */
@@ -5463,7 +5505,6 @@
 }
 
 [data-client-prescription-adjust-open],
-[data-client-prescription-back],
 [data-client-program-prescription] {
   justify-self: start;
 }

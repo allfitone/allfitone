@@ -207,6 +207,6 @@ test('is opened from the health section of the card', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`${PERSON}/health-context$`))
   await expect(page.getByRole('heading', { level: 1, name: 'Contexto de salud' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Volver a su ficha' }).click()
+  await page.getByRole('link', { name: 'Ficha', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`people/${PERSON}$`))
 })

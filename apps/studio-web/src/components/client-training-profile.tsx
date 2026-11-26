@@ -49,6 +49,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -94,30 +95,8 @@ export function ClientTrainingProfileScreen() {
 
   return (
     <div data-client-profile-screen>
-      <WorkspacePageHeader
-        description="Lo que esta persona comparte de su entrenamiento. Nada de su cuerpo ni de su salud llega aquí: son categorías con su propio permiso."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-profile-card-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Lo que esta persona comparte de su entrenamiento. Nada de su cuerpo ni de su salud llega aquí: son categorías con su propio permiso." />
+      <ClientScreenStrip segment="profile" />
 
       <Card data-client-profile-attributes>
         <CardHeader>

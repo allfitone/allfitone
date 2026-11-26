@@ -54,6 +54,7 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 
 import { NutritionGoalProposal } from './client-nutrition-goal-proposal'
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -128,34 +129,17 @@ export function ClientNutritionGoalsScreen() {
       <WorkspacePageHeader
         description="Los objetivos de nutrición que esta relación le propuso, lo que ella decidió y la meta que sigue hoy. Es un permiso aparte: no incluye sus comidas."
         actions={
-          <>
-            {first && blockers?.length === 0 ? (
-              <NutritionGoalProposal
-                organizationId={organizationId}
-                personId={params.personId}
-                pending={pendingProposal(proposals)}
-                onProposed={() => setProposed(true)}
-              />
-            ) : null}
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
+          first && blockers?.length === 0 ? (
+            <NutritionGoalProposal
+              organizationId={organizationId}
+              personId={params.personId}
+              pending={pendingProposal(proposals)}
+              onProposed={() => setProposed(true)}
+            />
+          ) : null
         }
       />
+      <ClientScreenStrip segment="nutrition-goals" />
 
       {proposed ? (
         <Alert variant="success" live="polite" data-client-nutrition-goal-proposed>

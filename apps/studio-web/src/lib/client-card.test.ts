@@ -5,6 +5,7 @@ import {
   categoryName,
   categorySummary,
   clientCardPath,
+  clientDoors,
   clientBodyProgressPath,
   clientExecutionsPath,
   clientHealthContextPath,
@@ -351,5 +352,101 @@ describe('where a card lives', () => {
     expect(clientCardPath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person',
     )
+  })
+})
+
+/*
+ * The strip that replaced «Volver a su ficha» and «Volver a clientes» on each
+ * of the ten screens a relationship opens. Same source as the doors above —
+ * the card's own `reads` — flattened, deduplicated and with the card first.
+ */
+describe('the strip of screens a relationship opens', () => {
+  const reader = { organizationId: '019a0000-org', personId: '019a0000-person' }
+  const card = `/organizations/${reader.organizationId}/clients/people/${reader.personId}`
+
+  function sharing(scope: string, reads: string[]): ClientCardSection {
+    return {
+      scope_code: scope,
+      scope_version: 1,
+      access_level: 'read',
+      granted_at: '2026-01-01T00:00:00.000Z',
+      reads,
+    } as ClientCardSection
+  }
+
+  const training = sharing('relationship_training', [
+    'getAuthorizedClientTrainingProfile',
+    'listAuthorizedClientExecutions',
+    'getAuthorizedClientProgress',
+    'listRelationshipAssignments',
+  ])
+
+  /* The card is a door like the others, and the first: a reader standing in
+     her sessions needs the way back in the same strip as the way sideways. */
+  test('a relationship that shares nothing still opens its own card', () => {
+    const doors = clientDoors([], reader)
+
+    expect(doors.map((door) => door.label)).toEqual(['Ficha'])
+    expect(doors[0]?.href).toBe(card)
+  })
+
+  /* The point of it: what she authorized, never a fixed list. A fixed one
+     would turn her screen into an inventory of what she withheld. */
+  test('names only the screens the categories she shared open', () => {
+    const doors = clientDoors(
+      [sharing('health_context', ['listAuthorizedClientHealthContext'])],
+      reader,
+    )
+
+    expect(doors.map((door) => door.label)).toEqual(['Ficha', 'Salud'])
+    expect(doors[1]?.href).toBe(`${card}/health-context`)
+  })
+
+  /* Her sessions belong to both what she trains with us and what she trained
+     before, and two buttons to one screen make a reader look for the
+     difference between them. */
+  test('offers a screen once when two categories name the same read', () => {
+    const doors = clientDoors(
+      [
+        training,
+        sharing('prior_training_history', [
+          'listAuthorizedClientExecutions',
+          'getAuthorizedClientProgress',
+        ]),
+      ],
+      reader,
+    )
+
+    expect(doors.map((door) => door.label)).toEqual([
+      'Ficha',
+      'Perfil',
+      'Sesiones',
+      'Progreso',
+      'Programas',
+    ])
+  })
+
+  test('marks the door the reader is standing in, and only that one', () => {
+    const doors = clientDoors([training], { ...reader, segment: 'executions' })
+
+    expect(doors.filter((door) => door.here).map((door) => door.label)).toEqual(['Sesiones'])
+  })
+
+  test('standing on the card marks the card', () => {
+    const doors = clientDoors([training], reader)
+
+    expect(doors.filter((door) => door.here).map((door) => door.label)).toEqual(['Ficha'])
+  })
+
+  /* «Corporal» and not «Progreso corporal»: the pair is what tells them
+     apart, and both are in the strip whenever she shares both. */
+  test('tells her progress from her body progress', () => {
+    const labels = clientDoors(
+      [training, sharing('body_progress', ['listAuthorizedClientBodyProgress'])],
+      reader,
+    ).map((door) => door.label)
+
+    expect(labels).toContain('Progreso')
+    expect(labels).toContain('Corporal')
   })
 })

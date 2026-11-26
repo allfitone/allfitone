@@ -202,7 +202,7 @@ test('is opened from the card, once, however many categories feed it', async ({ 
   await expect(page).toHaveURL(new RegExp(`${PERSON}/executions$`))
   await expect(page.getByRole('heading', { level: 1, name: 'Sesiones ejecutadas' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Volver a su ficha' }).click()
+  await page.getByRole('link', { name: 'Ficha', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`people/${PERSON}$`))
 })
 

@@ -55,6 +55,7 @@ import { useParams } from 'next/navigation'
 import { Fragment, useId, useState, type ReactNode } from 'react'
 
 import { PhotoFrame } from './authorized-photo'
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -120,29 +121,8 @@ export function ClientNutritionScreen() {
 
   return (
     <div data-client-nutrition-screen>
-      <WorkspacePageHeader
-        description="Lo que registra que come, en los días que elijas. Es un permiso aparte: ni el de entrenamiento ni el de progreso corporal lo incluyen."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Lo que registra que come, en los días que elijas. Es un permiso aparte: ni el de entrenamiento ni el de progreso corporal lo incluyen." />
+      <ClientScreenStrip segment="nutrition" />
 
       <RangeForm
         range={range}
