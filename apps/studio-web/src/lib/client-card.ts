@@ -129,27 +129,57 @@ export interface SectionDoor {
  * the projection says which reads belong to which category, and hardcoding that
  * here would be a second source of truth for it.
  */
-const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
-  { read: 'getAuthorizedClientTrainingProfile', label: 'Ver el perfil', segment: 'profile' },
-  { read: 'listAuthorizedClientExecutions', label: 'Ver las sesiones', segment: 'executions' },
-  { read: 'getAuthorizedClientProgress', label: 'Ver el progreso', segment: 'progress' },
-  { read: 'listRelationshipAssignments', label: 'Ver sus programas', segment: 'programs' },
+const DOORS: readonly { read: CardRead; label: string; short: string; segment: string }[] = [
+  {
+    read: 'getAuthorizedClientTrainingProfile',
+    label: 'Ver el perfil',
+    short: 'Perfil',
+    segment: 'profile',
+  },
+  {
+    read: 'listAuthorizedClientExecutions',
+    label: 'Ver las sesiones',
+    short: 'Sesiones',
+    segment: 'executions',
+  },
+  {
+    read: 'getAuthorizedClientProgress',
+    label: 'Ver el progreso',
+    short: 'Progreso',
+    segment: 'progress',
+  },
+  {
+    read: 'listRelationshipAssignments',
+    label: 'Ver sus programas',
+    short: 'Programas',
+    segment: 'programs',
+  },
   {
     read: 'listAuthorizedClientHealthContext',
     label: 'Ver el contexto de salud',
+    short: 'Salud',
     segment: 'health-context',
   },
   // Her photos are the second read of this screen, so they open no door of their own.
   {
     read: 'listAuthorizedClientBodyProgress',
     label: 'Ver el progreso corporal',
+    // «Corporal» and not «Progreso corporal»: the strip already carries
+    // «Progreso» two doors away, and the pair is what tells them apart.
+    short: 'Corporal',
     segment: 'body-progress',
   },
   // Her daily totals are read on this screen too, above the meals: no door of their own.
-  { read: 'listAuthorizedClientNutritionMeals', label: 'Ver sus comidas', segment: 'nutrition' },
+  {
+    read: 'listAuthorizedClientNutritionMeals',
+    label: 'Ver sus comidas',
+    short: 'Comidas',
+    segment: 'nutrition',
+  },
   {
     read: 'listAuthorizedClientNutritionGoalVersions',
     label: 'Ver sus objetivos',
+    short: 'Objetivos',
     segment: 'nutrition-goals',
   },
 ]
@@ -179,6 +209,50 @@ export function doorsBySection(
       mine.push({ read: door.read, label: door.label, href: `${base}/${door.segment}` })
     }
     if (mine.length > 0) doors.set(section.scope_code, mine)
+  }
+  return doors
+}
+
+export interface ClientDoor {
+  readonly label: string
+  readonly href: string
+  /** True for the door the reader is standing in. */
+  readonly here: boolean
+}
+
+/**
+ * Every screen this relationship opens, in one flat run, with the card first.
+ *
+ * Each of those ten screens used to carry «Volver a su ficha» and «Volver a
+ * clientes» and nothing else, so moving from her profile to her sessions was
+ * two presses — twenty controls across the block whose only job was to undo a
+ * navigation. This is the strip that replaces them.
+ *
+ * **Driven by what she authorized, never by a fixed list.** The doors come from
+ * the card's own projection, as `doorsBySection` does, so a category she never
+ * shared opens nothing and is named nowhere. A fixed strip would turn the
+ * screen into a list of what she withheld.
+ *
+ * Deduplicated by destination and ordered by `DOORS`, so two categories naming
+ * the same read — the sessions belong to both her training with us and what
+ * she trained before — offer it once.
+ */
+export function clientDoors(
+  sections: readonly ClientCardSection[],
+  reader: { organizationId: string; personId: string; segment?: string },
+): readonly ClientDoor[] {
+  const base = clientCardPath(reader.organizationId, reader.personId)
+  const taken = new Set<CardRead>()
+  const doors: ClientDoor[] = [{ label: 'Ficha', href: base, here: reader.segment === undefined }]
+  for (const door of DOORS) {
+    if (taken.has(door.read)) continue
+    if (!sections.some((section) => section.reads.includes(door.read))) continue
+    taken.add(door.read)
+    doors.push({
+      label: door.short,
+      href: `${base}/${door.segment}`,
+      here: reader.segment === door.segment,
+    })
   }
   return doors
 }

@@ -3104,6 +3104,38 @@
     width: 100%;
   }
 
+  /* An action that stands alone in a card or a section takes the full width,
+     the way the action rows above already do. These are not in an action row —
+     each is a direct child of the card's content or of its own small wrapper —
+     so a content-width pill ended up floating at the left of an empty line,
+     next to controls that did reach the edge. */
+  [data-client-correction-propose],
+  [data-client-observation-correct],
+  [data-client-prescription-adjust-open],
+  [data-client-program-prescription],
+  [data-client-nutrition-goal-propose],
+  [data-client-body-more] > *,
+  [data-client-executions-more] > *,
+  [data-client-health-more] > *,
+  [data-client-nutrition-more] > *,
+  [data-client-nutrition-goals-more] > *,
+  [data-client-programs-more] > *,
+  [data-client-program-cancel] > *,
+  [data-client-observation-actions] > *,
+  [data-client-nutrition-range-actions] > * {
+    width: 100%;
+  }
+
+  /* A choice inside a form takes the field's width, as its textarea does: left
+     at its content width it was the one control in the form stopping short. */
+  [data-client-observation-provenance-choice] {
+    width: 100%;
+  }
+
+  [data-client-observation-provenance-choice] > * {
+    flex: 1;
+  }
+
   /* The same rule, reached differently: these triggers are not in an action
      row, they are direct children of the collapsible, so they take the width
      themselves. */
@@ -3745,8 +3777,10 @@
   overflow-wrap: anywhere;
 }
 
-/* The calendar stands off the facts above it. Same air the card's doors take
-   from the facts they follow. */
+/* Everything after the facts stands off them by the same 16px. `CardContent`
+   pads sideways and nothing else, so a child with no margin of its own sits
+   flush against the last fact — which is what the prescription button did. */
+[data-client-program-prescription],
 [data-client-program-calendar],
 [data-client-program-no-sessions] {
   margin-block-start: var(--afo-space-4);
@@ -3831,6 +3865,14 @@
   border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
+/* An action under a row's facts stands off them by 16px, the air every other
+   action in this block takes. Written as the difference, because the row's own
+   grid gap already pays part of it: 8px here, 12px on a prescription step. */
+[data-client-correction-proposal],
+[data-client-observation-correction] {
+  margin-block-start: var(--afo-space-2);
+}
+
 [data-client-execution-result-list] > li:first-child [data-client-execution-result],
 [data-client-execution-observation-list] > li:first-child [data-client-execution-observation] {
   padding-block-start: 0;
@@ -3910,6 +3952,48 @@
 /* The doors stand off the facts they follow, the way a footer would have. */
 [data-client-card-doors] {
   margin-block-start: var(--afo-space-4);
+}
+
+/* The strip of screens a relationship opens, under the page header on each of
+   them. It wraps rather than scrolling — a door out of sight is a screen the
+   reader never learns she shares, which is the Design System's own reason for
+   wrapping its tabs — and it can hold nine, so on a phone it takes two rows
+   and that is the honest shape.
+
+   Not drawn as tabs on purpose: these are ten addresses, and a control that
+   looks like a tab promises a panel swapping under it. */
+[data-client-screen-strip] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-1) var(--afo-space-4);
+  padding-block-end: var(--afo-space-3);
+  border-block-end: 1px solid var(--afo-color-border-subtle);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* 24px is the floor WCAG 2.2 AA sets for anything you press (2.5.8), and on a
+   phone the strip wraps, so its own rows are what sit closest to each door. */
+[data-client-screen-door] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--afo-color-text-muted);
+  text-decoration: none;
+}
+
+[data-client-screen-door]:hover {
+  color: var(--afo-color-text-primary);
+}
+
+/* Where she is, in full ink and weight: the strip is read at a glance, so the
+   door the reader stands in has to be the one that stands out. Both values of
+   `aria-current` match — on a session or a prescription the current door is a
+   link, because it is also the way back up to its list. */
+[data-client-screen-door][aria-current] {
+  color: var(--afo-color-text-primary);
+  font-weight: 700;
 }
 
 /* Drawn as the same label every other value on the product carries, so the
@@ -5410,6 +5494,12 @@
   border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
+/* Same 16px standoff as the correction actions — see that rule; the step's
+   grid gap is 12px, so this adds the remaining 4px. */
+[data-client-prescription-adjust] {
+  margin-block-start: var(--afo-space-1);
+}
+
 [data-client-prescription-step-list] > li:first-child [data-client-prescription-step] {
   padding-block-start: 0;
   border-block-start: none;
@@ -5463,7 +5553,6 @@
 }
 
 [data-client-prescription-adjust-open],
-[data-client-prescription-back],
 [data-client-program-prescription] {
   justify-self: start;
 }

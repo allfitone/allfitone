@@ -57,6 +57,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useId, useState, type FormEvent } from 'react'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { useStudioSessionMutation } from './studio-query-provider'
@@ -137,20 +138,10 @@ export function ClientPrescriptionScreen() {
     <div data-client-prescription-screen>
       {/* No heading of its own: the workspace already titles the route, and a
           second `h1` is two first headings on one page. */}
-      <WorkspacePageHeader
-        description="Lo que la versión que le dimos pide, paso por paso, y lo que ajustaste para ella."
-        actions={
-          <Link
-            href={programsPath}
-            data-slot="button"
-            data-variant="outline"
-            data-client-prescription-back
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver a sus programas
-          </Link>
-        }
-      />
+      <WorkspacePageHeader description="Lo que la versión que le dimos pide, paso por paso, y lo que ajustaste para ella." />
+      {/* «Programas» is both the section this prescription belongs to and the
+          way back to the list, so it replaces the «Volver» button. */}
+      <ClientScreenStrip segment="programs" nested />
       {/* The first criterion, before any control: this does not touch the gym's
           routine. */}
       <p data-client-prescription-note>{prescriptionNote()}</p>

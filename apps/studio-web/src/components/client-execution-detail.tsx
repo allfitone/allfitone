@@ -51,6 +51,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath, clientExecutionsPath } from '@/lib/client-card'
@@ -137,28 +138,10 @@ export function ClientExecutionDetailScreen() {
     <div data-client-execution-detail-screen>
       <WorkspacePageHeader
         description={`Lo que registró en esta sesión, comparado con nada más: es lo que ella guardó. ${when.line}.`}
-        actions={
-          <>
-            <Link
-              href={executionsPath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-execution-back
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a sus sesiones
-            </Link>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-          </>
-        }
       />
+      {/* «Sesiones» is both the section this session belongs to and the way
+          back to its list, so it replaces the two «Volver» buttons. */}
+      <ClientScreenStrip segment="executions" nested />
 
       <Card data-client-execution-summary>
         <CardHeader>

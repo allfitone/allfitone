@@ -288,9 +288,9 @@ test.describe('more programs than one page holds', () => {
   })
 })
 
-test('the card is one click away, and so is the directory', async ({ page }) => {
+test('the card is one press away, on the strip of her screens', async ({ page }) => {
   await page.goto(PROGRAMS)
 
-  await page.getByRole('link', { name: 'Volver a su ficha' }).click()
+  await page.getByRole('link', { name: 'Ficha', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`${PERSON}$`))
 })

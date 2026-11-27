@@ -63,6 +63,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -137,30 +138,8 @@ export function ClientProgressScreen() {
 
   return (
     <div data-client-progress-screen>
-      <WorkspacePageHeader
-        description="Cómo va su entrenamiento, calculado en el momento de leerlo y solo con las sesiones que te autorizó. Lo que no se puede calcular con eso no aparece: no se entrega aproximado."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-progress-card-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Cómo va su entrenamiento, calculado en el momento de leerlo y solo con las sesiones que te autorizó. Lo que no se puede calcular con eso no aparece: no se entrega aproximado." />
+      <ClientScreenStrip segment="progress" />
 
       <ToggleGroup value={[period]} onValueChange={changePeriod} aria-label="Agrupar el progreso">
         {PERIODS.map((option) => (

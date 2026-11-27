@@ -177,6 +177,33 @@ test('a card that is not the callers says so without saying she exists', async (
 })
 
 /*
+ * The strip is the only way across her screens. Before it, reading her sessions
+ * and then her progress meant going back to the card and choosing again, and
+ * the card itself offered nothing but the way out. It is built from the card's
+ * own projection, so what it carries is what she authorized.
+ */
+test('the strip carries her screens, so moving between two of them is one press', async ({
+  page,
+}) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [holderMembership] }))
+  await page.goto(CARD)
+
+  // Where the reader stands is marked and is not a link: pressing it would
+  // reload the page he is already on.
+  const strip = page.locator('[data-client-screen-strip]')
+  await expect(strip.locator('[aria-current]')).toHaveText('Ficha')
+  await expect(strip.getByRole('link', { name: 'Ficha', exact: true })).toHaveCount(0)
+
+  await strip.getByRole('link', { name: 'Sesiones', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`${PERSON}/executions$`))
+
+  // Sideways, without passing through the card on the way.
+  await strip.getByRole('link', { name: 'Progreso', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`${PERSON}/progress$`))
+  await expect(strip.locator('[aria-current]')).toHaveText('Progreso')
+})
+
+/*
  * The directory is where a coach starts. Every row he can see is somebody he
  * attends, so his way in is the card; the relationship is one click further,
  * for when he needs to know how the gym stands with her.

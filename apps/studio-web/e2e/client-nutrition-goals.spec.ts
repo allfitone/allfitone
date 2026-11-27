@@ -204,7 +204,7 @@ test('the card opens it, and coming back reads again rather than remembering', a
   await expect(page).toHaveURL(GOALS)
   await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
 
-  await page.getByRole('link', { name: 'Volver a su ficha' }).click()
+  await page.getByRole('link', { name: 'Ficha', exact: true }).click()
   await page.getByRole('link', { name: 'Ver sus objetivos' }).click()
   await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
   expect(asked).toEqual(['first', 'first'])

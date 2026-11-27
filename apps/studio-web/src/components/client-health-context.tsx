@@ -45,6 +45,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -88,29 +89,8 @@ export function ClientHealthContextScreen() {
 
   return (
     <div data-client-health-screen>
-      <WorkspacePageHeader
-        description="Los dolores, limitaciones y recuperaciones que declaró. Allfit no guarda historia clínica, diagnósticos, exámenes ni documentos médicos, así que nada de eso puede llegar aquí."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Los dolores, limitaciones y recuperaciones que declaró. Allfit no guarda historia clínica, diagnósticos, exámenes ni documentos médicos, así que nada de eso puede llegar aquí." />
+      <ClientScreenStrip segment="health-context" />
 
       <Card data-client-health-panel>
         <CardHeader>

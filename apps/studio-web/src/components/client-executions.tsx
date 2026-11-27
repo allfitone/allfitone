@@ -50,9 +50,10 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { ClientScreenStrip } from './client-screen-strip'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
-import { clientCardPath, clientExecutionPath } from '@/lib/client-card'
+import { clientExecutionPath } from '@/lib/client-card'
 import {
   executionLength,
   executionWhen,
@@ -78,7 +79,6 @@ export function ClientExecutionsScreen() {
   const queryClient = useQueryClient()
   const options = clientExecutionsQueryOptions(current.organization_id, params.personId, PAGE_SIZE)
   const query = useInfiniteQuery(options)
-  const cardPath = clientCardPath(current.organization_id, params.personId)
   const directoryPath = `/organizations/${current.organization_id}/clients`
   /* Resolved once per render, not per row: it is the same browser all the way down. */
   const reader = readerTimeZone()
@@ -101,30 +101,8 @@ export function ClientExecutionsScreen() {
 
   return (
     <div data-client-executions-screen>
-      <WorkspacePageHeader
-        description="Lo que esta persona entrenó, de lo más reciente a lo más antiguo. Se mezcla lo que hizo con nosotros y lo que hizo por su cuenta, y cada sesión dice de cuál de las dos viene."
-        actions={
-          <>
-            <Link
-              href={cardPath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-executions-card-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a su ficha
-            </Link>
-            <Link
-              href={directoryPath}
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Volver a clientes
-            </Link>
-          </>
-        }
-      />
+      <WorkspacePageHeader description="Lo que esta persona entrenó, de lo más reciente a lo más antiguo. Se mezcla lo que hizo con nosotros y lo que hizo por su cuenta, y cada sesión dice de cuál de las dos viene." />
+      <ClientScreenStrip segment="executions" />
 
       <Card data-client-executions-list-panel>
         <CardHeader>
