@@ -1,8 +1,24 @@
+import { telemetryScreens, type TelemetryScreen } from '@allfitone/telemetry'
 import { describe, expect, test } from 'bun:test'
 
 import { studioScreen } from './studio-screen'
 
-const TEAM = '/organizations/11111111-1111-4111-8111-111111111111/team'
+const ORGANIZATION = '/organizations/11111111-1111-4111-8111-111111111111'
+const TEAM = `${ORGANIZATION}/team`
+
+/**
+ * One address per name the contract declares for Studio: the name, the path
+ * and the tab that produce it. The test below holds the two ends together.
+ */
+const ADDRESSES: readonly (readonly [TelemetryScreen, string, string | null])[] = [
+  ['studio.account', '/account', null],
+  ['studio.entry', '/', null],
+  ['studio.invitation_decision', '/invitations/abc', null],
+  ['studio.organization_overview', `${ORGANIZATION}/clients`, null],
+  ['studio.team_directory', TEAM, 'members'],
+  ['studio.team_invitations', TEAM, 'invitations'],
+  ['studio.team_roles', TEAM, 'roles'],
+]
 
 describe('studioScreen', () => {
   /*
@@ -39,8 +55,29 @@ describe('studioScreen', () => {
 
   /* Every other workspace screen shares one name; only the team is resolved. */
   test('reports the overview for a workspace screen that is not the team', () => {
-    const base = '/organizations/11111111-1111-4111-8111-111111111111'
-    expect(studioScreen(`${base}/content`, 'programs')).toBe('studio.organization_overview')
-    expect(studioScreen(`${base}/clients`)).toBe('studio.organization_overview')
+    expect(studioScreen(`${ORGANIZATION}/content`, 'programs')).toBe('studio.organization_overview')
+    expect(studioScreen(`${ORGANIZATION}/clients`)).toBe('studio.organization_overview')
+  })
+
+  /*
+   * The guard that makes the contract mean something. A declared name nobody
+   * sends reads as zero on a dashboard, which is indistinguishable from a
+   * screen nobody opens — two names sat that way until this was written. It
+   * fails in both directions: a name added to the contract with no address
+   * that produces it, and an address here producing a name the contract does
+   * not declare.
+   */
+  test('every Studio name the contract declares is one this app reports', () => {
+    const declared = telemetryScreens.filter((name) => name.startsWith('studio.'))
+    expect(ADDRESSES.map(([name]) => name).toSorted()).toEqual([...declared].toSorted())
+
+    for (const [name, pathname, tab] of ADDRESSES) {
+      expect(studioScreen(pathname, tab)).toBe(name)
+    }
+  })
+
+  /* `/profile` is a server redirect to `/account`, so nothing mounts there. */
+  test('the old profile address is no screen of its own', () => {
+    expect(studioScreen('/profile')).toBe('studio.entry')
   })
 })

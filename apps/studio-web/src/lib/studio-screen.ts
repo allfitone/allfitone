@@ -8,10 +8,18 @@
  * these three are the only names in the contract that tell one workspace
  * screen from another. Everything else resolves to the organization overview.
  *
- * `studio.team_invitation_new` is deliberately absent. Inviting is a dialog
- * over the invitations now, and the button that opens it never touches the
- * address, so reporting the name for the old deep link alone would count how
- * somebody arrived rather than what they opened.
+ * Two names were dropped from the contract rather than left unreported.
+ * `studio.team_invitation_new` stopped being a screen when inviting became a
+ * dialog over the invitations — the button that opens it never touches the
+ * address, so reporting it for the old deep link alone would have counted how
+ * somebody arrived rather than what they opened. `studio.profile` never fired
+ * at all: `/profile` is a server redirect to `/account`, so nothing mounts
+ * there to report it. A declared name nobody sends is a number that silently
+ * reads as zero, which is worse than an absent one.
+ *
+ * The test beside this file holds the two ends together: every `studio.` name
+ * the contract declares has an address here that produces it, and no address
+ * produces a name the contract does not declare.
  */
 import type { TelemetryScreen } from '@allfitone/telemetry'
 
@@ -26,7 +34,6 @@ const TEAM_SCREEN: Record<TeamTab, TelemetryScreen> = {
 /** `tab` is the address's own `?tab=`, absent on every screen that has no tabs. */
 export function studioScreen(pathname: string, tab: string | null = null): TelemetryScreen {
   if (pathname === '/account') return 'studio.account'
-  if (pathname === '/profile') return 'studio.profile'
   if (pathname.includes('/team')) return TEAM_SCREEN[teamTabFromQuery(tab ?? undefined)]
   if (pathname.startsWith('/invitations')) return 'studio.invitation_decision'
   if (pathname.startsWith('/organizations/')) return 'studio.organization_overview'
