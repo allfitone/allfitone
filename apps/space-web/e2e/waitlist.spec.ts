@@ -6,7 +6,7 @@
  * the shapes the API documents (OP-WL-001), so it never needs the API; the relay
  * itself is covered by `src/lib/waitlist-relay.test.ts`.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const SIGNUPS = '**/api/waitlist/signups'
 const JOINED = {
@@ -133,11 +133,38 @@ test.describe('joined', () => {
     await page.route(SIGNUPS, (route) => route.fulfill({ status: 201, json: JOINED }))
   })
 
+  /*
+   * What the screen is for, before anything it offers. It used to open «Ya
+   * estás en la lista» — which is not true until the email is confirmed — with
+   * the instruction in muted body text and the page's primary button offering
+   * to share, so somebody who had just joined read it as the end of the flow
+   * and shared instead of opening her inbox. A real sign-up did exactly that.
+   */
+  test('says the step that is left, and names the inbox it is waiting in', async ({ page }) => {
+    await page.goto('/es/waitlist')
+    await (await fill(page)).getByRole('button', { name: 'Unirme a la lista' }).click()
+
+    const title = page.getByText('Te falta un paso, Kevin.')
+    await expect(title).toBeFocused()
+    await expect(page.getByText(/Ábrelo y confirma/)).toBeVisible()
+    await expect(page.getByText('kevin@correo.com', { exact: true })).toBeVisible()
+
+    /*
+     * The half of the defect no wording could fix: the code was set half again
+     * larger than the title, so it was the first thing the eye reached.
+     */
+    const fontSize = (target: Locator) =>
+      target.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
+    expect(await fontSize(page.getByText('KEVIN7QH', { exact: true }))).toBeLessThan(
+      await fontSize(title),
+    )
+  })
+
   test('shows the code, the link and the ways to share it', async ({ page }) => {
     await page.goto('/es/waitlist')
     await (await fill(page)).getByRole('button', { name: 'Unirme a la lista' }).click()
 
-    await expect(page.getByText('Ya estás en la lista, Kevin.')).toBeFocused()
+    await expect(page.getByText('Te falta un paso, Kevin.')).toBeFocused()
     await expect(page.getByText('kevin@correo.com', { exact: true })).toBeVisible()
     await expect(page.getByText('KEVIN7QH', { exact: true })).toBeVisible()
     await expect(page.getByText('space.allfit.one/es/waitlist?ref=KEVIN7QH')).toBeVisible()

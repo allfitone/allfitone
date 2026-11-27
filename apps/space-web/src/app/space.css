@@ -1687,9 +1687,21 @@ button.pill-link {
   outline: none;
 }
 
+/* Under the instruction and quieter than it: the first place the mail hides is
+   not the inbox, and saying so costs one line. */
+.joined__hint {
+  margin: 8px 0 0;
+  color: var(--text-soft);
+  font-size: 15px;
+}
+
+/* The one thing left to do, so it is read and not skimmed past: full ink and a
+   step up from body text. Muted, under a title that celebrated, it was the
+   quietest line on a screen whose loudest was an invitation to share. */
 .joined__body {
   margin: 12px 0 0;
-  color: var(--text-soft);
+  color: var(--text);
+  font-size: 18px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -1703,19 +1715,24 @@ button.pill-link {
   justify-self: start;
 }
 
+/* What comes after, and reads as after: the rule and the space are what say the
+   screen has two parts and which one is first. */
 .share {
   display: grid;
   gap: 28px;
-  padding-top: 28px;
+  padding-top: 40px;
   border-top: 1px solid var(--line);
 }
 
-/* The code is the thing a person reads aloud, so it is set like the page's titles. */
+/* The code is read aloud, so it stays large — but one rung under the title and
+   no longer the biggest thing on the screen. At 72px it outsized the title by
+   half again, which is why a person who had just joined read this as the end of
+   the flow and shared the code instead of opening her inbox. */
 .share__code {
   margin: 0;
   color: var(--text);
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(48px, 5.5vw, 72px);
+  font-size: 28px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;

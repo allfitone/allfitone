@@ -101,7 +101,7 @@ export function WaitlistShare({
 
       <div className="share__actions">
         <a
-          className="cta"
+          className="pill-link"
           href={whatsappShareUrl(message)}
           target="_blank"
           rel="noopener noreferrer"
