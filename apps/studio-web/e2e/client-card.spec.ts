@@ -208,7 +208,7 @@ test('the strip carries her screens, so moving between two of them is one press'
  * attends, so his way in is the card; the relationship is one click further,
  * for when he needs to know how the gym stands with her.
  */
-test('a coach opens the card from the directory, and the relationship from there', async ({
+test('a coach opens the card from the directory, the relationship from there, and comes back', async ({
   page,
 }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [holderMembership] }))
@@ -219,6 +219,27 @@ test('a coach opens the card from the directory, and the relationship from there
 
   await page.getByRole('link', { name: 'Ver el vínculo' }).click()
   await expect(page).toHaveURL(new RegExp(`/clients/${clientCard.relationship.id}$`))
+
+  // The way back, which did not exist: «Ver el vínculo» was a one-way door.
+  await page.getByRole('link', { name: 'Ver su ficha' }).click()
+  await expect(page).toHaveURL(new RegExp(`/clients/people/${PERSON}$`))
+})
+
+/*
+ * And not to everybody. Her card answers the professional in charge and anybody
+ * covering, and answers an administrator the same `404` as for a person who
+ * does not exist — so offering them the link would be a dead end that also
+ * tells them she exists.
+ */
+test('an administrator reading her link is offered no way into her card', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(
+    `/organizations/${activeMembership.organization_id}/clients/${clientCard.relationship.id}`,
+  )
+
+  await expect(page.locator('[data-relationship-state]')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ver su ficha' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Volver a clientes' })).toBeVisible()
 })
 
 /*

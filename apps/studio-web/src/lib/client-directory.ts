@@ -153,10 +153,11 @@ export const SEARCH_TOO_LONG_REASON = `Escribe un nombre más corto, de máximo 
  * the relationship — the link, who attends her, what she granted — is the screen
  * that is theirs.
  *
- * This leaves out a reader who both administers the gym and coaches in it: he
- * reads every client, so he is sent to the relationship and has no way through
- * to the card of somebody he does attend. A way in from the relationship screen
- * is where that closes, and it is named as a gap rather than guessed at here.
+ * Somebody who both administers the gym and coaches in it still lands on the
+ * relationship for every client, because the whole directory is theirs to
+ * read. That is no longer a dead end: the relationship screen offers her card
+ * to whoever attends her, under `readerAttendsHer`. The rule stays here because
+ * a directory row does not say whether this reader holds that one client.
  */
 export function clientEntryPath(
   entry: ClientDirectoryRelationship,
