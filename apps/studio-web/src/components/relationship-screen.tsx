@@ -10,8 +10,10 @@ import { useOrganizationContext } from './organization-context'
 import { RelationshipHistoryScreen } from './relationship-history'
 import { RelationshipStateScreen } from './relationship-state'
 import { WorkspacePageHeader } from './workspace-page-header'
+import { clientCardPath } from '@/lib/client-card'
 import { relationshipPath } from '@/lib/client-directory'
 import { relationshipTabFromQuery, type RelationshipTab } from '@/lib/relationship-sections'
+import { readerAttendsHer } from '@/lib/relationship-state'
 import { relationshipQueryOptions } from '@/lib/studio-query'
 
 /**
@@ -25,6 +27,13 @@ import { relationshipQueryOptions } from '@/lib/studio-query'
  *
  * Both sections are listed for every role. A coach reads a shorter history,
  * and the history says so itself rather than being hidden.
+ *
+ * **The way through to her card is offered only to whoever attends her.** Her
+ * card answers the professional in charge and anybody covering, and answers
+ * everybody else the `404` it answers for a person who does not exist — so for
+ * an administrator the link would be a dead end that also tells them she
+ * exists. `readerAttendsHer` is the whole rule, and this is the screen that
+ * closes the gap `clientEntryPath` names.
  */
 
 function sectionDescription(tab: RelationshipTab, name: string | undefined, active: boolean) {
@@ -68,14 +77,31 @@ export function RelationshipScreen() {
           query.data?.status === 'active',
         )}
         actions={
-          <Link
-            href={`/organizations/${current.organization_id}/clients`}
-            data-slot="button"
-            data-variant="outline"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Volver a clientes
-          </Link>
+          <>
+            {/* The other half of the same person, pointing back: her card has
+                offered «Ver el vínculo» all along and nothing came this way. */}
+            {query.data && readerAttendsHer(query.data, current.membership_id) ? (
+              <Link
+                href={clientCardPath(current.organization_id, query.data.person_id)}
+                data-slot="button"
+                data-variant="outline"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                Ver su ficha
+              </Link>
+            ) : null}
+            {/* Stays, and the history's empty state says why: this is the one
+                way out, on every tab and in every state, so that panel needs
+                none of its own. */}
+            <Link
+              href={`/organizations/${current.organization_id}/clients`}
+              data-slot="button"
+              data-variant="outline"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Volver a clientes
+            </Link>
+          </>
         }
       />
 

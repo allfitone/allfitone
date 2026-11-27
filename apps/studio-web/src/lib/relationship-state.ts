@@ -8,7 +8,7 @@
  * nothing reaches for content.
  */
 
-import type { RelationshipGrant, RelationshipSubstitution } from './studio-api'
+import type { RelationshipGrant, RelationshipState, RelationshipSubstitution } from './studio-api'
 
 /**
  * How much the organization may still do with each category, most first:
@@ -65,4 +65,34 @@ export function substitutionStatusTone(
   if (status === 'proposed') return 'warning'
   if (status === 'active') return 'success'
   return 'secondary'
+}
+
+/**
+ * Whether this reader attends the person, which is the same as asking whether
+ * her card will answer them.
+ *
+ * `OP-REL-019` answers the professional in charge and anybody covering for
+ * them, and answers everybody else the `404` it answers for a person who does
+ * not exist. So this decides whether a way through to her card can be offered
+ * at all: for a reader it is not meant for, the link would be a dead end that
+ * also tells them she exists.
+ *
+ * **Only while the link is live.** A coach who lost her still reads the card
+ * for thirty days — it explains why rather than disappearing — and after that
+ * it is gone. Offering the link on an ended relationship would work for a
+ * month and then stop, which is worse than not offering it.
+ *
+ * **A cover counts only once she has accepted it.** `status` is the server's
+ * word on that, dates included; a proposed cover grants nothing yet, so its
+ * reader is not attending her.
+ */
+export function readerAttendsHer(
+  relationship: Pick<RelationshipState, 'status' | 'holder' | 'substitutions'>,
+  membershipId: string,
+): boolean {
+  if (relationship.status !== 'active') return false
+  if (relationship.holder?.membership_id === membershipId) return true
+  return relationship.substitutions.some(
+    (cover) => cover.status === 'active' && cover.membership_id === membershipId,
+  )
 }

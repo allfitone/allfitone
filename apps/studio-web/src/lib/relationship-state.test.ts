@@ -5,9 +5,10 @@ import {
   grantStatusLabel,
   grantStatusTone,
   orderGrants,
+  readerAttendsHer,
   substitutionStatusLabel,
 } from './relationship-state'
-import type { RelationshipGrant } from './studio-api'
+import type { RelationshipGrant, RelationshipState, RelationshipSubstitution } from './studio-api'
 
 function grant(overrides: Partial<RelationshipGrant> = {}): RelationshipGrant {
   return {
@@ -97,5 +98,83 @@ describe('the words on a permission', () => {
 describe('the words on a substitution', () => {
   test('one nobody has answered says it is waiting', () => {
     expect(substitutionStatusLabel('proposed')).toBe('Esperando respuesta')
+  })
+})
+
+const COACH = '01991600-7000-7000-8000-000000000002'
+const COVER = '01991600-7000-7000-8000-000000000003'
+const STRANGER = '01991600-7000-7000-8000-000000000009'
+
+function cover(overrides: Partial<RelationshipSubstitution> = {}): RelationshipSubstitution {
+  return {
+    assignment_id: '01991600-7000-7000-8000-000000000302',
+    membership_id: COVER,
+    professional_person_id: '01991600-7000-7000-8000-000000000203',
+    display_name: 'Daniela Hoyos',
+    status: 'active',
+    valid_from: '2026-10-10T00:00:00.000Z',
+    ends_on: '2026-10-24',
+    accepted_by_person_at: '2026-10-09T18:00:00.000Z',
+    ...overrides,
+  }
+}
+
+function link(
+  overrides: Partial<Pick<RelationshipState, 'status' | 'holder' | 'substitutions'>> = {},
+): Pick<RelationshipState, 'status' | 'holder' | 'substitutions'> {
+  return {
+    status: 'active',
+    holder: {
+      assignment_id: '01991600-7000-7000-8000-000000000301',
+      membership_id: COACH,
+      professional_person_id: '01991600-7000-7000-8000-000000000202',
+      display_name: 'Camilo Restrepo',
+      valid_from: '2025-03-05T09:00:00.000Z',
+    },
+    substitutions: [],
+    ...overrides,
+  }
+}
+
+/*
+ * The predicate behind the way through to her card. Each case is one the card
+ * read answers differently, so getting it wrong either hides a screen somebody
+ * owns or offers a link that answers `404`.
+ */
+describe('whether the reader attends her', () => {
+  test('the professional in charge does', () => {
+    expect(readerAttendsHer(link(), COACH)).toBe(true)
+  })
+
+  test('somebody covering for them does, once she has accepted it', () => {
+    expect(readerAttendsHer(link({ substitutions: [cover()] }), COVER)).toBe(true)
+  })
+
+  test('a cover nobody has answered grants nothing yet', () => {
+    const waiting = cover({ status: 'proposed', accepted_by_person_at: null })
+    expect(readerAttendsHer(link({ substitutions: [waiting] }), COVER)).toBe(false)
+  })
+
+  test('a cover that is over stops counting', () => {
+    expect(readerAttendsHer(link({ substitutions: [cover({ status: 'ended' })] }), COVER)).toBe(
+      false,
+    )
+  })
+
+  /*
+   * The card still answers a former coach for thirty days and then stops, so a
+   * link offered here would work for a month and die without anything changing
+   * on screen.
+   */
+  test('a terminated link offers nothing, not even to the coach who held it', () => {
+    expect(readerAttendsHer(link({ status: 'terminated' }), COACH)).toBe(false)
+  })
+
+  test('an administrator who attends nobody does not', () => {
+    expect(readerAttendsHer(link({ substitutions: [cover()] }), STRANGER)).toBe(false)
+  })
+
+  test('nobody attends her yet, so nobody reads her card', () => {
+    expect(readerAttendsHer(link({ holder: null }), COACH)).toBe(false)
   })
 })
