@@ -155,9 +155,10 @@ export const es = {
     errorEmailInvalid: 'Revisa el correo: necesita la forma nombre@correo.com.',
     errorConsent: 'Para unirte necesitamos tu autorización.',
     failed: 'No pudimos apuntarte. Inténtalo de nuevo o escríbenos a {email}.',
-    joinedTitle: 'Ya estás en la lista, {name}.',
+    joinedTitle: 'Te falta un paso, {name}.',
     joinedBody:
-      'Confirma tu correo con el enlace que te enviamos a {email}. Tu lugar cuenta desde ese momento.',
+      'Te enviamos un correo a {email}. Ábrelo y confirma: tu lugar en la lista cuenta desde ese momento.',
+    joinedSpam: '¿No lo ves? Búscalo en spam o en promociones.',
     codeLabel: 'Tu código',
     linkLabel: 'Tu link',
     copy: 'Copiar',

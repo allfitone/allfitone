@@ -168,6 +168,8 @@ export function WaitlistForm({
               <strong>{joined.email}</strong>,
             )}
           </p>
+          {/* Where the mail actually is, when it is not where she looked. */}
+          <p className="joined__hint">{copy.joinedSpam}</p>
         </div>
         {joined.status === 'joined' ? (
           <WaitlistShare

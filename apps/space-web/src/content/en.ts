@@ -145,8 +145,10 @@ export const en: Dictionary = {
     errorEmailInvalid: 'Check the email: it needs the form name@email.com.',
     errorConsent: 'We need your authorisation to add you.',
     failed: "We couldn't add you. Try again or write to us at {email}.",
-    joinedTitle: "You're on the list, {name}.",
-    joinedBody: 'Confirm your email with the link we sent to {email}. Your place counts from then.',
+    joinedTitle: 'One step to go, {name}.',
+    joinedBody:
+      'We sent an email to {email}. Open it and confirm: your place on the list counts from then.',
+    joinedSpam: "Can't find it? Look in spam or promotions.",
     codeLabel: 'Your code',
     linkLabel: 'Your link',
     copy: 'Copy',
