@@ -82,9 +82,7 @@ export const telemetryScreens = [
   'studio.entry',
   'studio.invitation_decision',
   'studio.organization_overview',
-  'studio.profile',
   'studio.team_directory',
-  'studio.team_invitation_new',
   'studio.team_invitations',
   'studio.team_roles',
 ] as const
