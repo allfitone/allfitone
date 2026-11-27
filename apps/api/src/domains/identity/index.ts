@@ -24,6 +24,8 @@ export { spaceBodyPhotoRoutes } from './handlers/space-body-photos.js'
 export { spaceHealthContextRoutes } from './handlers/space-health-context.js'
 export { spaceOwnProfileRoutes } from './handlers/space-own-profile.js'
 export { spacePasswordRoutes } from './handlers/space-password.js'
+export { spacePreferencesRoutes } from './handlers/space-preferences.js'
+export { spaceNoticeRoutes } from './handlers/space-notices.js'
 export { workosWebhookRoutes } from './handlers/webhooks.js'
 export {
   backofficeIdentityRoutes,

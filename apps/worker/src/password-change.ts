@@ -23,6 +23,7 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 import type postgres from 'postgres'
 
+import type { EmailLocale } from './email-locale.js'
 import { mapWithConcurrency } from './invitations.js'
 
 export const PASSWORD_CHANGED_TOPIC = 'identity.password_changed.v1'
@@ -81,6 +82,8 @@ export function createPasswordChangeBatchProcessor(dependencies: {
   email: EmailSender
   brandAssetUrl: string
   deliveryEnabled?: boolean
+  /** The language she chose for her email; Spanish while she has none. */
+  emailLocale: EmailLocale
 }) {
   return async function processPasswordChangeBatch(): Promise<PasswordChangeBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -108,6 +111,7 @@ export function createPasswordChangeBatchProcessor(dependencies: {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
       }
+      const locale = await dependencies.emailLocale(message.id)
 
       try {
         await dependencies.identity.revokeOtherSessions(subject, keepSession)
@@ -124,7 +128,10 @@ export function createPasswordChangeBatchProcessor(dependencies: {
       try {
         await dependencies.email.send({
           to: signInEmail,
-          ...renderPasswordChangedNoticeEmail({ brandAssetUrl: dependencies.brandAssetUrl }),
+          ...renderPasswordChangedNoticeEmail({
+            brandAssetUrl: dependencies.brandAssetUrl,
+            locale,
+          }),
           idempotencyKey: `password-changed-notice/${message.id}`,
         })
       } catch (error) {

@@ -73,6 +73,8 @@ function deliver(
   const { queue, acked, nacked, claimed } = queueWith({ [topic]: [message(topic, payload)] })
   const spy = emailSpy()
   const run = createSubscriptionNoticeBatchProcessor({
+    emailAllowed: async () => true,
+    emailLocale: async () => 'es',
     queue,
     email: (overrides.email ?? spy.sender) as never,
     brandAssetUrl: BRAND,
@@ -238,6 +240,8 @@ describe('telling a person what happened to the plan they pay', () => {
     })
     const spy = emailSpy()
     const run = createSubscriptionNoticeBatchProcessor({
+      emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: spy.sender as never,
       brandAssetUrl: BRAND,
@@ -248,4 +252,22 @@ describe('telling a person what happened to the plan they pay', () => {
     expect(claimed).toHaveLength(0)
     expect(spy.sent).toHaveLength(0)
   })
+})
+
+test('T-WRK-SUB-EMAIL-01 email off for her relationship notices: acknowledged, nothing sent', async () => {
+  // ADR-054: the notice is already in her inbox; turning email off never removes it.
+  const topic: SubscriptionNoticeEvent = 'payments.subscription_suspended.v1'
+  const { queue, acked } = queueWith({ [topic]: [message(topic)] })
+  const spy = emailSpy()
+  const result = await createSubscriptionNoticeBatchProcessor({
+    emailAllowed: async () => false,
+    emailLocale: async () => 'es',
+    queue,
+    email: spy.sender as never,
+    brandAssetUrl: BRAND,
+  })()
+
+  expect(result).toMatchObject({ claimed: 1, delivered: 0, deadOrDelayed: 0, skipped: 1 })
+  expect(acked).toEqual([message(topic).id])
+  expect(spy.sent).toEqual([])
 })

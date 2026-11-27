@@ -1,4 +1,8 @@
-import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifications'
+import {
+  constantTimeBearerMatches,
+  createExpoPushSender,
+  emailBrandAssetUrl,
+} from '@allfitone/notifications'
 import {
   createAccountRecoveryDeliveryFromEnv,
   createEmailChangeIdentityFromEnv,
@@ -83,6 +87,13 @@ import {
   createPasswordChangeDatabase,
 } from './password-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
+import { createEmailGate } from './email-gate.js'
+import { createEmailLocale } from './email-locale.js'
+import {
+  createPushDeliveryDatabase,
+  createPushDeliveryProcessor,
+  type PushDeliveryResult,
+} from './push-deliveries.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
 export type { JobRun } from './job-runs.js'
@@ -94,6 +105,7 @@ export interface WorkerJobProcessors {
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
   correctionProposalExpiry(): Promise<CorrectionProposalExpiryResult>
+  pushDelivery(): Promise<PushDeliveryResult>
   mediaDisposal(): Promise<MediaDisposalResult>
   /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
   recordJobRun(run: JobRun): Promise<void>
@@ -106,6 +118,7 @@ export interface WorkerBatchResult {
   platformDuties: PlatformDutyLapseResult
   privacyDispositions: PrivacyDispositionResult
   correctionProposals: CorrectionProposalExpiryResult
+  pushDeliveries: PushDeliveryResult
   mediaDisposals: MediaDisposalResult
 }
 
@@ -118,6 +131,7 @@ type WorkerJob =
   | 'outbox_batch'
   | 'platform_duty_lapse'
   | 'privacy_disposition'
+  | 'push_delivery'
 
 let cachedProcessors: WorkerJobProcessors | undefined
 
@@ -181,6 +195,13 @@ export function createWorkerApp(
         'correction_proposal_expiry',
         processors.correctionProposalExpiry,
       )
+      const pushDeliveries = await runJob(
+        telemetry,
+        logs,
+        record,
+        'push_delivery',
+        processors.pushDelivery,
+      )
       // Last: the only job that needs the store, so a store it cannot reach stops nothing else.
       const mediaDisposals = await runJob(
         telemetry,
@@ -197,6 +218,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        pushDeliveries,
         mediaDisposals,
       }
       const jobs = [
@@ -206,6 +228,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        pushDeliveries,
         mediaDisposals,
       ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
@@ -318,6 +341,10 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     connect_timeout: 10,
   })
   const queue = createPostgresQueue(sql, { visibilityTimeoutMs: 120_000, maxAttempts: 5 })
+  // Her email preference, asked of the database for every email that carries a notice.
+  const emailAllowed = createEmailGate(sql)
+  // Her language, asked of the database for every email written to a person.
+  const emailLocale = createEmailLocale(sql)
   const deliveryEnabled = process.env.STAFF_INVITATION_DELIVERY_ENABLED === 'true'
   const email = deliveryEnabled
     ? createEmailSenderFromEnvironment(process.env)
@@ -353,6 +380,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         database: createClientInvitationDeliveryDatabase(sql),
         email,
         publicBaseUrl: required('CLIENT_INVITATION_PUBLIC_BASE_URL'),
+        emailAllowed,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   /*
@@ -366,6 +395,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     email,
     brandAssetUrl,
     deliveryEnabled,
+    emailAllowed,
+    emailLocale,
   })
   const resignations = createResignationBatchProcessor({
     queue,
@@ -378,12 +409,16 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     email,
     brandAssetUrl,
     deliveryEnabled,
+    emailAllowed,
+    emailLocale,
   })
   const correctionProposals = createCorrectionProposalBatchProcessor({
     queue,
     email,
     brandAssetUrl,
     deliveryEnabled,
+    emailAllowed,
+    emailLocale,
   })
   const backofficeAuthentication = createBackofficeAuthBatchProcessor({
     queue,
@@ -413,6 +448,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         identity: createEmailChangeIdentityFromEnv(),
         email,
         brandAssetUrl,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   // Off until the environment says so: the change is in force, and the sessions wait.
@@ -425,6 +461,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         identity: createPasswordChangeIdentityFromEnv(),
         email,
         brandAssetUrl,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   let store: ObjectStore | undefined
@@ -437,6 +474,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     email,
     brandAssetUrl,
     deliveryEnabled,
+    emailAllowed,
+    emailLocale,
   })
   // Off until space-web serves the pages these emails link to (TECH-296). Until then the
   // events wait unclaimed, and the waitlist routes are closed anyway without their secret.
@@ -471,6 +510,14 @@ function processorsFromEnvironment(): WorkerJobProcessors {
   const waitlistAccountLinks = createWaitlistAccountLinkBatchProcessor({
     queue,
     database: createWaitlistAccountLinkDatabase(sql),
+  })
+  // Off until the project has APNs and FCM credentials: pushes wait, pending, meanwhile.
+  const pushDelivery = createPushDeliveryProcessor({
+    database: createPushDeliveryDatabase(sql),
+    push: createExpoPushSender(
+      process.env.EXPO_ACCESS_TOKEN ? { accessToken: process.env.EXPO_ACCESS_TOKEN } : {},
+    ),
+    enabled: process.env.PUSH_DELIVERY_ENABLED === 'true',
   })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
@@ -524,6 +571,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
     correctionProposalExpiry: createCorrectionProposalExpiryProcessor(sql),
+    pushDelivery,
     mediaDisposal,
     recordJobRun: createJobRunRecorder(sql),
   }

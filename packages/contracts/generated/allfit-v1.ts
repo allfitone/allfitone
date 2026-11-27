@@ -1464,6 +1464,118 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/me/notification-preferences': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read how each kind of notice reaches me
+     * @description HU-SP-078 (TECH-44, ADR-054). Six categories by two channels, email and push, always all twelve. A pair she never chose reads as enabled, so nothing that is sent today stops silently. Security is `locked`: it cannot be turned off. `available` says whether the channel can deliver: email needs a verified contact email, push a phone registered through `PUT /space/v1/me/push-devices/{deviceId}`. Turning a channel off never removes a notice from `GET /space/v1/notices`.
+     */
+    get: operations['getMySpaceNotificationPreferences']
+    /**
+     * Choose how each kind of notice reaches me
+     * @description HU-SP-078 (TECH-44, ADR-054). Replaces the whole set: every category and channel exactly once. Turning security off, or turning on a channel that is not `available`, answers 422 and changes nothing. Keeping a value she already has is never turning it on, so the set read back from the GET is always accepted. The same body converges.
+     */
+    put: operations['putMySpaceNotificationPreferences']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/preferences': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read my units and language
+     * @description HU-SP-094 (TECH-44, ADR-054). Each value is null until she chooses; the app then follows the phone. The server invents no default.
+     */
+    get: operations['getMySpacePreferences']
+    /**
+     * Choose my units and language
+     * @description HU-SP-094 (TECH-44, ADR-054). All three keys travel; null hands the choice back to the phone. Choosing a unit rewrites no record: values keep their canonical and original units and are converted when shown. `locale` also decides the language of her email and push. A value outside its list is 422.
+     */
+    put: operations['putMySpacePreferences']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/push-devices/{deviceId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Register this phone for push
+     * @description TECH-44, ADR-054. `deviceId` is a UUID the app generates once per installation. Registered again on every sign-in and app start while the phone's permission holds: the token and when the phone was last seen are refreshed. A token another phone held moves to this one, and an installation somebody else used becomes hers. The token is never answered back. An unknown platform or an empty token is 422.
+     */
+    put: operations['registerMySpacePushDevice']
+    post?: never
+    /**
+     * Retire this phone from push
+     * @description TECH-44, ADR-054. Sign-out retires the phone. Retiring twice, or a phone that is not hers, answers the same 204 and changes nothing, so the answer never says whose phone it was.
+     */
+    delete: operations['retireMySpacePushDevice']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/notices': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List my notices
+     * @description HU-SP-091 (TECH-44, ADR-054). Every notice kept for her, whatever her channels say, newest first, 30 per page. A notice holds no words: the app writes the sentence in her language from `kind` and `names`, which carry only the organization's, the professional's and the program's names. `awaiting` is read from the subject: a pending invitation, cover, correction or nutrition goal awaits until it is decided anywhere or expires, and `expires_at` is its own expiry while it awaits. `awaiting_count` and `unread_count` cover all her notices, for the bell. An unknown filter or a cursor that cannot be read is 422.
+     */
+    get: operations['listMySpaceNotices']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/notices/{noticeId}/read': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Mark a notice as read
+     * @description HU-SP-091 (TECH-44, ADR-054). The first call records when she read it; later calls change nothing and answer the same, so it needs no idempotency key. Reading decides nothing: an invitation read but not answered still awaits. Somebody else's notice and one that does not exist both answer 404.
+     */
+    post: operations['markMySpaceNoticeRead']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/profile': {
     parameters: {
       query?: never
@@ -9734,6 +9846,116 @@ export interface components {
       memberships: components['schemas']['StudioMembership'][]
     }
     /** @enum {string} */
+    SpaceNotificationCategory:
+      'relationship' | 'assignment' | 'consent' | 'correction' | 'nutrition' | 'security'
+    /**
+     * @description V1 sends no SMS (ADR-050).
+     * @enum {string}
+     */
+    SpaceNotificationChannel: 'email' | 'push'
+    SpaceNotificationPreference: {
+      category: components['schemas']['SpaceNotificationCategory']
+      channel: components['schemas']['SpaceNotificationChannel']
+      /** @description A pair she never chose is enabled. */
+      enabled: boolean
+      /** @description True for security, which cannot be turned off. */
+      locked: boolean
+      /** @description Whether the channel can deliver: email needs a verified contact email, push a registered phone. An unavailable channel cannot be turned on. */
+      available: boolean
+    }
+    SpaceNotificationPreferences: {
+      /** @description Every category by every channel, in the order the screen draws them. */
+      preferences: components['schemas']['SpaceNotificationPreference'][]
+    }
+    SpaceNotificationPreferenceChoice: {
+      category: components['schemas']['SpaceNotificationCategory']
+      channel: components['schemas']['SpaceNotificationChannel']
+      enabled: boolean
+    }
+    SpaceNotificationPreferencesPut: {
+      /** @description Every category and channel exactly once. */
+      preferences: components['schemas']['SpaceNotificationPreferenceChoice'][]
+    }
+    SpacePreferences: {
+      /** @description Null until she chooses; the app then follows the phone. */
+      mass_unit: ('kg' | 'lb') | null
+      /** @description Null until she chooses; the app then follows the phone. */
+      distance_unit: ('km' | 'mi') | null
+      /** @description Null until she chooses; the app then follows the phone, and email and push go out in Spanish. */
+      locale: ('es' | 'en') | null
+    }
+    /** @enum {string} */
+    SpacePushPlatform: 'ios' | 'android'
+    SpacePushDeviceRegistration: {
+      /** @description The Expo push token of this installation. */
+      token: string
+      platform: components['schemas']['SpacePushPlatform']
+    }
+    SpacePushDevice: {
+      id: components['schemas']['Uuid']
+      platform: components['schemas']['SpacePushPlatform']
+      /** Format: date-time */
+      registered_at: string
+      /** Format: date-time */
+      last_seen_at: string
+    }
+    /** @enum {string} */
+    SpaceNoticeKind:
+      | 'client_invitation'
+      | 'cover_proposed'
+      | 'professional_changed'
+      | 'relationship_ended'
+      | 'plan_paused'
+      | 'plan_resumed'
+      | 'plan_ended'
+      | 'program_assigned'
+      | 'correction_proposed'
+      | 'goal_proposed'
+      | 'password_changed'
+      | 'email_changed'
+    /** @enum {string} */
+    SpaceNoticeSubjectType:
+      | 'invitation'
+      | 'relationship_professional_assignment'
+      | 'service_relationship'
+      | 'plan_subscription'
+      | 'program_assignment'
+      | 'correction_proposal'
+      | 'nutrition_goal_version'
+      | 'password_change'
+      | 'identity_action_request'
+    SpaceNotice: {
+      id: components['schemas']['UuidV7']
+      kind: components['schemas']['SpaceNoticeKind']
+      category: components['schemas']['SpaceNotificationCategory']
+      /** @description What the notice points to, so the app can open where it is resolved. */
+      subject: {
+        type: components['schemas']['SpaceNoticeSubjectType']
+        id: components['schemas']['Uuid']
+      }
+      organization_id: components['schemas']['Uuid'] | null
+      /** Format: date-time */
+      occurred_at: string
+      read_at: string | null
+      /** @description Whether its subject still waits on her decision, read from the subject. */
+      awaiting: boolean
+      /** @description The subject's own expiry while it awaits; null otherwise or when it has none. */
+      expires_at: string | null
+      /** @description The names the sentence needs, and nothing about her. */
+      names: {
+        organization: string | null
+        professional: string | null
+        program: string | null
+      }
+    }
+    SpaceNoticePage: {
+      items: components['schemas']['SpaceNotice'][]
+      /** @description Null on the last page. */
+      next_cursor: string | null
+      awaiting_count: number
+      unread_count: number
+    }
+    /** @enum {string} */
     InterfaceTheme: 'dark' | 'light'
     StudioPreferences: {
       /** @description Null until the person chooses. The server invents no default: Studio shows its own. */
@@ -14047,6 +14269,8 @@ export interface components {
     OrganizationPlanVersionId: components['schemas']['UuidV7']
     /** @description UUIDv4 reused only for HTTP retries of this operation. */
     IdempotencyKey: components['schemas']['UuidV4']
+    /** @description A UUID the app generates once per installation. */
+    PushDeviceId: components['schemas']['Uuid']
     /** @description UUIDv7 durable identity generated when the user intention is created. */
     CommandId: components['schemas']['UuidV7']
     /** @description Strong ETag for the execution revision used as the command base. */
@@ -16674,6 +16898,264 @@ export interface operations {
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
       429: components['responses']['RateLimited']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getMySpaceNotificationPreferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Every category and channel, with what she chose */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceNotificationPreferences']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  putMySpaceNotificationPreferences: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceNotificationPreferencesPut']
+      }
+    }
+    responses: {
+      /** @description The set as it now stands, kept, unchanged or replayed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceNotificationPreferences']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getMySpacePreferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her units and language; what she never chose is null */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpacePreferences']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  putMySpacePreferences: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpacePreferences']
+      }
+    }
+    responses: {
+      /** @description Her units and language as they now stand */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpacePreferences']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  registerMySpacePushDevice: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        /** @description A UUID the app generates once per installation. */
+        deviceId: components['parameters']['PushDeviceId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpacePushDeviceRegistration']
+      }
+    }
+    responses: {
+      /** @description The phone, registered or refreshed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpacePushDevice']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  retireMySpacePushDevice: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        /** @description A UUID the app generates once per installation. */
+        deviceId: components['parameters']['PushDeviceId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The phone receives no more push */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMySpaceNotices: {
+    parameters: {
+      query?: {
+        /** @description `all` by default; `awaiting` keeps only what waits on her decision. */
+        filter?: 'all' | 'awaiting'
+        /** @description The `next_cursor` from a previous page. Opaque. */
+        cursor?: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of her notices, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceNoticePage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  markMySpaceNoticeRead: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        noticeId: components['schemas']['UuidV7']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The notice, read */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceNotice']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }

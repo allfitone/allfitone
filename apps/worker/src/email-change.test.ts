@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test'
 import { AuthError, type EmailChangeIdentity } from '@allfitone/auth-provider'
-import { NotificationDeliveryError, type EmailMessage } from '@allfitone/notifications'
+import {
+  NotificationDeliveryError,
+  type EmailLanguage,
+  type EmailMessage,
+} from '@allfitone/notifications'
 import type { Queue } from '@allfitone/queue'
 
 import {
@@ -94,6 +98,7 @@ function processor(
     database?: Partial<EmailChangeDatabase>
     identityFailure?: { update?: Error; revoke?: Error }
     emailFailure?: Error
+    locale?: EmailLanguage
   } = {},
 ) {
   return createEmailChangeBatchProcessor({
@@ -103,6 +108,7 @@ function processor(
     email: email(seen, options.emailFailure),
     brandAssetUrl: BRAND,
     generateCode: () => '482913',
+    emailLocale: async () => options.locale ?? 'es',
   })
 }
 
@@ -234,4 +240,18 @@ test('T-WRK-EMAIL-09 the code never reaches a log', async () => {
   }
 
   expect(lines.join('\n')).not.toContain('482913')
+})
+
+test('T-WRK-EMAIL-10 the code and the notice speak the language the database names for her', async () => {
+  const code = trace()
+  await processor(code, EMAIL_CHANGE_CODE_TOPIC, { locale: 'en' })()
+  expect(code.emails[0]?.subject).toBe('Your code to change your Allfit email')
+
+  const notice = trace()
+  await processor(notice, EMAIL_CHANGE_APPLY_TOPIC, { locale: 'en' })()
+  expect(notice.emails[0]?.subject).toBe('Your Allfit email changed')
+
+  const spanish = trace()
+  await processor(spanish, EMAIL_CHANGE_APPLY_TOPIC, { locale: 'es' })()
+  expect(spanish.emails[0]?.subject).toBe('Tu correo de Allfit cambió')
 })

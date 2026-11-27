@@ -16018,6 +16018,253 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceNotice: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'kind',
+      'category',
+      'subject',
+      'organization_id',
+      'occurred_at',
+      'read_at',
+      'awaiting',
+      'expires_at',
+      'names',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      kind: {
+        $ref: '#/components/schemas/SpaceNoticeKind',
+      },
+      category: {
+        $ref: '#/components/schemas/SpaceNotificationCategory',
+      },
+      subject: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'id'],
+        description: 'What the notice points to, so the app can open where it is resolved.',
+        properties: {
+          type: {
+            $ref: '#/components/schemas/SpaceNoticeSubjectType',
+          },
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+        },
+      },
+      organization_id: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      occurred_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      read_at: {
+        oneOf: [
+          {
+            type: 'string',
+            format: 'date-time',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      awaiting: {
+        type: 'boolean',
+        description: 'Whether its subject still waits on her decision, read from the subject.',
+      },
+      expires_at: {
+        description:
+          "The subject's own expiry while it awaits; null otherwise or when it has none.",
+        oneOf: [
+          {
+            type: 'string',
+            format: 'date-time',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      names: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['organization', 'professional', 'program'],
+        description: 'The names the sentence needs, and nothing about her.',
+        properties: {
+          organization: {
+            type: ['string', 'null'],
+          },
+          professional: {
+            type: ['string', 'null'],
+          },
+          program: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+    },
+  },
+  SpaceNoticeKind: {
+    type: 'string',
+    enum: [
+      'client_invitation',
+      'cover_proposed',
+      'professional_changed',
+      'relationship_ended',
+      'plan_paused',
+      'plan_resumed',
+      'plan_ended',
+      'program_assigned',
+      'correction_proposed',
+      'goal_proposed',
+      'password_changed',
+      'email_changed',
+    ],
+  },
+  SpaceNoticePage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items', 'next_cursor', 'awaiting_count', 'unread_count'],
+    properties: {
+      items: {
+        type: 'array',
+        maxItems: 30,
+        items: {
+          $ref: '#/components/schemas/SpaceNotice',
+        },
+      },
+      next_cursor: {
+        description: 'Null on the last page.',
+        oneOf: [
+          {
+            type: 'string',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      awaiting_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      unread_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+    },
+  },
+  SpaceNoticeSubjectType: {
+    type: 'string',
+    enum: [
+      'invitation',
+      'relationship_professional_assignment',
+      'service_relationship',
+      'plan_subscription',
+      'program_assignment',
+      'correction_proposal',
+      'nutrition_goal_version',
+      'password_change',
+      'identity_action_request',
+    ],
+  },
+  SpaceNotificationCategory: {
+    type: 'string',
+    enum: ['relationship', 'assignment', 'consent', 'correction', 'nutrition', 'security'],
+  },
+  SpaceNotificationChannel: {
+    type: 'string',
+    description: 'V1 sends no SMS (ADR-050).',
+    enum: ['email', 'push'],
+  },
+  SpaceNotificationPreference: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['category', 'channel', 'enabled', 'locked', 'available'],
+    properties: {
+      category: {
+        $ref: '#/components/schemas/SpaceNotificationCategory',
+      },
+      channel: {
+        $ref: '#/components/schemas/SpaceNotificationChannel',
+      },
+      enabled: {
+        type: 'boolean',
+        description: 'A pair she never chose is enabled.',
+      },
+      locked: {
+        type: 'boolean',
+        description: 'True for security, which cannot be turned off.',
+      },
+      available: {
+        type: 'boolean',
+        description:
+          'Whether the channel can deliver: email needs a verified contact email, push a registered phone. An unavailable channel cannot be turned on.',
+      },
+    },
+  },
+  SpaceNotificationPreferenceChoice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['category', 'channel', 'enabled'],
+    properties: {
+      category: {
+        $ref: '#/components/schemas/SpaceNotificationCategory',
+      },
+      channel: {
+        $ref: '#/components/schemas/SpaceNotificationChannel',
+      },
+      enabled: {
+        type: 'boolean',
+      },
+    },
+  },
+  SpaceNotificationPreferences: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['preferences'],
+    properties: {
+      preferences: {
+        type: 'array',
+        description: 'Every category by every channel, in the order the screen draws them.',
+        minItems: 12,
+        maxItems: 12,
+        items: {
+          $ref: '#/components/schemas/SpaceNotificationPreference',
+        },
+      },
+    },
+  },
+  SpaceNotificationPreferencesPut: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['preferences'],
+    properties: {
+      preferences: {
+        type: 'array',
+        description: 'Every category and channel exactly once.',
+        minItems: 12,
+        maxItems: 12,
+        items: {
+          $ref: '#/components/schemas/SpaceNotificationPreferenceChoice',
+        },
+      },
+    },
+  },
   SpaceOnboardingAnswers: {
     type: 'object',
     additionalProperties: false,
@@ -16559,6 +16806,50 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           type: 'integer',
           minimum: 0,
         },
+      },
+    },
+  },
+  SpacePreferences: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['mass_unit', 'distance_unit', 'locale'],
+    properties: {
+      mass_unit: {
+        description: 'Null until she chooses; the app then follows the phone.',
+        oneOf: [
+          {
+            type: 'string',
+            enum: ['kg', 'lb'],
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      distance_unit: {
+        description: 'Null until she chooses; the app then follows the phone.',
+        oneOf: [
+          {
+            type: 'string',
+            enum: ['km', 'mi'],
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      locale: {
+        description:
+          'Null until she chooses; the app then follows the phone, and email and push go out in Spanish.',
+        oneOf: [
+          {
+            type: 'string',
+            enum: ['es', 'en'],
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
     },
   },
@@ -17575,6 +17866,47 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
       },
     },
+  },
+  SpacePushDevice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'platform', 'registered_at', 'last_seen_at'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      platform: {
+        $ref: '#/components/schemas/SpacePushPlatform',
+      },
+      registered_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      last_seen_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  SpacePushDeviceRegistration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['token', 'platform'],
+    properties: {
+      token: {
+        type: 'string',
+        description: 'The Expo push token of this installation.',
+        minLength: 1,
+        maxLength: 512,
+      },
+      platform: {
+        $ref: '#/components/schemas/SpacePushPlatform',
+      },
+    },
+  },
+  SpacePushPlatform: {
+    type: 'string',
+    enum: ['ios', 'android'],
   },
   SpaceRegistrationAccepted: {
     type: 'object',

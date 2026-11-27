@@ -100,6 +100,13 @@ import {
 import { createHealthContextDatabase } from './infrastructure/health-context.js'
 import { createOwnProfileService, type OwnProfileService } from './application/own-profile.js'
 import { createOwnProfileDatabase } from './infrastructure/own-profile.js'
+import {
+  createSpacePreferencesService,
+  type SpacePreferencesService,
+} from './application/space-preferences.js'
+import { createSpacePreferencesDatabase } from './infrastructure/space-preferences.js'
+import { createSpaceNoticesService, type SpaceNoticesService } from './application/space-notices.js'
+import { createSpaceNoticesDatabase } from './infrastructure/space-notices.js'
 
 let cachedHealthContext: HealthContextService | undefined
 
@@ -113,6 +120,34 @@ export function spaceHealthContextService(): HealthContextService {
     requestId: () => randomUUID(),
   })
   return cachedHealthContext
+}
+
+let cachedSpacePreferences: SpacePreferencesService | undefined
+
+export function spacePreferencesService(): SpacePreferencesService {
+  if (cachedSpacePreferences) return cachedSpacePreferences
+  const issuer = process.env.WORKOS_ISSUER
+  if (!issuer) throw new Error('WORKOS_ISSUER is not set')
+  cachedSpacePreferences = createSpacePreferencesService({
+    database: createSpacePreferencesDatabase(),
+    issuer,
+    requestId: () => randomUUID(),
+  })
+  return cachedSpacePreferences
+}
+
+let cachedSpaceNotices: SpaceNoticesService | undefined
+
+export function spaceNoticesService(): SpaceNoticesService {
+  if (cachedSpaceNotices) return cachedSpaceNotices
+  const issuer = process.env.WORKOS_ISSUER
+  if (!issuer) throw new Error('WORKOS_ISSUER is not set')
+  cachedSpaceNotices = createSpaceNoticesService({
+    database: createSpaceNoticesDatabase(),
+    issuer,
+    requestId: () => randomUUID(),
+  })
+  return cachedSpaceNotices
 }
 
 let cachedOwnProfile: OwnProfileService | undefined
